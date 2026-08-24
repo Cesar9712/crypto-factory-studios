@@ -20,8 +20,8 @@ payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(sett
 for _pm in payment_methods.values():
     db.execute('INSERT OR REPLACE INTO payment_methods(method_id,asset,network,standard,address,token_contract,enabled,production_allowed,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(_pm.method_id,_pm.asset,_pm.network,_pm.standard,_pm.address,_pm.token_contract,1 if _pm.enabled else 0,1 if _pm.production_allowed else 0,now() if 'now' in globals() else 0))
 scanner=UploadSecurityService(settings.max_upload_bytes,settings.max_uncompressed_bytes,settings.max_archive_files,settings.max_compression_ratio,settings.antivirus_required)
-app=FastAPI(title='Crypto Factory Studios API',version='0.3.0')
-app.add_middleware(CORSMiddleware,allow_origins=list(settings.allowed_origins),allow_credentials=True,allow_methods=['GET','POST','PUT','DELETE'],allow_headers=['Authorization','Content-Type','X-Owner-Bootstrap'])
+app=FastAPI(title='Crypto Factory Studios API',version='0.3.1')
+app.add_middleware(CORSMiddleware,allow_origins=list(settings.allowed_origins),allow_credentials=True,allow_methods=['GET','POST','PUT','DELETE'],allow_headers=['Authorization','Content-Type','X-Owner-Bootstrap','X-CSRF-Token'])
 RATE:dict[str,list[int]]={}
 REQUEST_SESSION:ContextVar[str|None]=ContextVar('cfs_request_session',default=None)
 
@@ -67,7 +67,6 @@ class BecomeCreatorIn(BaseModel): creator_slug:str=Field(min_length=3,max_length
 class GameIn(BaseModel): title:str=Field(min_length=2,max_length=80); description:str=Field(default='',max_length=4000); genre:str=Field(default='Other',max_length=40); tags:list[str]=[]; visibility:str='PUBLIC'; web3_enabled:bool=False
 class SaveIn(BaseModel): save_version:int=Field(ge=1); revision:int=Field(ge=0); state:dict[str,Any]
 class ReportIn(BaseModel): game_id:str|None=None; creator_id:str|None=None; category:str=Field(min_length=3,max_length=40); details:str=Field(min_length=4,max_length=2000)
-
 class QuoteIn(BaseModel): product_id:str=Field(min_length=3,max_length=80); method_id:str=Field(min_length=3,max_length=40)
 class OrderIn(BaseModel): quote_id:str=Field(min_length=8,max_length=80); idempotency_key:str=Field(min_length=12,max_length=120)
 class SubmitTxIn(BaseModel): transaction_hash:str=Field(min_length=6,max_length=160)
@@ -94,7 +93,8 @@ async def headers(request:Request,call_next):
     return response
 
 @app.get('/health')
-def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.3.0'}
+def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.3.1'}
+
 @app.get('/ready')
 def ready(): return {'ready':True,'environment':settings.environment,'payments_mode':settings.payments_mode,'antivirus_required':settings.antivirus_required}
 
@@ -102,15 +102,18 @@ def ready(): return {'ready':True,'environment':settings.environment,'payments_m
 def register(body:RegisterIn,request:Request):
     limited('register:'+request.client.host,500 if settings.environment=='development' else 12)
     uid='usr_'+uuid.uuid4().hex; t=now()
-    try: db.execute('INSERT INTO users(id,email,password_hash,display_name,role,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(uid,body.email.lower().strip(),hash_password(body.password),body.display_name.strip(),'player',t,t))
-    except sqlite3.IntegrityError: fail('account_exists','Account already exists',409)
+    try:
+        db.execute('INSERT INTO users(id,email,password_hash,display_name,role,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(uid,body.email.lower().strip(),hash_password(body.password),body.display_name.strip(),'player',t,t))
+    except sqlite3.IntegrityError:
+        fail('account_exists','Account already exists',409)
     audit(uid,'account_created','user',uid)
     return make_session(uid)
 
 def make_session(uid:str):
-    token=new_token(); csrf=new_token(); t=now(); db.execute('INSERT INTO sessions(token_hash,user_id,created_at,expires_at) VALUES(?,?,?,?)',(token_hash(token),uid,t,t+settings.session_seconds))
+    token=new_token(); csrf=new_token(); t=now()
+    db.execute('INSERT INTO sessions(token_hash,user_id,created_at,expires_at) VALUES(?,?,?,?)',(token_hash(token),uid,t,t+settings.session_seconds))
     payload={'expires_in':settings.session_seconds,'user':db.one('SELECT id,email,display_name,role,created_at FROM users WHERE id=?',(uid,))}
-    if settings.environment!='production': payload['access_token']=token  # test/CLI compatibility only
+    if settings.environment!='production': payload['access_token']=token
     response=JSONResponse(payload)
     secure=settings.environment=='production'
     response.set_cookie('cfs_session',token,max_age=settings.session_seconds,httponly=True,secure=secure,samesite='strict',path='/')
@@ -120,4 +123,25 @@ def make_session(uid:str):
 @app.post('/api/v1/auth/login')
 def login(body:LoginIn,request:Request):
     limited('login:'+request.client.host,500 if settings.environment=='development' else 10)
-    u=db.one('SELECT * FROM users WHERE email=? COLLATE
+    u=db.one('SELECT * FROM users WHERE email=? COLLATE NOCASE',(body.email.lower().strip(),))
+    if not u or not verify_password(body.password,u['password_hash']):
+        fail('invalid_credentials','Invalid email or password',401)
+    if u.get('disabled',0):
+        fail('account_disabled','Account unavailable',403)
+    audit(u['id'],'login','user',u['id'])
+    return make_session(u['id'])
+
+@app.post('/api/v1/auth/logout')
+def logout(authorization:str|None=Header(default=None)):
+    user,raw=session_user(authorization)
+    db.execute('UPDATE sessions SET revoked_at=? WHERE token_hash=?',(now(),token_hash(raw)))
+    audit(user['id'],'logout','user',user['id'])
+    response=JSONResponse({'ok':True})
+    response.delete_cookie('cfs_session',path='/')
+    response.delete_cookie('cfs_csrf',path='/')
+    return response
+
+@app.get('/api/v1/me')
+def me(authorization:str|None=Header(default=None)):
+    user,_=session_user(authorization)
+    return {'user':user,'creator':creator_profile(user['id']),'plan':effective_plan(user['id'])}
