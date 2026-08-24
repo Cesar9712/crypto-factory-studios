@@ -1,6 +1,9 @@
 name = "crypto-factory-studios"
+main = "worker/index.js"
 compatibility_date = "2026-08-24"
 
 [assets]
 directory = "./frontend"
+binding = "ASSETS"
 not_found_handling = "404-page"
+run_worker_first = ["/api/*", "/health", "/ready"]
