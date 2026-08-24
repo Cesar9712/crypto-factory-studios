@@ -2,6 +2,9 @@ name = "crypto-factory-studios"
 main = "worker/index.js"
 compatibility_date = "2026-08-24"
 
+[vars]
+API_ORIGIN = "https://crypto-factory-studios.onrender.com"
+
 [assets]
 directory = "./frontend"
 binding = "ASSETS"
