@@ -14,13 +14,14 @@ from .db import DB
 from .security import hash_password, verify_password, new_token, token_hash, now, sha256_bytes
 from .upload_security import UploadSecurityService
 from .payments import PaymentMethodRegistry, PriceService, MockBlockchainVerifier, payment_fingerprint
+from .routes_v03 import register_routes
 
 settings=Settings(); db=DB(settings.database_path)
 payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings); payment_verifier=MockBlockchainVerifier()
 for _pm in payment_methods.values():
     db.execute('INSERT OR REPLACE INTO payment_methods(method_id,asset,network,standard,address,token_contract,enabled,production_allowed,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(_pm.method_id,_pm.asset,_pm.network,_pm.standard,_pm.address,_pm.token_contract,1 if _pm.enabled else 0,1 if _pm.production_allowed else 0,now() if 'now' in globals() else 0))
 scanner=UploadSecurityService(settings.max_upload_bytes,settings.max_uncompressed_bytes,settings.max_archive_files,settings.max_compression_ratio,settings.antivirus_required)
-app=FastAPI(title='Crypto Factory Studios API',version='0.3.1')
+app=FastAPI(title='Crypto Factory Studios API',version='0.3.2')
 app.add_middleware(CORSMiddleware,allow_origins=list(settings.allowed_origins),allow_credentials=True,allow_methods=['GET','POST','PUT','DELETE'],allow_headers=['Authorization','Content-Type','X-Owner-Bootstrap','X-CSRF-Token'])
 RATE:dict[str,list[int]]={}
 REQUEST_SESSION:ContextVar[str|None]=ContextVar('cfs_request_session',default=None)
@@ -93,7 +94,7 @@ async def headers(request:Request,call_next):
     return response
 
 @app.get('/health')
-def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.3.1'}
+def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.3.2'}
 
 @app.get('/ready')
 def ready(): return {'ready':True,'environment':settings.environment,'payments_mode':settings.payments_mode,'antivirus_required':settings.antivirus_required}
@@ -145,3 +146,20 @@ def logout(authorization:str|None=Header(default=None)):
 def me(authorization:str|None=Header(default=None)):
     user,_=session_user(authorization)
     return {'user':user,'creator':creator_profile(user['id']),'plan':effective_plan(user['id'])}
+
+register_routes(
+    app,
+    db=db,
+    settings=settings,
+    payment_methods=payment_methods,
+    price_service=price_service,
+    payment_verifier=payment_verifier,
+    session_user=session_user,
+    creator_profile=creator_profile,
+    effective_plan=effective_plan,
+    audit=audit,
+    fail=fail,
+    slugify=slugify,
+    now=now,
+    payment_fingerprint=payment_fingerprint,
+)
