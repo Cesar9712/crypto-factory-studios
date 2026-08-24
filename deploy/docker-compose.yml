@@ -1,0 +1,20 @@
+services:
+  cfs:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    ports: ["8000:8000"]
+    environment:
+      CFS_ENV: production
+      CFS_DATABASE_PATH: /data/cfs.db
+      CFS_QUARANTINE_DIR: /storage/quarantine
+      CFS_PUBLISHED_DIR: /storage/published
+      CFS_OWNER_BOOTSTRAP_TOKEN: ${CFS_OWNER_BOOTSTRAP_TOKEN}
+      CFS_ANTIVIRUS_REQUIRED: "true"
+      CFS_PAYMENTS_MODE: MOCK
+    volumes:
+      - cfs_data:/data
+      - cfs_storage:/storage
+volumes:
+  cfs_data:
+  cfs_storage:
