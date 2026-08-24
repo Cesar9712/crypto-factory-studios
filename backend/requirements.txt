@@ -7,3 +7,4 @@ pytest==9.0.2
 httpx>=0.28
 qrcode==8.2
 psycopg[binary]>=3.2,<4
+boto3>=1.35,<2
