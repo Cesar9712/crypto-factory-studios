@@ -19,6 +19,8 @@ def _origins() -> tuple[str, ...]:
 class Settings:
     root: Path = field(default_factory=lambda: Path(__file__).resolve().parents[2])
     database_path: Path = field(init=False)
+    database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", "").strip())
+    storage_backend: str = field(default_factory=lambda: os.getenv("CFS_STORAGE_BACKEND", "local").lower().strip())
     quarantine_dir: Path = field(init=False)
     published_dir: Path = field(init=False)
     session_seconds: int = 86400
@@ -49,10 +51,18 @@ class Settings:
         self.payments_mode = self.payments_mode.upper().strip()
         if self.environment not in {"development", "test", "production"}:
             raise RuntimeError("Invalid CFS_ENV")
+        if self.storage_backend not in {"local", "s3"}:
+            raise RuntimeError("Invalid CFS_STORAGE_BACKEND")
         if self.payments_mode not in {"MOCK", "TEST", "PRODUCTION"}:
             raise RuntimeError("Invalid CFS_PAYMENTS_MODE")
         if self.environment == "production" and not self.owner_bootstrap_token:
             raise RuntimeError("Production requires CFS_OWNER_BOOTSTRAP_TOKEN")
+        # Render Free has an ephemeral filesystem. Refuse to silently present local
+        # SQLite/local published files as durable production persistence.
+        if self.environment == "production" and not self.database_url:
+            raise RuntimeError("Production requires DATABASE_URL for persistent database storage")
+        if self.environment == "production" and self.storage_backend == "local":
+            raise RuntimeError("Production requires persistent object storage; set CFS_STORAGE_BACKEND=s3")
         if self.payments_mode == "PRODUCTION" and not self.production_payments_enabled:
             raise RuntimeError("Production payments require CFS_PRODUCTION_PAYMENTS_ENABLED=true")
         if self.payments_mode == "PRODUCTION":
