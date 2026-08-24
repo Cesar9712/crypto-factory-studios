@@ -3,6 +3,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import os
 
+
+def _origins() -> tuple[str, ...]:
+    raw = os.getenv("CFS_ALLOWED_ORIGINS", "").strip()
+    if raw:
+        return tuple(x.strip().rstrip("/") for x in raw.split(",") if x.strip())
+    return (
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://crypto-factory-studios.cesargp9712.workers.dev",
+    )
+
+
 @dataclass
 class Settings:
     root: Path = field(default_factory=lambda: Path(__file__).resolve().parents[2])
@@ -14,8 +26,8 @@ class Settings:
     max_uncompressed_bytes: int = 256 * 1024 * 1024
     max_archive_files: int = 3000
     max_compression_ratio: float = 80.0
-    allowed_origins: tuple[str, ...] = ("http://localhost:8000", "http://127.0.0.1:8000")
-    environment: str = field(default_factory=lambda: os.getenv("CFS_ENV", "development"))
+    allowed_origins: tuple[str, ...] = field(default_factory=_origins)
+    environment: str = field(default_factory=lambda: os.getenv("CFS_ENV", "development").lower().strip())
     owner_bootstrap_token: str = field(default_factory=lambda: os.getenv("CFS_OWNER_BOOTSTRAP_TOKEN", ""))
     antivirus_required: bool = field(default_factory=lambda: os.getenv("CFS_ANTIVIRUS_REQUIRED", "false").lower() == "true")
     payments_mode: str = field(default_factory=lambda: os.getenv("CFS_PAYMENTS_MODE", "MOCK"))
@@ -34,7 +46,9 @@ class Settings:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.quarantine_dir.mkdir(parents=True, exist_ok=True)
         self.published_dir.mkdir(parents=True, exist_ok=True)
-        self.payments_mode = self.payments_mode.upper()
+        self.payments_mode = self.payments_mode.upper().strip()
+        if self.environment not in {"development", "test", "production"}:
+            raise RuntimeError("Invalid CFS_ENV")
         if self.payments_mode not in {"MOCK", "TEST", "PRODUCTION"}:
             raise RuntimeError("Invalid CFS_PAYMENTS_MODE")
         if self.environment == "production" and not self.owner_bootstrap_token:
@@ -42,4 +56,4 @@ class Settings:
         if self.payments_mode == "PRODUCTION" and not self.production_payments_enabled:
             raise RuntimeError("Production payments require CFS_PRODUCTION_PAYMENTS_ENABLED=true")
         if self.payments_mode == "PRODUCTION":
-            raise RuntimeError("V0.2 production crypto verifier is intentionally disabled; deploy MOCK/TEST only")
+            raise RuntimeError("Production crypto verifier is intentionally disabled until on-chain verification is implemented")
