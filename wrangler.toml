@@ -1,0 +1,6 @@
+name = "crypto-factory-studios"
+compatibility_date = "2026-08-24"
+
+[assets]
+directory = "./frontend"
+not_found_handling = "404-page"
