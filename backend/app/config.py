@@ -1,0 +1,45 @@
+from __future__ import annotations
+from dataclasses import dataclass, field
+from pathlib import Path
+import os
+
+@dataclass
+class Settings:
+    root: Path = field(default_factory=lambda: Path(__file__).resolve().parents[2])
+    database_path: Path = field(init=False)
+    quarantine_dir: Path = field(init=False)
+    published_dir: Path = field(init=False)
+    session_seconds: int = 86400
+    max_upload_bytes: int = 64 * 1024 * 1024
+    max_uncompressed_bytes: int = 256 * 1024 * 1024
+    max_archive_files: int = 3000
+    max_compression_ratio: float = 80.0
+    allowed_origins: tuple[str, ...] = ("http://localhost:8000", "http://127.0.0.1:8000")
+    environment: str = field(default_factory=lambda: os.getenv("CFS_ENV", "development"))
+    owner_bootstrap_token: str = field(default_factory=lambda: os.getenv("CFS_OWNER_BOOTSTRAP_TOKEN", ""))
+    antivirus_required: bool = field(default_factory=lambda: os.getenv("CFS_ANTIVIRUS_REQUIRED", "false").lower() == "true")
+    payments_mode: str = field(default_factory=lambda: os.getenv("CFS_PAYMENTS_MODE", "MOCK"))
+    production_payments_enabled: bool = field(default_factory=lambda: os.getenv("CFS_PRODUCTION_PAYMENTS_ENABLED", "false").lower() == "true")
+    tron_usdt_address: str = field(default_factory=lambda: os.getenv("CFS_TRON_USDT_ADDRESS", "TSrSa2iL7a1csWRLTrzhRoW1oUUaDKpDj9"))
+    bsc_usdt_address: str = field(default_factory=lambda: os.getenv("CFS_BSC_USDT_ADDRESS", "0xb6e727732F845bDb7792C075B147658e84a173d2"))
+    sol_address: str = field(default_factory=lambda: os.getenv("CFS_SOL_ADDRESS", "EpiJ5GUjXMhcQpZtErxwGq5VZKwvkxV8kSz8PUKtpsr2"))
+    mock_sol_usd_rate: str = field(default_factory=lambda: os.getenv("CFS_MOCK_SOL_USD_RATE", "150.00"))
+    quote_seconds: int = 900
+    order_seconds: int = 1800
+
+    def __post_init__(self):
+        self.database_path = Path(os.getenv("CFS_DATABASE_PATH", str(self.root / "database" / "cfs.db")))
+        self.quarantine_dir = Path(os.getenv("CFS_QUARANTINE_DIR", str(self.root / "storage" / "quarantine")))
+        self.published_dir = Path(os.getenv("CFS_PUBLISHED_DIR", str(self.root / "storage" / "published")))
+        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self.quarantine_dir.mkdir(parents=True, exist_ok=True)
+        self.published_dir.mkdir(parents=True, exist_ok=True)
+        self.payments_mode = self.payments_mode.upper()
+        if self.payments_mode not in {"MOCK", "TEST", "PRODUCTION"}:
+            raise RuntimeError("Invalid CFS_PAYMENTS_MODE")
+        if self.environment == "production" and not self.owner_bootstrap_token:
+            raise RuntimeError("Production requires CFS_OWNER_BOOTSTRAP_TOKEN")
+        if self.payments_mode == "PRODUCTION" and not self.production_payments_enabled:
+            raise RuntimeError("Production payments require CFS_PRODUCTION_PAYMENTS_ENABLED=true")
+        if self.payments_mode == "PRODUCTION":
+            raise RuntimeError("V0.2 production crypto verifier is intentionally disabled; deploy MOCK/TEST only")
