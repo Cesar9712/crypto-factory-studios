@@ -95,12 +95,20 @@ class DB:
             self.conn.commit()
 
     def seed_products(self):
+        # Introductory low pricing. Server-side authority keeps pricing editable without trusting the client.
         products=[
-            ('creator_plus_monthly','Creator Plus','More games, storage and creator tools','4.99','creator_plan:plus',1,0),
-            ('creator_pro_monthly','Creator Pro','Higher limits and professional creator tools','9.99','creator_plan:pro',1,0),
+            ('creator_plus_monthly','Creator Plus','More games, storage and creator tools','1.99','creator_plan:plus',1,0),
+            ('creator_pro_monthly','Creator Pro','Higher limits and professional creator tools','3.99','creator_plan:pro',1,0),
         ]
         with self.lock:
-            self.conn.executemany('INSERT OR IGNORE INTO products(product_id,label,description,price_usd,entitlement_key,active,created_at) VALUES(?,?,?,?,?,?,?)',products)
+            self.conn.executemany('''INSERT INTO products(product_id,label,description,price_usd,entitlement_key,active,created_at)
+                VALUES(?,?,?,?,?,?,?)
+                ON CONFLICT(product_id) DO UPDATE SET
+                    label=excluded.label,
+                    description=excluded.description,
+                    price_usd=excluded.price_usd,
+                    entitlement_key=excluded.entitlement_key,
+                    active=excluded.active''',products)
             self.conn.commit()
 
     def execute(self,sql,args=()):
