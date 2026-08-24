@@ -1,12 +1,9 @@
 from __future__ import annotations
-import json, re, sqlite3, uuid, io
+import json, re, sqlite3, uuid
 from contextvars import ContextVar
-from pathlib import Path
 from typing import Any
-from decimal import Decimal, InvalidOperation
-from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File, Form
-from fastapi.responses import FileResponse, Response, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field
 from .config import Settings
@@ -15,13 +12,15 @@ from .security import hash_password, verify_password, new_token, token_hash, now
 from .upload_security import UploadSecurityService
 from .payments import PaymentMethodRegistry, PriceService, MockBlockchainVerifier, payment_fingerprint
 from .routes_v03 import register_routes
+from .routes_platform import register_platform_routes
+from .routes_game_edit import register_game_edit_routes
 
 settings=Settings(); db=DB(settings.database_path)
 payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings); payment_verifier=MockBlockchainVerifier()
 for _pm in payment_methods.values():
-    db.execute('INSERT OR REPLACE INTO payment_methods(method_id,asset,network,standard,address,token_contract,enabled,production_allowed,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(_pm.method_id,_pm.asset,_pm.network,_pm.standard,_pm.address,_pm.token_contract,1 if _pm.enabled else 0,1 if _pm.production_allowed else 0,now() if 'now' in globals() else 0))
+    db.execute('INSERT OR REPLACE INTO payment_methods(method_id,asset,network,standard,address,token_contract,enabled,production_allowed,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(_pm.method_id,_pm.asset,_pm.network,_pm.standard,_pm.address,_pm.token_contract,1 if _pm.enabled else 0,1 if _pm.production_allowed else 0,now()))
 scanner=UploadSecurityService(settings.max_upload_bytes,settings.max_uncompressed_bytes,settings.max_archive_files,settings.max_compression_ratio,settings.antivirus_required)
-app=FastAPI(title='Crypto Factory Studios API',version='0.3.2')
+app=FastAPI(title='Crypto Factory Studios API',version='0.4.0')
 app.add_middleware(CORSMiddleware,allow_origins=list(settings.allowed_origins),allow_credentials=True,allow_methods=['GET','POST','PUT','DELETE'],allow_headers=['Authorization','Content-Type','X-Owner-Bootstrap','X-CSRF-Token'])
 RATE:dict[str,list[int]]={}
 REQUEST_SESSION:ContextVar[str|None]=ContextVar('cfs_request_session',default=None)
@@ -47,9 +46,6 @@ def session_user(authorization:str|None):
     if not u: fail('invalid_session','Account unavailable',401)
     return u, raw
 
-def require_role(user:dict,*roles:str):
-    if user['role'] not in roles: fail('forbidden','Insufficient permissions',403)
-
 def creator_profile(user_id:str): return db.one('SELECT * FROM creator_profiles WHERE user_id=?',(user_id,))
 def effective_plan(user_id:str):
     cp=creator_profile(user_id)
@@ -64,13 +60,6 @@ def slugify(s:str)->str:
 class RegisterIn(BaseModel):
     email:EmailStr; password:str=Field(min_length=10,max_length=128); display_name:str=Field(min_length=2,max_length=32)
 class LoginIn(BaseModel): email:EmailStr; password:str
-class BecomeCreatorIn(BaseModel): creator_slug:str=Field(min_length=3,max_length=40); bio:str=Field(default='',max_length=500)
-class GameIn(BaseModel): title:str=Field(min_length=2,max_length=80); description:str=Field(default='',max_length=4000); genre:str=Field(default='Other',max_length=40); tags:list[str]=[]; visibility:str='PUBLIC'; web3_enabled:bool=False
-class SaveIn(BaseModel): save_version:int=Field(ge=1); revision:int=Field(ge=0); state:dict[str,Any]
-class ReportIn(BaseModel): game_id:str|None=None; creator_id:str|None=None; category:str=Field(min_length=3,max_length=40); details:str=Field(min_length=4,max_length=2000)
-class QuoteIn(BaseModel): product_id:str=Field(min_length=3,max_length=80); method_id:str=Field(min_length=3,max_length=40)
-class OrderIn(BaseModel): quote_id:str=Field(min_length=8,max_length=80); idempotency_key:str=Field(min_length=12,max_length=120)
-class SubmitTxIn(BaseModel): transaction_hash:str=Field(min_length=6,max_length=160)
 
 @app.middleware('http')
 async def headers(request:Request,call_next):
@@ -94,10 +83,11 @@ async def headers(request:Request,call_next):
     return response
 
 @app.get('/health')
-def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.3.2'}
+def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.4.0'}
 
 @app.get('/ready')
-def ready(): return {'ready':True,'environment':settings.environment,'payments_mode':settings.payments_mode,'antivirus_required':settings.antivirus_required}
+def ready():
+    return {'ready':True,'environment':settings.environment,'payments_mode':settings.payments_mode,'antivirus_required':settings.antivirus_required,'database_path':str(settings.database_path)}
 
 @app.post('/api/v1/auth/register')
 def register(body:RegisterIn,request:Request):
@@ -125,10 +115,8 @@ def make_session(uid:str):
 def login(body:LoginIn,request:Request):
     limited('login:'+request.client.host,500 if settings.environment=='development' else 10)
     u=db.one('SELECT * FROM users WHERE email=? COLLATE NOCASE',(body.email.lower().strip(),))
-    if not u or not verify_password(body.password,u['password_hash']):
-        fail('invalid_credentials','Invalid email or password',401)
-    if u.get('disabled',0):
-        fail('account_disabled','Account unavailable',403)
+    if not u or not verify_password(body.password,u['password_hash']): fail('invalid_credentials','Invalid email or password',401)
+    if u.get('disabled',0): fail('account_disabled','Account unavailable',403)
     audit(u['id'],'login','user',u['id'])
     return make_session(u['id'])
 
@@ -147,19 +135,8 @@ def me(authorization:str|None=Header(default=None)):
     user,_=session_user(authorization)
     return {'user':user,'creator':creator_profile(user['id']),'plan':effective_plan(user['id'])}
 
-register_routes(
-    app,
-    db=db,
-    settings=settings,
-    payment_methods=payment_methods,
-    price_service=price_service,
-    payment_verifier=payment_verifier,
-    session_user=session_user,
-    creator_profile=creator_profile,
-    effective_plan=effective_plan,
-    audit=audit,
-    fail=fail,
-    slugify=slugify,
-    now=now,
-    payment_fingerprint=payment_fingerprint,
-)
+register_routes(app,db=db,settings=settings,payment_methods=payment_methods,price_service=price_service,payment_verifier=payment_verifier,
+    session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,slugify=slugify,now=now,payment_fingerprint=payment_fingerprint)
+register_platform_routes(app,db=db,settings=settings,scanner=scanner,session_user=session_user,creator_profile=creator_profile,
+    effective_plan=effective_plan,audit=audit,fail=fail,now=now,sha256_bytes=sha256_bytes)
+register_game_edit_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
