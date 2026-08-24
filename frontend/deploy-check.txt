@@ -1,0 +1,4 @@
+Crypto Factory Studios V0.3
+Cloudflare Git deployment trigger: 2026-08-24
+Purpose: verify automatic deployment from GitHub main.
+No secrets. No payment production changes.
