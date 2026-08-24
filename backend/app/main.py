@@ -13,6 +13,7 @@ from .upload_security import UploadSecurityService
 from .payments import PaymentMethodRegistry, PriceService, MockBlockchainVerifier, payment_fingerprint
 from .routes_v03 import register_routes
 from .routes_platform import register_platform_routes
+from .routes_game_edit import register_game_edit_routes
 
 settings=Settings(); db=DB(settings.database_path)
 payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings); payment_verifier=MockBlockchainVerifier()
@@ -138,3 +139,4 @@ register_routes(app,db=db,settings=settings,payment_methods=payment_methods,pric
     session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,slugify=slugify,now=now,payment_fingerprint=payment_fingerprint)
 register_platform_routes(app,db=db,settings=settings,scanner=scanner,session_user=session_user,creator_profile=creator_profile,
     effective_plan=effective_plan,audit=audit,fail=fail,now=now,sha256_bytes=sha256_bytes)
+register_game_edit_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
