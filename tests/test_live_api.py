@@ -23,7 +23,7 @@ def test_health_catalog_and_payment_methods():
 
 def test_register_creator_and_create_game():
     with TestClient(app) as client:
-        email = 'smoke-live-api@example.test'
+        email = 'smoke-live-api@example.com'
         register = client.post('/api/v1/auth/register', json={
             'email': email,
             'password': 'VeryStrongTestPassword123!',
