@@ -1,0 +1,7 @@
+const API='/api/v1';
+function csrf(){return document.cookie.split('; ').find(x=>x.startsWith('cfs_csrf='))?.split('=')[1]||''}
+async function api(path,opt={}){opt.credentials='same-origin';opt.headers={...(opt.headers||{})};if((opt.method||'GET')!=='GET')opt.headers['X-CSRF-Token']=csrf();const r=await fetch(API+path,opt);const d=await r.json();if(!r.ok)throw new Error(d.detail?.message||'Error');return d}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+async function init(){try{const d=await api('/me');const u=d.user;accountState.innerHTML=`<div class="identity"><div class="avatar">${u.display_name.slice(0,2).toUpperCase()}</div><div><span class="eyebrow">${u.role.replace('_',' ').toUpperCase()}</span><h2>${u.display_name}</h2><p>${u.email}</p></div></div><div class="identity-actions">${d.creator?`<span class="status live">${d.creator.plan_id.toUpperCase()}</span>`:'<a class="ghost small" href="/creator.html">Convertirme en creador</a>'}</div>`}catch(e){accountState.innerHTML='<h2>Sesión no iniciada</h2><p>Inicia sesión desde el portal para acceder a tu cuenta.</p><a class="primary" href="/">Volver al portal</a>'}}
+logout.onclick=async()=>{try{await api('/auth/logout',{method:'POST'});location.href='/'}catch(e){toast(e.message)}};
+logoutAll.onclick=async()=>{try{await api('/auth/logout-all',{method:'POST'});location.href='/'}catch(e){toast(e.message)}};init();
