@@ -1,3 +1,123 @@
 from __future__ import annotations
-# V0.3 application entrypoint is intentionally imported from the validated release archive in the next repository synchronization step.
-# This placeholder prevents accidental deployment of an incomplete dynamic backend from the static Cloudflare frontend target.
+import json, re, sqlite3, uuid, io
+from contextvars import ContextVar
+from pathlib import Path
+from typing import Any
+from decimal import Decimal, InvalidOperation
+from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse, Response, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, EmailStr, Field
+from .config import Settings
+from .db import DB
+from .security import hash_password, verify_password, new_token, token_hash, now, sha256_bytes
+from .upload_security import UploadSecurityService
+from .payments import PaymentMethodRegistry, PriceService, MockBlockchainVerifier, payment_fingerprint
+
+settings=Settings(); db=DB(settings.database_path)
+payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings); payment_verifier=MockBlockchainVerifier()
+for _pm in payment_methods.values():
+    db.execute('INSERT OR REPLACE INTO payment_methods(method_id,asset,network,standard,address,token_contract,enabled,production_allowed,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(_pm.method_id,_pm.asset,_pm.network,_pm.standard,_pm.address,_pm.token_contract,1 if _pm.enabled else 0,1 if _pm.production_allowed else 0,now() if 'now' in globals() else 0))
+scanner=UploadSecurityService(settings.max_upload_bytes,settings.max_uncompressed_bytes,settings.max_archive_files,settings.max_compression_ratio,settings.antivirus_required)
+app=FastAPI(title='Crypto Factory Studios API',version='0.3.0')
+app.add_middleware(CORSMiddleware,allow_origins=list(settings.allowed_origins),allow_credentials=True,allow_methods=['GET','POST','PUT','DELETE'],allow_headers=['Authorization','Content-Type','X-Owner-Bootstrap'])
+RATE:dict[str,list[int]]={}
+REQUEST_SESSION:ContextVar[str|None]=ContextVar('cfs_request_session',default=None)
+
+def rid()->str: return 'req_'+uuid.uuid4().hex[:16]
+def fail(code:str,msg:str,status:int=400): raise HTTPException(status,detail={'error_code':code,'message':msg,'request_id':rid()})
+def limited(key:str,limit:int,window:int=60):
+    t=now(); xs=[v for v in RATE.get(key,[]) if t-v<window]
+    if len(xs)>=limit: fail('rate_limited','Try again later',429)
+    xs.append(t); RATE[key]=xs
+
+def audit(actor:str|None,action:str,target_type:str,target_id:str|None=None,details:dict|None=None):
+    db.execute('INSERT INTO audit_logs(actor_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?)',(actor,action,target_type,target_id,json.dumps(details or {},separators=(',',':')),now()))
+
+def session_user(authorization:str|None):
+    raw=None
+    if authorization and authorization.startswith('Bearer '): raw=authorization[7:]
+    if not raw: raw=REQUEST_SESSION.get()
+    if not raw: fail('auth_required','Authentication required',401)
+    s=db.one('SELECT * FROM sessions WHERE token_hash=? AND revoked_at=0 AND expires_at>?',(token_hash(raw),now()))
+    if not s: fail('invalid_session','Session expired or invalid',401)
+    u=db.one('SELECT id,email,display_name,role,created_at FROM users WHERE id=? AND disabled=0',(s['user_id'],))
+    if not u: fail('invalid_session','Account unavailable',401)
+    return u, raw
+
+def require_role(user:dict,*roles:str):
+    if user['role'] not in roles: fail('forbidden','Insufficient permissions',403)
+
+def creator_profile(user_id:str): return db.one('SELECT * FROM creator_profiles WHERE user_id=?',(user_id,))
+def effective_plan(user_id:str):
+    cp=creator_profile(user_id)
+    if not cp: return None
+    plan=db.one('SELECT * FROM creator_plans WHERE plan_id=? AND active=1',(cp['plan_id'],))
+    return {**cp,'limits':plan} if plan else cp
+
+def slugify(s:str)->str:
+    s=re.sub(r'[^a-z0-9]+','-',s.lower()).strip('-')
+    return s[:60] or 'game'
+
+class RegisterIn(BaseModel):
+    email:EmailStr; password:str=Field(min_length=10,max_length=128); display_name:str=Field(min_length=2,max_length=32)
+class LoginIn(BaseModel): email:EmailStr; password:str
+class BecomeCreatorIn(BaseModel): creator_slug:str=Field(min_length=3,max_length=40); bio:str=Field(default='',max_length=500)
+class GameIn(BaseModel): title:str=Field(min_length=2,max_length=80); description:str=Field(default='',max_length=4000); genre:str=Field(default='Other',max_length=40); tags:list[str]=[]; visibility:str='PUBLIC'; web3_enabled:bool=False
+class SaveIn(BaseModel): save_version:int=Field(ge=1); revision:int=Field(ge=0); state:dict[str,Any]
+class ReportIn(BaseModel): game_id:str|None=None; creator_id:str|None=None; category:str=Field(min_length=3,max_length=40); details:str=Field(min_length=4,max_length=2000)
+
+class QuoteIn(BaseModel): product_id:str=Field(min_length=3,max_length=80); method_id:str=Field(min_length=3,max_length=40)
+class OrderIn(BaseModel): quote_id:str=Field(min_length=8,max_length=80); idempotency_key:str=Field(min_length=12,max_length=120)
+class SubmitTxIn(BaseModel): transaction_hash:str=Field(min_length=6,max_length=160)
+
+@app.middleware('http')
+async def headers(request:Request,call_next):
+    cookie_token=request.cookies.get('cfs_session')
+    marker=REQUEST_SESSION.set(cookie_token)
+    try:
+        csrf_exempt=request.url.path in {'/api/v1/auth/register','/api/v1/auth/login'}
+        if request.method not in {'GET','HEAD','OPTIONS'} and cookie_token and not request.headers.get('Authorization') and not csrf_exempt:
+            csrf_cookie=request.cookies.get('cfs_csrf'); csrf_header=request.headers.get('X-CSRF-Token')
+            if not csrf_cookie or not csrf_header or csrf_cookie!=csrf_header:
+                return JSONResponse(status_code=403,content={'detail':{'error_code':'csrf_failed','message':'CSRF validation failed','request_id':rid()}})
+        response=await call_next(request)
+    finally:
+        REQUEST_SESSION.reset(marker)
+    response.headers['X-Content-Type-Options']='nosniff'
+    response.headers['Referrer-Policy']='strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=()'
+    response.headers['X-Frame-Options']='DENY'
+    response.headers['Cross-Origin-Resource-Policy']='same-origin'
+    response.headers['X-Request-ID']=request.headers.get('X-Request-ID') or rid()
+    return response
+
+@app.get('/health')
+def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.3.0'}
+@app.get('/ready')
+def ready(): return {'ready':True,'environment':settings.environment,'payments_mode':settings.payments_mode,'antivirus_required':settings.antivirus_required}
+
+@app.post('/api/v1/auth/register')
+def register(body:RegisterIn,request:Request):
+    limited('register:'+request.client.host,500 if settings.environment=='development' else 12)
+    uid='usr_'+uuid.uuid4().hex; t=now()
+    try: db.execute('INSERT INTO users(id,email,password_hash,display_name,role,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(uid,body.email.lower().strip(),hash_password(body.password),body.display_name.strip(),'player',t,t))
+    except sqlite3.IntegrityError: fail('account_exists','Account already exists',409)
+    audit(uid,'account_created','user',uid)
+    return make_session(uid)
+
+def make_session(uid:str):
+    token=new_token(); csrf=new_token(); t=now(); db.execute('INSERT INTO sessions(token_hash,user_id,created_at,expires_at) VALUES(?,?,?,?)',(token_hash(token),uid,t,t+settings.session_seconds))
+    payload={'expires_in':settings.session_seconds,'user':db.one('SELECT id,email,display_name,role,created_at FROM users WHERE id=?',(uid,))}
+    if settings.environment!='production': payload['access_token']=token  # test/CLI compatibility only
+    response=JSONResponse(payload)
+    secure=settings.environment=='production'
+    response.set_cookie('cfs_session',token,max_age=settings.session_seconds,httponly=True,secure=secure,samesite='strict',path='/')
+    response.set_cookie('cfs_csrf',csrf,max_age=settings.session_seconds,httponly=False,secure=secure,samesite='strict',path='/')
+    return response
+
+@app.post('/api/v1/auth/login')
+def login(body:LoginIn,request:Request):
+    limited('login:'+request.client.host,500 if settings.environment=='development' else 10)
+    u=db.one('SELECT * FROM users WHERE email=? COLLATE
