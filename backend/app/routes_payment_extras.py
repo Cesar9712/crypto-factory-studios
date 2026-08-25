@@ -51,10 +51,13 @@ def register_payment_extra_routes(app, *, db, settings, payment_methods, session
         method = payment_methods.get(order['method_id'])
         if not method or not method.enabled or not method.production_allowed:
             fail('payment_method_unavailable', 'Payment method unavailable', 400)
-        # Encode only the server-authoritative treasury address. The amount and
-        # network remain visible beside the QR so wallets cannot reinterpret a
-        # vendor-specific URI unexpectedly.
-        image = qrcode.make(method.address, image_factory=SvgPathImage)
+        # The QR always encodes the server-authoritative address assigned to this
+        # specific order. This is compatible with exclusive per-order deposit
+        # addresses and prevents the browser from substituting a treasury address.
+        address = str(order.get('receiving_address') or '').strip()
+        if not address:
+            fail('payment_address_missing', 'Order does not have a receiving address', 500)
+        image = qrcode.make(address, image_factory=SvgPathImage)
         out = io.BytesIO()
         image.save(out)
         return Response(content=out.getvalue(), media_type='image/svg+xml', headers={'Cache-Control': 'no-store'})
