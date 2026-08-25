@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import re
+import time
 from decimal import Decimal
 from typing import Any
 
@@ -20,6 +22,17 @@ def _b58encode(raw: bytes) -> str:
     return ('1' * pad) + (out or '')
 
 
+def _b58decode(value: str) -> bytes:
+    n = 0
+    for ch in value:
+        if ch not in _B58:
+            raise ValueError('invalid_base58')
+        n = n * 58 + _B58.index(ch)
+    raw = n.to_bytes((n.bit_length() + 7) // 8, 'big') if n else b''
+    pad = len(value) - len(value.lstrip('1'))
+    return b'\0' * pad + raw
+
+
 def _tron_b58_from_hex20(value: str) -> str:
     h = value.lower().removeprefix('0x')[-40:]
     payload = b'\x41' + bytes.fromhex(h)
@@ -28,24 +41,32 @@ def _tron_b58_from_hex20(value: str) -> str:
 
 
 def _tron_payload_hex(address: str) -> str:
-    n = 0
-    for ch in address:
-        if ch not in _B58:
-            raise ValueError('invalid_tron_address')
-        n = n * 58 + _B58.index(ch)
-    raw = n.to_bytes((n.bit_length() + 7) // 8, 'big') if n else b''
-    raw = b'\0' * (len(address) - len(address.lstrip('1'))) + raw
-    if len(raw) != 25:
+    raw = _b58decode(address)
+    if len(raw) != 25 or raw[0] != 0x41:
+        raise ValueError('invalid_tron_address')
+    checksum = hashlib.sha256(hashlib.sha256(raw[:21]).digest()).digest()[:4]
+    if checksum != raw[21:]:
         raise ValueError('invalid_tron_address')
     return raw[:21].hex()
 
 
-def _amount_status(received: Decimal, expected: Decimal) -> str:
+def _tron_contract_matches(log_address: str, expected_payload_hex: str) -> bool:
+    # TRON APIs have historically exposed event-log contract addresses either
+    # with or without the leading 0x41 network byte. Accept both encodings, but
+    # only after exact hex normalization.
+    observed = log_address.lower().removeprefix('0x')
+    expected = expected_payload_hex.lower().removeprefix('0x')
+    return observed in {expected, expected[-40:]}
+
+
+def _amount_result(received: Decimal, expected: Decimal) -> tuple[str, bool, str | None]:
     if received < expected:
-        return 'UNDERPAID'
+        return 'UNDERPAID', False, 'underpayment'
     if received > expected:
-        return 'OVERPAID'
-    return 'CONFIRMED'
+        # Do not auto-fulfil overpayments on a shared treasury address. Exact
+        # amount matching is also an order-binding signal against TX-hash races.
+        return 'MANUAL_REVIEW', False, 'overpayment'
+    return 'CONFIRMED', True, None
 
 
 class ProviderUnavailable(RuntimeError):
@@ -57,12 +78,24 @@ class ProductionBlockchainVerifier:
         self.settings = settings
 
     def _post_json(self, url: str, payload: dict[str, Any], headers: dict[str, str] | None = None) -> dict[str, Any]:
-        try:
-            r = httpx.post(url, json=payload, headers=headers, timeout=self.settings.blockchain_timeout_seconds)
-            r.raise_for_status()
-            return r.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            raise ProviderUnavailable(str(exc)) from exc
+        retries = max(0, int(getattr(self.settings, 'blockchain_retries', 2)))
+        last_exc: Exception | None = None
+        for attempt in range(retries + 1):
+            try:
+                r = httpx.post(url, json=payload, headers=headers, timeout=self.settings.blockchain_timeout_seconds)
+                if r.status_code == 429 or 500 <= r.status_code < 600:
+                    raise httpx.HTTPStatusError('temporary provider response', request=r.request, response=r)
+                r.raise_for_status()
+                data = r.json()
+                if not isinstance(data, dict):
+                    raise ValueError('invalid_provider_json')
+                return data
+            except (httpx.HTTPError, ValueError) as exc:
+                last_exc = exc
+                if attempt >= retries:
+                    break
+                time.sleep(min(0.25 * (2 ** attempt), 1.0))
+        raise ProviderUnavailable(str(last_exc or 'provider unavailable')) from last_exc
 
     def _rpc(self, url: str, method: str, params: list[Any]) -> Any:
         body = self._post_json(url, {'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
@@ -89,7 +122,7 @@ class ProductionBlockchainVerifier:
         return {'TRON-PRO-API-KEY': self.settings.tron_api_key} if self.settings.tron_api_key else {}
 
     def _verify_tron(self, method, txid: str, expected: Decimal) -> dict[str, Any]:
-        if len(txid) != 64 or any(c not in '0123456789abcdefABCDEF' for c in txid):
+        if not re.fullmatch(r'[0-9a-fA-F]{64}', txid):
             return {'status': 'NOT_FOUND', 'success': False, 'reason': 'invalid_tx_hash', 'txid': txid, 'network': method.network}
         base = self.settings.tron_rpc_url.rstrip('/')
         headers = self._tron_headers()
@@ -97,6 +130,8 @@ class ProductionBlockchainVerifier:
         info = self._post_json(base + '/wallet/gettransactioninfobyid', {'value': txid}, headers)
         if not tx or not tx.get('txID') or not info or not info.get('id'):
             return {'status': 'NOT_FOUND', 'success': False, 'txid': txid, 'network': method.network}
+        if str(tx.get('txID')).lower() != txid.lower() or str(info.get('id')).lower() != txid.lower():
+            return {'status': 'FAILED', 'success': False, 'reason': 'provider_tx_mismatch', 'txid': txid, 'network': method.network}
         receipt_result = ((info.get('receipt') or {}).get('result') or info.get('result') or '').upper()
         if receipt_result and receipt_result != 'SUCCESS':
             return {'status': 'FAILED', 'success': False, 'txid': txid, 'network': method.network}
@@ -109,18 +144,23 @@ class ProductionBlockchainVerifier:
         found_contract = False
         found_recipient = False
         for log in info.get('log') or []:
-            contract = str(log.get('address') or '').lower().removeprefix('0x')
-            topics = [str(x).lower().removeprefix('0x') for x in (log.get('topics') or [])]
-            if contract != expected_contract:
+            if not _tron_contract_matches(str(log.get('address') or ''), expected_contract):
                 continue
             found_contract = True
+            topics = [str(x).lower().removeprefix('0x') for x in (log.get('topics') or [])]
             if len(topics) < 3 or ('0x' + topics[0]) != TRANSFER_TOPIC:
                 continue
-            recipient = _tron_b58_from_hex20(topics[2])
+            try:
+                recipient = _tron_b58_from_hex20(topics[2])
+            except Exception:
+                continue
             if recipient != method.address:
                 continue
             found_recipient = True
-            received_units += int(str(log.get('data') or '0'), 16)
+            try:
+                received_units += int(str(log.get('data') or '0').removeprefix('0x'), 16)
+            except ValueError:
+                return {'status': 'FAILED', 'success': False, 'reason': 'invalid_transfer_amount', 'txid': txid, 'network': method.network}
         if not found_contract:
             return {'status': 'WRONG_ASSET', 'success': False, 'txid': txid, 'network': method.network, 'token_contract': method.token_contract}
         if not found_recipient:
@@ -128,13 +168,18 @@ class ProductionBlockchainVerifier:
         received = Decimal(received_units) / (Decimal(10) ** method.decimals)
         if confirmations < self.settings.tron_min_confirmations:
             return {'status': 'CONFIRMING', 'success': False, 'txid': txid, 'network': method.network, 'recipient': method.address, 'token_contract': method.token_contract, 'received_amount': str(received), 'confirmations': confirmations, 'confirmations_ok': False}
-        status = _amount_status(received, expected)
-        return {'status': status, 'success': status in {'CONFIRMED', 'OVERPAID'}, 'txid': txid, 'network': method.network, 'recipient': method.address, 'asset': method.asset, 'token_contract': method.token_contract, 'received_amount': str(received), 'confirmations': confirmations, 'confirmations_ok': True, 'block_number': block_num, 'provider': 'tron-fullnode-http'}
+        status, success, reason = _amount_result(received, expected)
+        result={'status': status, 'success': success, 'txid': txid, 'network': method.network, 'recipient': method.address, 'asset': method.asset, 'token_contract': method.token_contract, 'received_amount': str(received), 'confirmations': confirmations, 'confirmations_ok': True, 'block_number': block_num, 'provider': 'tron-fullnode-http'}
+        if reason: result['reason']=reason
+        return result
 
     def _verify_bsc(self, method, txid: str, expected: Decimal) -> dict[str, Any]:
-        if not txid.startswith('0x') or len(txid) != 66:
+        if not re.fullmatch(r'0x[0-9a-fA-F]{64}', txid):
             return {'status': 'NOT_FOUND', 'success': False, 'reason': 'invalid_tx_hash', 'txid': txid, 'network': method.network}
-        chain_id = int(self._rpc(self.settings.bsc_rpc_url, 'eth_chainId', []), 16)
+        chain_id_raw = self._rpc(self.settings.bsc_rpc_url, 'eth_chainId', [])
+        if not isinstance(chain_id_raw, str):
+            raise ProviderUnavailable('invalid_chain_id')
+        chain_id = int(chain_id_raw, 16)
         if chain_id != 56:
             return {'status': 'WRONG_NETWORK', 'success': False, 'txid': txid, 'network': method.network}
         receipt = self._rpc(self.settings.bsc_rpc_url, 'eth_getTransactionReceipt', [txid])
@@ -142,6 +187,8 @@ class ProductionBlockchainVerifier:
             return {'status': 'NOT_FOUND', 'success': False, 'txid': txid, 'network': method.network}
         if int(receipt.get('status', '0x0'), 16) != 1:
             return {'status': 'FAILED', 'success': False, 'txid': txid, 'network': method.network}
+        if str(receipt.get('transactionHash') or txid).lower() != txid.lower():
+            return {'status': 'FAILED', 'success': False, 'reason': 'provider_tx_mismatch', 'txid': txid, 'network': method.network}
         latest = int(self._rpc(self.settings.bsc_rpc_url, 'eth_blockNumber', []), 16)
         block_num = int(receipt['blockNumber'], 16)
         confirmations = max(0, latest - block_num + 1)
@@ -160,7 +207,10 @@ class ProductionBlockchainVerifier:
             if topics[2].removeprefix('0x') != recipient_topic:
                 continue
             found_recipient = True
-            received_units += int(log.get('data') or '0x0', 16)
+            try:
+                received_units += int(log.get('data') or '0x0', 16)
+            except (TypeError, ValueError):
+                return {'status': 'FAILED', 'success': False, 'reason': 'invalid_transfer_amount', 'txid': txid, 'network': method.network}
         if not found_contract:
             return {'status': 'WRONG_ASSET', 'success': False, 'txid': txid, 'network': method.network, 'token_contract': method.token_contract}
         if not found_recipient:
@@ -168,11 +218,17 @@ class ProductionBlockchainVerifier:
         received = Decimal(received_units) / (Decimal(10) ** method.decimals)
         if confirmations < self.settings.bsc_min_confirmations:
             return {'status': 'CONFIRMING', 'success': False, 'txid': txid, 'network': method.network, 'received_amount': str(received), 'confirmations': confirmations, 'confirmations_ok': False}
-        status = _amount_status(received, expected)
-        return {'status': status, 'success': status in {'CONFIRMED', 'OVERPAID'}, 'txid': txid, 'network': method.network, 'recipient': method.address, 'asset': method.asset, 'token_contract': method.token_contract, 'received_amount': str(received), 'confirmations': confirmations, 'confirmations_ok': True, 'block_number': block_num, 'provider': 'bsc-json-rpc'}
+        status, success, reason = _amount_result(received, expected)
+        result={'status': status, 'success': success, 'txid': txid, 'network': method.network, 'recipient': method.address, 'asset': method.asset, 'token_contract': method.token_contract, 'received_amount': str(received), 'confirmations': confirmations, 'confirmations_ok': True, 'block_number': block_num, 'provider': 'bsc-json-rpc'}
+        if reason: result['reason']=reason
+        return result
 
     def _verify_solana(self, method, txid: str, expected: Decimal) -> dict[str, Any]:
-        if len(txid) < 80 or len(txid) > 100:
+        try:
+            signature = _b58decode(txid)
+        except ValueError:
+            signature = b''
+        if len(signature) != 64:
             return {'status': 'NOT_FOUND', 'success': False, 'reason': 'invalid_signature', 'txid': txid, 'network': method.network}
         result = self._rpc(self.settings.solana_rpc_url, 'getTransaction', [txid, {'encoding': 'jsonParsed', 'commitment': self.settings.solana_commitment, 'maxSupportedTransactionVersion': 0}])
         if not result:
@@ -180,24 +236,44 @@ class ProductionBlockchainVerifier:
         meta = result.get('meta') or {}
         if meta.get('err') is not None:
             return {'status': 'FAILED', 'success': False, 'txid': txid, 'network': method.network}
+        statuses = self._rpc(self.settings.solana_rpc_url, 'getSignatureStatuses', [[txid], {'searchTransactionHistory': True}]) or {}
+        status_rows = statuses.get('value') or []
+        signature_status = status_rows[0] if status_rows else None
+        if not signature_status or signature_status.get('err') is not None:
+            return {'status': 'FAILED', 'success': False, 'reason': 'signature_status_invalid', 'txid': txid, 'network': method.network}
+        confirmation_status = str(signature_status.get('confirmationStatus') or '')
+        allowed = {'finalized'} if self.settings.solana_commitment == 'finalized' else {'confirmed', 'finalized'}
+        if confirmation_status not in allowed:
+            return {'status': 'CONFIRMING', 'success': False, 'txid': txid, 'network': method.network, 'confirmations_ok': False, 'commitment': confirmation_status or 'unknown'}
         received_lamports = 0
         found_recipient = False
-        instructions = (((result.get('transaction') or {}).get('message') or {}).get('instructions') or [])
+        instructions = list((((result.get('transaction') or {}).get('message') or {}).get('instructions') or []))
+        for group in meta.get('innerInstructions') or []:
+            instructions.extend(group.get('instructions') or [])
         for instruction in instructions:
-            parsed = instruction.get('parsed') if isinstance(instruction, dict) else None
+            if not isinstance(instruction, dict) or instruction.get('program') != 'system':
+                continue
+            parsed = instruction.get('parsed')
             if not isinstance(parsed, dict) or parsed.get('type') not in {'transfer', 'transferWithSeed'}:
                 continue
             info = parsed.get('info') or {}
             if info.get('destination') != method.address:
                 continue
+            try:
+                lamports = int(info.get('lamports', 0))
+            except (TypeError, ValueError):
+                continue
+            if lamports <= 0:
+                continue
             found_recipient = True
-            if 'lamports' in info:
-                received_lamports += int(info['lamports'])
+            received_lamports += lamports
         if not found_recipient:
             return {'status': 'WRONG_RECIPIENT', 'success': False, 'txid': txid, 'network': method.network, 'recipient': method.address}
         received = Decimal(received_lamports) / Decimal(1_000_000_000)
-        status = _amount_status(received, expected)
-        return {'status': status, 'success': status in {'CONFIRMED', 'OVERPAID'}, 'txid': txid, 'network': method.network, 'recipient': method.address, 'asset': method.asset, 'received_amount': str(received), 'confirmations_ok': True, 'commitment': self.settings.solana_commitment, 'slot': result.get('slot'), 'provider': 'solana-json-rpc'}
+        status, success, reason = _amount_result(received, expected)
+        result_payload={'status': status, 'success': success, 'txid': txid, 'network': method.network, 'recipient': method.address, 'asset': method.asset, 'received_amount': str(received), 'confirmations_ok': True, 'commitment': confirmation_status, 'slot': result.get('slot'), 'provider': 'solana-json-rpc'}
+        if reason: result_payload['reason']=reason
+        return result_payload
 
     def status(self) -> dict[str, bool]:
         checks: dict[str, bool] = {}
