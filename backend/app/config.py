@@ -29,10 +29,6 @@ class Settings:
     allowed_origins: tuple[str,...] = field(default_factory=_origins)
     environment: str = field(default_factory=lambda: os.getenv('CFS_ENV','development').lower().strip())
     owner_bootstrap_token: str = field(default_factory=lambda: os.getenv('CFS_OWNER_BOOTSTRAP_TOKEN',''))
-    # External ClamAV-style scanning is intentionally opt-in. The former
-    # CFS_ANTIVIRUS_REQUIRED flag is no longer consumed because it caused the
-    # 512 MB Render Free instance to fail uploads by exhausting memory. The
-    # built-in streaming/static scanner remains active for every upload.
     antivirus_required: bool = field(default_factory=lambda: os.getenv('CFS_EXTERNAL_ANTIVIRUS_REQUIRED','false').lower()=='true')
     payments_mode: str = field(default_factory=lambda: os.getenv('CFS_PAYMENTS_MODE','MOCK'))
     production_payments_enabled: bool = field(default_factory=lambda: os.getenv('CFS_PRODUCTION_PAYMENTS_ENABLED','false').lower()=='true')
@@ -40,6 +36,15 @@ class Settings:
     bsc_usdt_address: str = field(default_factory=lambda: os.getenv('CFS_BSC_USDT_ADDRESS','0xb6e727732F845bDb7792C075B147658e84a173d2'))
     sol_address: str = field(default_factory=lambda: os.getenv('CFS_SOL_ADDRESS','EpiJ5GUjXMhcQpZtErxwGq5VZKwvkxV8kSz8PUKtpsr2'))
     mock_sol_usd_rate: str = field(default_factory=lambda: os.getenv('CFS_MOCK_SOL_USD_RATE','150.00'))
+    tron_rpc_url: str = field(default_factory=lambda: os.getenv('CFS_TRON_RPC_URL','https://api.trongrid.io').strip())
+    tron_api_key: str = field(default_factory=lambda: os.getenv('CFS_TRON_API_KEY','').strip())
+    bsc_rpc_url: str = field(default_factory=lambda: os.getenv('CFS_BSC_RPC_URL','https://bsc-dataseed.bnbchain.org').strip())
+    solana_rpc_url: str = field(default_factory=lambda: os.getenv('CFS_SOLANA_RPC_URL','https://api.mainnet-beta.solana.com').strip())
+    sol_price_url: str = field(default_factory=lambda: os.getenv('CFS_SOL_PRICE_URL','https://api.coingecko.com/api/v3/simple/price').strip())
+    blockchain_timeout_seconds: float = field(default_factory=lambda: float(os.getenv('CFS_BLOCKCHAIN_TIMEOUT_SECONDS','10')))
+    tron_min_confirmations: int = field(default_factory=lambda: int(os.getenv('CFS_TRON_MIN_CONFIRMATIONS','20')))
+    bsc_min_confirmations: int = field(default_factory=lambda: int(os.getenv('CFS_BSC_MIN_CONFIRMATIONS','5')))
+    solana_commitment: str = field(default_factory=lambda: os.getenv('CFS_SOLANA_COMMITMENT','finalized').strip().lower())
     quote_seconds: int = 900
     order_seconds: int = 1800
 
@@ -52,6 +57,9 @@ class Settings:
         if self.environment not in {'development','test','production'}: raise RuntimeError('Invalid CFS_ENV')
         if self.storage_backend not in {'local','s3'}: raise RuntimeError('Invalid CFS_STORAGE_BACKEND')
         if self.payments_mode not in {'MOCK','TEST','PRODUCTION'}: raise RuntimeError('Invalid CFS_PAYMENTS_MODE')
+        if self.solana_commitment not in {'confirmed','finalized'}: raise RuntimeError('Invalid CFS_SOLANA_COMMITMENT')
+        if self.tron_min_confirmations < 1 or self.bsc_min_confirmations < 1: raise RuntimeError('Blockchain confirmation counts must be positive')
+        if self.blockchain_timeout_seconds <= 0: raise RuntimeError('Blockchain timeout must be positive')
         if self.environment=='production' and not self.owner_bootstrap_token: raise RuntimeError('Production requires CFS_OWNER_BOOTSTRAP_TOKEN')
         if self.environment=='production' and not self.database_url: raise RuntimeError('Production requires DATABASE_URL for persistent database storage')
         if self.environment=='production' and self.storage_backend=='local': raise RuntimeError('Production requires persistent object storage; set CFS_STORAGE_BACKEND=s3')
@@ -59,4 +67,6 @@ class Settings:
             missing=[name for name,val in [('CFS_S3_ENDPOINT_URL',self.s3_endpoint_url),('CFS_S3_BUCKET',self.s3_bucket),('CFS_S3_ACCESS_KEY_ID',self.s3_access_key_id),('CFS_S3_SECRET_ACCESS_KEY',self.s3_secret_access_key)] if not val]
             if missing: raise RuntimeError('Missing S3 storage settings: '+','.join(missing))
         if self.payments_mode=='PRODUCTION' and not self.production_payments_enabled: raise RuntimeError('Production payments require CFS_PRODUCTION_PAYMENTS_ENABLED=true')
-        if self.payments_mode=='PRODUCTION': raise RuntimeError('Production crypto verifier is intentionally disabled until on-chain verification is implemented')
+        if self.payments_mode=='PRODUCTION':
+            missing=[name for name,val in [('CFS_TRON_RPC_URL',self.tron_rpc_url),('CFS_BSC_RPC_URL',self.bsc_rpc_url),('CFS_SOLANA_RPC_URL',self.solana_rpc_url),('CFS_SOL_PRICE_URL',self.sol_price_url)] if not val]
+            if missing: raise RuntimeError('Missing production payment provider settings: '+','.join(missing))
