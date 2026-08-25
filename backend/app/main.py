@@ -76,7 +76,7 @@ def ready():
 
 @app.post('/api/v1/auth/register')
 def register(body:RegisterIn,request:Request):
-    limited('register:'+request.client.host,500 if settings.environment=='development' else 12); uid='usr_'+uuid.uuid4().hex; t=now()
+    limited('register:'+request.client.host,500 if settings.environment in {'development','test'} else 12); uid='usr_'+uuid.uuid4().hex; t=now()
     try: db.execute('INSERT INTO users(id,email,password_hash,display_name,role,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',(uid,body.email.lower().strip(),hash_password(body.password),body.display_name.strip(),'player',t,t))
     except sqlite3.IntegrityError: fail('account_exists','Account already exists',409)
     audit(uid,'account_created','user',uid); return make_session(uid)
@@ -87,7 +87,7 @@ def make_session(uid:str):
     response=JSONResponse(payload); secure=settings.environment=='production'; response.set_cookie('cfs_session',token,max_age=settings.session_seconds,httponly=True,secure=secure,samesite='strict',path='/'); response.set_cookie('cfs_csrf',csrf,max_age=settings.session_seconds,httponly=False,secure=secure,samesite='strict',path='/'); return response
 @app.post('/api/v1/auth/login')
 def login(body:LoginIn,request:Request):
-    limited('login:'+request.client.host,500 if settings.environment=='development' else 10); u=db.one('SELECT * FROM users WHERE email=? COLLATE NOCASE',(body.email.lower().strip(),))
+    limited('login:'+request.client.host,500 if settings.environment in {'development','test'} else 10); u=db.one('SELECT * FROM users WHERE email=? COLLATE NOCASE',(body.email.lower().strip(),))
     if not u or not verify_password(body.password,u['password_hash']): fail('invalid_credentials','Invalid email or password',401)
     if u.get('disabled',0): fail('account_disabled','Account unavailable',403)
     audit(u['id'],'login','user',u['id']); return make_session(u['id'])
