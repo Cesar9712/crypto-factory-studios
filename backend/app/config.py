@@ -36,7 +36,7 @@ class Settings:
     antivirus_required: bool = field(default_factory=lambda: os.getenv('CFS_EXTERNAL_ANTIVIRUS_REQUIRED','false').lower()=='true')
     payments_mode: str = field(default_factory=lambda: os.getenv('CFS_PAYMENTS_MODE','MOCK'))
     production_payments_enabled: bool = field(default_factory=lambda: os.getenv('CFS_PRODUCTION_PAYMENTS_ENABLED','false').lower()=='true')
-    deposit_address_mode: str = field(default_factory=lambda: os.getenv('CFS_DEPOSIT_ADDRESS_MODE','EXCLUSIVE').upper().strip())
+    deposit_address_mode: str = field(default_factory=lambda: os.getenv('CFS_DEPOSIT_ADDRESS_MODE','SHARED_MARKER').upper().strip())
     tron_usdt_address: str = field(default_factory=lambda: os.getenv('CFS_TRON_USDT_ADDRESS','TSrSa2iL7a1csWRLTrzhRoW1oUUaDKpDj9'))
     bsc_usdt_address: str = field(default_factory=lambda: os.getenv('CFS_BSC_USDT_ADDRESS','0xb6e727732F845bDb7792C075B147658e84a173d2'))
     sol_address: str = field(default_factory=lambda: os.getenv('CFS_SOL_ADDRESS','EpiJ5GUjXMhcQpZtErxwGq5VZKwvkxV8kSz8PUKtpsr2'))
