@@ -8,6 +8,10 @@ def _origins() -> tuple[str, ...]:
     if raw: return tuple(x.strip().rstrip('/') for x in raw.split(',') if x.strip())
     return ('http://localhost:8000','http://127.0.0.1:8000','https://crypto-factory-studios.cesargp9712.workers.dev')
 
+def _csv_env(name: str) -> tuple[str, ...]:
+    raw=os.getenv(name,'').strip()
+    return tuple(x.strip() for x in raw.split(',') if x.strip()) if raw else ()
+
 @dataclass
 class Settings:
     root: Path = field(default_factory=lambda: Path(__file__).resolve().parents[2])
@@ -32,9 +36,13 @@ class Settings:
     antivirus_required: bool = field(default_factory=lambda: os.getenv('CFS_EXTERNAL_ANTIVIRUS_REQUIRED','false').lower()=='true')
     payments_mode: str = field(default_factory=lambda: os.getenv('CFS_PAYMENTS_MODE','MOCK'))
     production_payments_enabled: bool = field(default_factory=lambda: os.getenv('CFS_PRODUCTION_PAYMENTS_ENABLED','false').lower()=='true')
+    deposit_address_mode: str = field(default_factory=lambda: os.getenv('CFS_DEPOSIT_ADDRESS_MODE','EXCLUSIVE').upper().strip())
     tron_usdt_address: str = field(default_factory=lambda: os.getenv('CFS_TRON_USDT_ADDRESS','TSrSa2iL7a1csWRLTrzhRoW1oUUaDKpDj9'))
     bsc_usdt_address: str = field(default_factory=lambda: os.getenv('CFS_BSC_USDT_ADDRESS','0xb6e727732F845bDb7792C075B147658e84a173d2'))
     sol_address: str = field(default_factory=lambda: os.getenv('CFS_SOL_ADDRESS','EpiJ5GUjXMhcQpZtErxwGq5VZKwvkxV8kSz8PUKtpsr2'))
+    tron_deposit_addresses: tuple[str,...] = field(default_factory=lambda: _csv_env('CFS_TRON_DEPOSIT_ADDRESSES'))
+    bsc_deposit_addresses: tuple[str,...] = field(default_factory=lambda: _csv_env('CFS_BSC_DEPOSIT_ADDRESSES'))
+    sol_deposit_addresses: tuple[str,...] = field(default_factory=lambda: _csv_env('CFS_SOL_DEPOSIT_ADDRESSES'))
     mock_sol_usd_rate: str = field(default_factory=lambda: os.getenv('CFS_MOCK_SOL_USD_RATE','150.00'))
     tron_rpc_url: str = field(default_factory=lambda: os.getenv('CFS_TRON_RPC_URL','https://api.trongrid.io').strip())
     tron_api_key: str = field(default_factory=lambda: os.getenv('CFS_TRON_API_KEY','').strip())
@@ -55,9 +63,11 @@ class Settings:
         self.published_dir=Path(os.getenv('CFS_PUBLISHED_DIR',str(self.root/'storage'/'published')))
         self.database_path.parent.mkdir(parents=True,exist_ok=True); self.quarantine_dir.mkdir(parents=True,exist_ok=True); self.published_dir.mkdir(parents=True,exist_ok=True)
         self.payments_mode=self.payments_mode.upper().strip()
+        self.deposit_address_mode=self.deposit_address_mode.upper().strip()
         if self.environment not in {'development','test','production'}: raise RuntimeError('Invalid CFS_ENV')
         if self.storage_backend not in {'local','s3'}: raise RuntimeError('Invalid CFS_STORAGE_BACKEND')
         if self.payments_mode not in {'MOCK','TEST','PRODUCTION'}: raise RuntimeError('Invalid CFS_PAYMENTS_MODE')
+        if self.deposit_address_mode not in {'EXCLUSIVE','SHARED_MARKER'}: raise RuntimeError('Invalid CFS_DEPOSIT_ADDRESS_MODE')
         if self.solana_commitment not in {'confirmed','finalized'}: raise RuntimeError('Invalid CFS_SOLANA_COMMITMENT')
         if self.tron_min_confirmations < 1 or self.bsc_min_confirmations < 1: raise RuntimeError('Blockchain confirmation counts must be positive')
         if self.blockchain_timeout_seconds <= 0: raise RuntimeError('Blockchain timeout must be positive')
