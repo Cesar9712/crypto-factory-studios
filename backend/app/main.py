@@ -94,6 +94,9 @@ def login(body:LoginIn,request:Request):
 @app.post('/api/v1/auth/logout')
 def logout(authorization:str|None=Header(default=None)):
     user,raw=session_user(authorization); db.execute('UPDATE sessions SET revoked_at=? WHERE token_hash=?',(now(),token_hash(raw))); audit(user['id'],'logout','user',user['id']); response=JSONResponse({'ok':True}); response.delete_cookie('cfs_session',path='/'); response.delete_cookie('cfs_csrf',path='/'); return response
+@app.post('/api/v1/auth/logout-all')
+def logout_all(authorization:str|None=Header(default=None)):
+    user,_=session_user(authorization); db.execute('UPDATE sessions SET revoked_at=? WHERE user_id=? AND revoked_at=0',(now(),user['id'])); audit(user['id'],'logout_all','user',user['id']); response=JSONResponse({'ok':True}); response.delete_cookie('cfs_session',path='/'); response.delete_cookie('cfs_csrf',path='/'); return response
 @app.get('/api/v1/me')
 def me(authorization:str|None=Header(default=None)):
     user,_=session_user(authorization); return {'user':user,'creator':creator_profile(user['id']),'plan':effective_plan(user['id'])}
