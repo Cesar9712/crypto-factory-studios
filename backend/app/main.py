@@ -90,7 +90,7 @@ async def headers(request:Request,call_next):
 def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.5.0','git_commit':os.getenv('RENDER_GIT_COMMIT','')}
 @app.get('/ready')
 def ready():
-    db_ok=db.ping(); storage_ok=storage.ping(); payload={'ready':bool(db_ok and storage_ok),'environment':settings.environment,'payments_mode':settings.payments_mode,'antivirus_required':settings.antivirus_required,'database_backend':db.backend,'database_persistent':db.persistent,'storage_backend':settings.storage_backend}
+    db_ok=db.ping(); storage_ok=storage.ping(); payload={'ready':bool(db_ok and storage_ok),'environment':settings.environment,'payments_mode':settings.payments_mode,'upload_scan_engine':'external-required' if settings.antivirus_required else 'built-in-static','external_antivirus_required':settings.antivirus_required,'database_backend':db.backend,'database_persistent':db.persistent,'storage_backend':settings.storage_backend}
     if not payload['ready']: raise HTTPException(503,detail=payload)
     return payload
 
