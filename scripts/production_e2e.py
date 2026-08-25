@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import os
-import sys
 import uuid
 import zipfile
 
@@ -201,30 +200,25 @@ def main() -> int:
         return 0
     finally:
         if registered:
-            try:
-                if client.get("/api/v1/me").status_code != 200:
-                    client.post("/api/v1/auth/login", json={"email": EMAIL, "password": PASSWORD})
-                deletion = client.request(
+            if client.get("/api/v1/me").status_code != 200:
+                expect(client.post("/api/v1/auth/login", json={"email": EMAIL, "password": PASSWORD}), 200, "cleanup login")
+            deletion = expect(
+                client.request(
                     "DELETE",
                     "/api/v1/account",
                     headers=csrf_headers(client),
                     json={"password": PASSWORD, "confirmation": "DELETE ACCOUNT"},
-                )
-                if deletion.status_code != 200:
-                    print(f"WARNING: E2E cleanup account deletion failed: {deletion.status_code} {deletion.text[:500]}", file=sys.stderr)
-                else:
-                    if game_slug:
-                        catalog_after = client.get("/api/v1/games")
-                        if catalog_after.status_code == 200:
-                            games = catalog_after.json().get("games", [])
-                            if any(row.get("slug") == game_slug for row in games):
-                                raise AssertionError("E2E cleanup left game in public catalog")
-                        play_after = client.get(f"/play/{game_slug}/")
-                        if play_after.status_code != 404:
-                            raise AssertionError(f"E2E cleanup expected play 404, got {play_after.status_code}")
-                    print("production E2E cleanup verified")
-            except Exception as exc:
-                print(f"WARNING: E2E cleanup verification failed: {exc}", file=sys.stderr)
+                ),
+                200,
+                "cleanup account deletion",
+            )
+            assert deletion.get("deleted") is True, deletion
+            expect(client.get("/api/v1/me"), 401, "cleanup session invalidated")
+            if game_slug:
+                catalog_after = expect(client.get("/api/v1/games"), 200, "catalog after cleanup")
+                assert not any(row.get("slug") == game_slug for row in catalog_after.get("games", [])), catalog_after
+                expect(client.get(f"/play/{game_slug}/"), 404, "play after cleanup")
+            print("production E2E cleanup verified")
         client.close()
 
 
