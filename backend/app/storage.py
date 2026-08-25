@@ -1,5 +1,5 @@
 from __future__ import annotations
-import io, mimetypes, zipfile
+import io, mimetypes, secrets, zipfile
 from pathlib import Path, PurePosixPath
 
 class StorageService:
@@ -7,10 +7,29 @@ class StorageService:
         self.settings=settings
         self.backend=settings.storage_backend
         self.client=None
+        self._startup_verified=True
         if self.backend=='s3':
             import boto3
             self.client=boto3.client('s3',endpoint_url=settings.s3_endpoint_url,region_name=settings.s3_region,
                 aws_access_key_id=settings.s3_access_key_id,aws_secret_access_key=settings.s3_secret_access_key)
+            self._startup_verified=self._verify_s3_read_write()
+
+    def _verify_s3_read_write(self)->bool:
+        key=f'_cfs_health/{secrets.token_hex(8)}.probe'
+        payload=b'cfs-storage-read-write-check'
+        try:
+            self.client.head_bucket(Bucket=self.settings.s3_bucket)
+            self.client.put_object(Bucket=self.settings.s3_bucket,Key=key,Body=payload,ContentType='application/octet-stream')
+            obj=self.client.get_object(Bucket=self.settings.s3_bucket,Key=key)
+            if obj['Body'].read()!=payload: return False
+            return True
+        except Exception:
+            return False
+        finally:
+            try:
+                self.client.delete_object(Bucket=self.settings.s3_bucket,Key=key)
+            except Exception:
+                pass
 
     def store_archive(self, build_id:str, data:bytes)->str:
         if self.backend=='local':
@@ -57,6 +76,7 @@ class StorageService:
 
     def ping(self)->bool:
         if self.backend=='local': return True
+        if not self._startup_verified: return False
         try:
             self.client.head_bucket(Bucket=self.settings.s3_bucket); return True
         except Exception: return False
