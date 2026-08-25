@@ -1,7 +1,10 @@
 from decimal import Decimal
 from types import SimpleNamespace
 
+from fastapi.testclient import TestClient
+
 from backend.app.blockchain import ProductionBlockchainVerifier, TRANSFER_TOPIC
+from backend.app.main import app
 from backend.app.payments import PaymentMethodRegistry, PriceService
 
 
@@ -76,3 +79,15 @@ def test_production_stablecoin_quote_uses_small_unique_payment_marker(monkeypatc
     assert amount==Decimal('1.994322')
     assert rate==Decimal('1')
     assert source=='stable_reference_unique_amount'
+
+
+def test_payment_status_is_safe_and_does_not_expose_treasury_addresses():
+    with TestClient(app) as client:
+        response=client.get('/api/v1/payments/status')
+        assert response.status_code==200
+        payload=response.json()
+        assert 'mode' in payload and 'payments_ready' in payload
+        serialized=response.text
+        assert 'TSrSa2iL7a1csWRLTrzhRoW1oUUaDKpDj9' not in serialized
+        assert '0xb6e727732F845bDb7792C075B147658e84a173d2' not in serialized
+        assert 'EpiJ5GUjXMhcQpZtErxwGq5VZKwvkxV8kSz8PUKtpsr2' not in serialized
