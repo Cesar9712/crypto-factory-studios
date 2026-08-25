@@ -65,14 +65,21 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test, postgres-test]
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install production verification dependency
+        run: pip install 'httpx>=0.28,<1'
+
       - name: Wait for exact Render production commit and verify backend
         shell: bash
         run: |
           set -euo pipefail
           base='https://crypto-factory-studios.onrender.com'
-          for attempt in $(seq 1 36); do
+          for attempt in $(seq 1 48); do
             health_code=$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 "$base/health" || true)
             ready_code=$(curl -sS -o /tmp/ready.json -w '%{http_code}' --max-time 20 "$base/ready" || true)
             deployed_commit=''
@@ -127,3 +134,8 @@ jobs:
           assert ready.get('upstream_status') == 200, ready
           print('Cloudflare edge and Render upstream verified')
           PY
+
+      - name: Run disposable production end-to-end verification
+        env:
+          CFS_E2E_BASE_URL: https://crypto-factory-studios.cesargp9712.workers.dev
+        run: python scripts/production_e2e.py
