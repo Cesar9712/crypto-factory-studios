@@ -51,6 +51,17 @@ def game_zip() -> bytes:
     return buf.getvalue()
 
 
+def assert_play_sandbox(response: httpx.Response) -> None:
+    csp = response.headers.get("content-security-policy", "")
+    if "sandbox" not in csp or "allow-same-origin" in csp:
+        raise AssertionError(f"published game CSP is not origin-isolating: {csp!r}")
+    if response.headers.get("cross-origin-resource-policy") != "cross-origin":
+        raise AssertionError(
+            "published game CORP must allow sandboxed opaque-origin assets: "
+            f"{response.headers.get('cross-origin-resource-policy')!r}"
+        )
+
+
 def main() -> int:
     game_id: str | None = None
     game_slug: str | None = None
@@ -146,9 +157,11 @@ def main() -> int:
         play = client.get(f"/play/{game_slug}/")
         if play.status_code != 200 or MARKER not in play.text:
             raise AssertionError(f"play endpoint did not serve published B2 content: {play.status_code} {play.text[:500]!r}")
+        assert_play_sandbox(play)
         css = client.get(f"/play/{game_slug}/style.css")
         if css.status_code != 200 or "text/css" not in css.headers.get("content-type", ""):
             raise AssertionError(f"published CSS content type invalid: {css.status_code} {css.headers.get('content-type')}")
+        assert_play_sandbox(css)
 
         initial_save = expect(client.get(f"/api/v1/games/{game_id}/save"), 200, "initial save")
         assert initial_save["revision"] == 0 and initial_save["state"] == {}, initial_save
@@ -195,6 +208,7 @@ def main() -> int:
         persisted_play = client.get(f"/play/{game_slug}/")
         if persisted_play.status_code != 200 or MARKER not in persisted_play.text:
             raise AssertionError("published build did not remain available after session renewal")
+        assert_play_sandbox(persisted_play)
 
         print(f"production E2E verified via Cloudflare: user={EMAIL} game={game_slug} build={build_id}")
         return 0
