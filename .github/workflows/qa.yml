@@ -20,6 +20,8 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Run Python test suite
         run: pytest -q
+      - name: Validate production E2E script
+        run: python -m py_compile scripts/production_e2e.py
       - name: Validate frontend JavaScript
         run: |
           node --check frontend/app.js
