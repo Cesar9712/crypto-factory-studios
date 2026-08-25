@@ -29,7 +29,11 @@ class Settings:
     allowed_origins: tuple[str,...] = field(default_factory=_origins)
     environment: str = field(default_factory=lambda: os.getenv('CFS_ENV','development').lower().strip())
     owner_bootstrap_token: str = field(default_factory=lambda: os.getenv('CFS_OWNER_BOOTSTRAP_TOKEN',''))
-    antivirus_required: bool = field(default_factory=lambda: os.getenv('CFS_ANTIVIRUS_REQUIRED','false').lower()=='true')
+    # External ClamAV-style scanning is intentionally opt-in. The former
+    # CFS_ANTIVIRUS_REQUIRED flag is no longer consumed because it caused the
+    # 512 MB Render Free instance to fail uploads by exhausting memory. The
+    # built-in streaming/static scanner remains active for every upload.
+    antivirus_required: bool = field(default_factory=lambda: os.getenv('CFS_EXTERNAL_ANTIVIRUS_REQUIRED','false').lower()=='true')
     payments_mode: str = field(default_factory=lambda: os.getenv('CFS_PAYMENTS_MODE','MOCK'))
     production_payments_enabled: bool = field(default_factory=lambda: os.getenv('CFS_PRODUCTION_PAYMENTS_ENABLED','false').lower()=='true')
     tron_usdt_address: str = field(default_factory=lambda: os.getenv('CFS_TRON_USDT_ADDRESS','TSrSa2iL7a1csWRLTrzhRoW1oUUaDKpDj9'))
