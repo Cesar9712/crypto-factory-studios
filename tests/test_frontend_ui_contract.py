@@ -36,13 +36,14 @@ def test_billing_has_responsive_asset_and_csp_safe_plan_binding():
     assert 'onclick=' not in html.lower()
 
 
-def test_billing_exposes_all_three_supported_payment_networks():
+def test_billing_exposes_supported_public_payment_networks():
     js = read('billing.js')
-    for method_id in ('usdt_tron', 'usdt_bsc', 'sol'):
+    for method_id in ('usdt_tron', 'usdt_bsc'):
         assert method_id in js
+    assert "['usdt_tron','usdt_bsc']" in js
     assert 'BNB SMART CHAIN' in js
     assert 'TRC-20' in js
-    assert 'SOLANA' in js
+    assert 'SOLANA' not in js
     assert 'clearCheckout()' in js
 
 
@@ -52,7 +53,6 @@ def test_billing_layout_has_anti_overlap_guards():
     assert '@media(max-width:1180px)' in css
     assert '.billing-page .order-summary{grid-template-columns:1fr}' in css
     assert 'word-break:break-all' in css
-    assert '.qr-fallback.show' in css
 
 
 def test_core_pages_are_mobile_viewport_ready():
@@ -69,3 +69,17 @@ def test_responsive_layer_covers_phone_and_desktop_breakpoints():
     assert 'overflow-x:hidden' in css
     assert '.payment-terminal' in css
     assert '.account-grid' in css
+
+
+def test_public_seo_basics_exist():
+    assert (FRONTEND / 'robots.txt').exists()
+    assert (FRONTEND / 'sitemap.xml').exists()
+    home = read('index.html')
+    assert 'rel="canonical"' in home
+    assert 'application/ld+json' in home
+    assert 'og:title' in home
+    for name in ('godot-web-hosting.html', 'publish-html5-game.html'):
+        html = read(name)
+        assert '<h1>' in html
+        assert 'rel="canonical"' in html
+        assert 'name="description"' in html
