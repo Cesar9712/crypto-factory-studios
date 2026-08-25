@@ -5,7 +5,7 @@ import uuid
 from typing import Any, Callable
 
 from fastapi import File, Form, Header, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 
@@ -22,9 +22,18 @@ class ReportIn(BaseModel):
     details: str = Field(min_length=4, max_length=2000)
 
 
+class ModerationStatusIn(BaseModel):
+    status: str = Field(min_length=4, max_length=20)
+
+
+class AccountDeleteIn(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+    confirmation: str = Field(min_length=6, max_length=20)
+
+
 def register_platform_routes(app, *, db, settings, scanner, storage, session_user: Callable, creator_profile: Callable,
                              effective_plan: Callable, audit: Callable, fail: Callable, now: Callable,
-                             sha256_bytes: Callable):
+                             sha256_bytes: Callable, verify_password: Callable):
     def current_user(authorization: str | None):
         user, _ = session_user(authorization)
         return user
@@ -32,6 +41,14 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
     def creator_game(user_id: str, game_id: str):
         row = db.one('SELECT * FROM games WHERE game_id=? AND creator_id=?', (game_id, user_id))
         if not row:
+            fail('game_not_found', 'Game not found', 404)
+        return row
+
+    def playable_or_owned_game(user_id: str, game_id: str):
+        row = db.one("SELECT game_id,creator_id,status,visibility FROM games WHERE game_id=?", (game_id,))
+        if not row:
+            fail('game_not_found', 'Game not found', 404)
+        if row['creator_id'] != user_id and not (row['status'] == 'PUBLISHED' and row['visibility'] == 'PUBLIC'):
             fail('game_not_found', 'Game not found', 404)
         return row
 
@@ -47,6 +64,36 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
         db.execute('UPDATE sessions SET revoked_at=? WHERE user_id=? AND revoked_at=0', (now(), user['id']))
         audit(user['id'], 'logout_all', 'user', user['id'])
         return {'ok': True}
+
+    @app.delete('/api/v1/account')
+    def delete_account(body: AccountDeleteIn, authorization: str | None = Header(default=None)):
+        user = current_user(authorization)
+        if body.confirmation != 'DELETE ACCOUNT':
+            fail('confirmation_required', 'Type DELETE ACCOUNT to confirm', 400)
+        full_user = db.one('SELECT * FROM users WHERE id=?', (user['id'],))
+        if not full_user or not verify_password(body.password, full_user['password_hash']):
+            fail('invalid_credentials', 'Invalid password', 401)
+        games = db.all('SELECT game_id FROM games WHERE creator_id=?', (user['id'],))
+        try:
+            for game in games:
+                refs = [r['archive_path'] for r in db.all('SELECT archive_path FROM game_builds WHERE game_id=?', (game['game_id'],))]
+                storage.delete_game(game['game_id'], refs)
+        except Exception:
+            fail('storage_unavailable', 'Persistent storage is unavailable', 503)
+        order_ids = [r['order_id'] for r in db.all('SELECT order_id FROM orders WHERE user_id=?', (user['id'],))]
+        for oid in order_ids:
+            db.execute('DELETE FROM blockchain_transactions WHERE order_id=?', (oid,))
+            db.execute('DELETE FROM payment_events WHERE order_id=?', (oid,))
+            db.execute('DELETE FROM purchase_history WHERE order_id=?', (oid,))
+        db.execute('DELETE FROM orders WHERE user_id=?', (user['id'],))
+        db.execute('DELETE FROM game_saves WHERE user_id=?', (user['id'],))
+        db.execute('UPDATE reports SET reporter_id=NULL WHERE reporter_id=?', (user['id'],))
+        db.execute('DELETE FROM games WHERE creator_id=?', (user['id'],))
+        db.execute('DELETE FROM users WHERE id=?', (user['id'],))
+        response = JSONResponse({'ok': True, 'deleted': True})
+        response.delete_cookie('cfs_session', path='/')
+        response.delete_cookie('cfs_csrf', path='/')
+        return response
 
     @app.post('/api/v1/admin/bootstrap')
     def admin_bootstrap(x_owner_bootstrap: str | None = Header(default=None), authorization: str | None = Header(default=None)):
@@ -78,6 +125,11 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
         max_upload = limits.get('max_upload_bytes')
         if max_upload is not None and len(data) > max_upload:
             fail('upload_too_large', 'Upload exceeds current plan limit', 413)
+        max_storage = limits.get('max_storage_bytes')
+        if max_storage is not None:
+            used = db.one('SELECT COALESCE(SUM(compressed_bytes),0) AS bytes FROM game_builds WHERE creator_id=?', (user['id'],))['bytes']
+            if used + len(data) > max_storage:
+                fail('storage_limit', 'Creator storage limit reached', 403)
         try:
             manifest = scanner.validate_zip(data)
         except ValueError as exc:
@@ -130,6 +182,30 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
         audit(user['id'], 'build_published', 'build', build_id)
         return {'ok': True, 'build_id': build_id}
 
+    @app.post('/api/v1/creator/games/{game_id}/unpublish')
+    def unpublish_game(game_id: str, authorization: str | None = Header(default=None)):
+        user = current_user(authorization)
+        game = creator_game(user['id'], game_id)
+        if game.get('published_build_id'):
+            db.execute("UPDATE game_builds SET status='READY_FOR_REVIEW' WHERE build_id=? AND creator_id=?", (game['published_build_id'], user['id']))
+        db.execute("UPDATE games SET status='DRAFT',published_build_id=NULL,updated_at=? WHERE game_id=? AND creator_id=?", (now(), game_id, user['id']))
+        audit(user['id'], 'game_unpublished', 'game', game_id)
+        return {'ok': True, 'game_id': game_id, 'status': 'DRAFT'}
+
+    @app.delete('/api/v1/creator/games/{game_id}')
+    def delete_game(game_id: str, authorization: str | None = Header(default=None)):
+        user = current_user(authorization)
+        creator_game(user['id'], game_id)
+        refs = [r['archive_path'] for r in db.all('SELECT archive_path FROM game_builds WHERE game_id=? AND creator_id=?', (game_id, user['id']))]
+        try:
+            storage.delete_game(game_id, refs)
+        except Exception:
+            fail('storage_unavailable', 'Persistent storage is unavailable', 503)
+        db.execute('DELETE FROM game_saves WHERE game_id=?', (game_id,))
+        db.execute('DELETE FROM games WHERE game_id=? AND creator_id=?', (game_id, user['id']))
+        audit(user['id'], 'game_deleted', 'game', game_id)
+        return {'ok': True, 'game_id': game_id}
+
     @app.get('/play/{slug}/')
     @app.get('/play/{slug}/{asset_path:path}')
     def play_game(slug: str, asset_path: str = 'index.html'):
@@ -150,6 +226,7 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
     @app.get('/api/v1/games/{game_id}/save')
     def get_save(game_id: str, authorization: str | None = Header(default=None)):
         user = current_user(authorization)
+        playable_or_owned_game(user['id'], game_id)
         row = db.one('SELECT save_version,revision,save_json,updated_at FROM game_saves WHERE user_id=? AND game_id=?', (user['id'], game_id))
         if not row:
             return {'save_version': 1, 'revision': 0, 'state': {}, 'updated_at': 0}
@@ -158,6 +235,7 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
     @app.put('/api/v1/games/{game_id}/save')
     def put_save(game_id: str, body: SaveIn, authorization: str | None = Header(default=None)):
         user = current_user(authorization)
+        playable_or_owned_game(user['id'], game_id)
         existing = db.one('SELECT revision FROM game_saves WHERE user_id=? AND game_id=?', (user['id'], game_id))
         current = existing['revision'] if existing else 0
         if body.revision != current:
@@ -174,9 +252,13 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
         user = current_user(authorization)
         if not body.game_id and not body.creator_id:
             fail('report_target_required', 'Game or creator is required', 400)
+        if body.game_id and not db.one('SELECT game_id FROM games WHERE game_id=?', (body.game_id,)):
+            fail('game_not_found', 'Game not found', 404)
+        if body.creator_id and not db.one('SELECT user_id FROM creator_profiles WHERE user_id=?', (body.creator_id,)):
+            fail('creator_not_found', 'Creator not found', 404)
         rid = 'report_' + uuid.uuid4().hex
         db.execute('INSERT INTO reports(report_id,reporter_id,game_id,creator_id,category,details,status,created_at) VALUES(?,?,?,?,?,?,?,?)',
-                   (rid, user['id'], body.game_id, body.creator_id, body.category, body.details, 'OPEN', now()))
+                   (rid, user['id'], body.game_id, body.creator_id, body.category.strip(), body.details.strip(), 'OPEN', now()))
         audit(user['id'], 'report_created', 'report', rid)
         return {'report_id': rid, 'status': 'OPEN'}
 
@@ -196,6 +278,19 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
     def admin_moderation(authorization: str | None = Header(default=None)):
         admin_user(authorization)
         return {'reports': db.all("SELECT * FROM reports WHERE status='OPEN' ORDER BY created_at DESC LIMIT 100")}
+
+    @app.post('/api/v1/admin/reports/{report_id}/status')
+    def moderate_report(report_id: str, body: ModerationStatusIn, authorization: str | None = Header(default=None)):
+        admin = admin_user(authorization)
+        status = body.status.upper().strip()
+        if status not in {'OPEN', 'RESOLVED', 'DISMISSED'}:
+            fail('invalid_status', 'Invalid moderation status', 400)
+        report = db.one('SELECT report_id FROM reports WHERE report_id=?', (report_id,))
+        if not report:
+            fail('report_not_found', 'Report not found', 404)
+        db.execute('UPDATE reports SET status=? WHERE report_id=?', (status, report_id))
+        audit(admin['id'], 'report_moderated', 'report', report_id, {'status': status})
+        return {'ok': True, 'report_id': report_id, 'status': status}
 
     @app.get('/api/v1/admin/payments')
     def admin_payments(authorization: str | None = Header(default=None)):

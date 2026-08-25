@@ -33,6 +33,15 @@ class FakeS3:
         self.objects.pop((Bucket, Key), None)
         return {}
 
+    def list_objects_v2(self, Bucket, Prefix, MaxKeys=1000, **kwargs):
+        rows=[{'Key':k} for (b,k) in self.objects if b==Bucket and k.startswith(Prefix)]
+        return {'Contents':rows[:MaxKeys], 'IsTruncated':False}
+
+    def delete_objects(self, Bucket, Delete):
+        for item in Delete.get('Objects',[]):
+            self.delete_object(Bucket, item['Key'])
+        return {'Deleted':Delete.get('Objects',[])}
+
 
 def settings():
     return SimpleNamespace(
@@ -59,3 +68,17 @@ def test_s3_readiness_fails_when_storage_unavailable(monkeypatch):
     monkeypatch.setattr(boto3, 'client', lambda *a, **kw: fake)
     storage=StorageService(settings())
     assert storage.ping() is False
+
+
+def test_delete_game_removes_archives_and_published_prefix(monkeypatch):
+    fake=FakeS3()
+    monkeypatch.setattr(boto3, 'client', lambda *a, **kw: fake)
+    storage=StorageService(settings())
+    fake.objects[('bucket','quarantine/build-a.zip')]=b'zip'
+    fake.objects[('bucket','published/game-a/build-a/index.html')]=b'<h1>A</h1>'
+    fake.objects[('bucket','published/game-a/build-a/game.js')]=b'1'
+    fake.objects[('bucket','published/game-b/build-b/index.html')]=b'<h1>B</h1>'
+    storage.delete_game('game-a',['s3://bucket/quarantine/build-a.zip'])
+    assert ('bucket','quarantine/build-a.zip') not in fake.objects
+    assert not any(k.startswith('published/game-a/') for b,k in fake.objects if b=='bucket')
+    assert ('bucket','published/game-b/build-b/index.html') in fake.objects

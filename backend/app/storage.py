@@ -1,5 +1,5 @@
 from __future__ import annotations
-import io, mimetypes, secrets, zipfile
+import io, mimetypes, secrets, shutil, zipfile
 from pathlib import Path, PurePosixPath
 
 class StorageService:
@@ -73,6 +73,37 @@ class StorageService:
             if code in {'NoSuchKey','404','NotFound'}: return None
             raise
         return obj['Body'].read(), obj.get('ContentType') or mimetypes.guess_type(str(p))[0] or 'application/octet-stream'
+
+    def delete_archive(self, ref:str)->None:
+        if not ref: return
+        if not ref.startswith('s3://'):
+            try: Path(ref).unlink(missing_ok=True)
+            except TypeError:
+                p=Path(ref)
+                if p.exists(): p.unlink()
+            return
+        key=ref.split('/',3)[3]
+        self.client.delete_object(Bucket=self.settings.s3_bucket,Key=key)
+
+    def _delete_s3_prefix(self,prefix:str)->None:
+        token=None
+        while True:
+            kwargs={'Bucket':self.settings.s3_bucket,'Prefix':prefix,'MaxKeys':1000}
+            if token: kwargs['ContinuationToken']=token
+            page=self.client.list_objects_v2(**kwargs)
+            keys=[{'Key':o['Key']} for o in page.get('Contents',[])]
+            if keys: self.client.delete_objects(Bucket=self.settings.s3_bucket,Delete={'Objects':keys,'Quiet':True})
+            if not page.get('IsTruncated'): break
+            token=page.get('NextContinuationToken')
+            if not token: break
+
+    def delete_game(self,game_id:str,archive_refs:list[str]|tuple[str,...]=())->None:
+        for ref in archive_refs:
+            self.delete_archive(ref)
+        if self.backend=='local':
+            shutil.rmtree(self.settings.published_dir/game_id,ignore_errors=True)
+            return
+        self._delete_s3_prefix(f'published/{game_id}/')
 
     def ping(self)->bool:
         if self.backend=='local': return True

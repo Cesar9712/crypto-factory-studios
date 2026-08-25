@@ -99,5 +99,5 @@ def me(authorization:str|None=Header(default=None)):
     user,_=session_user(authorization); return {'user':user,'creator':creator_profile(user['id']),'plan':effective_plan(user['id'])}
 
 register_routes(app,db=db,settings=settings,payment_methods=payment_methods,price_service=price_service,payment_verifier=payment_verifier,session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,slugify=slugify,now=now,payment_fingerprint=payment_fingerprint)
-register_platform_routes(app,db=db,settings=settings,scanner=scanner,storage=storage,session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,now=now,sha256_bytes=sha256_bytes)
+register_platform_routes(app,db=db,settings=settings,scanner=scanner,storage=storage,session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,now=now,sha256_bytes=sha256_bytes,verify_password=verify_password)
 register_game_edit_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
