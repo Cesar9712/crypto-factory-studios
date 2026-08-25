@@ -118,6 +118,40 @@ jobs:
           cat /tmp/ready.json 2>/dev/null || true
           exit 1
 
+      - name: Verify live production payment readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://crypto-factory-studios.onrender.com'
+          curl --fail --silent --show-error --max-time 30 "$base/api/v1/payments/status" -o /tmp/payment-status.json
+          curl --fail --silent --show-error --max-time 30 "$base/api/v1/payments/methods" -o /tmp/payment-methods.json
+          curl --fail --silent --show-error --max-time 30 "$base/api/v1/products" -o /tmp/products.json
+          python - <<'PY'
+          import json
+
+          status=json.load(open('/tmp/payment-status.json'))
+          methods=json.load(open('/tmp/payment-methods.json'))
+          products=json.load(open('/tmp/products.json'))
+
+          assert status.get('mode') == 'PRODUCTION', status
+          assert status.get('production_enabled') is True, status
+          assert status.get('payments_ready') is True, status
+          providers=status.get('providers') or {}
+          expected={'usdt_tron','usdt_bsc','sol'}
+          assert expected.issubset(providers), providers
+          assert all(providers.get(method_id) is True for method_id in expected), providers
+
+          assert methods.get('mode') == 'PRODUCTION', methods
+          live_methods={row.get('method_id'): row for row in methods.get('methods', [])}
+          assert expected.issubset(live_methods), live_methods
+          assert all(live_methods[mid].get('production_allowed') is True for mid in expected), live_methods
+
+          product_rows=products.get('products') or []
+          assert product_rows, products
+          assert all(row.get('product_id') and row.get('price_usd') for row in product_rows), product_rows
+          print('live production payment providers, methods, and product catalog verified')
+          PY
+
       - name: Verify Cloudflare edge health and upstream readiness
         shell: bash
         run: |
