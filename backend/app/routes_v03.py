@@ -54,6 +54,7 @@ def register_routes(
     slugify: Callable,
     now: Callable,
     payment_fingerprint: Callable,
+    canonical_txid: Callable,
 ):
     def current_user(authorization: str | None):
         user, _ = session_user(authorization)
@@ -73,6 +74,13 @@ def register_routes(
     @app.get('/api/v1/payments/methods')
     def methods():
         return {'mode': settings.payments_mode, 'methods': payment_methods.public()}
+
+    @app.get('/api/v1/payments/status')
+    def payment_status():
+        providers = payment_verifier.status()
+        production_enabled = settings.payments_mode == 'PRODUCTION' and settings.production_payments_enabled
+        ready = all(providers.get(m.method_id, False) for m in payment_methods.values() if m.enabled and m.production_allowed) if production_enabled else True
+        return {'mode': settings.payments_mode, 'production_enabled': production_enabled, 'payments_ready': ready, 'providers': providers}
 
     @app.get('/api/v1/games')
     def games():
@@ -179,10 +187,16 @@ def register_routes(
         method = payment_methods.get(body.method_id)
         if not method or not method.enabled:
             fail('payment_method_unavailable', 'Payment method unavailable', 400)
-        if settings.payments_mode == 'PRODUCTION' and not method.production_allowed:
-            fail('payment_method_locked', 'Payment method is not enabled for production', 403)
+        if settings.payments_mode == 'PRODUCTION':
+            if not method.production_allowed:
+                fail('payment_method_locked', 'Payment method is not enabled for production', 403)
+            if not payment_verifier.status().get(method.method_id, False):
+                fail('payment_provider_unavailable', 'Payment network is temporarily unavailable', 503)
         usd = Decimal(product['price_usd'])
-        amount, rate, source = price_service.quote_amount(usd, method)
+        try:
+            amount, rate, source = price_service.quote_amount(usd, method)
+        except RuntimeError:
+            fail('price_provider_unavailable', 'Price provider is temporarily unavailable', 503)
         qid = 'quote_' + uuid.uuid4().hex
         t = now()
         db.execute('''INSERT INTO payment_quotes(quote_id,user_id,product_id,method_id,fiat_price_usd,crypto_amount,exchange_rate,rate_source,created_at,expires_at)
@@ -239,7 +253,7 @@ def register_routes(
         method = payment_methods.get(order['method_id'])
         if not method:
             fail('payment_method_unavailable', 'Payment method unavailable', 400)
-        txid = body.transaction_hash.strip()
+        txid = canonical_txid(method, body.transaction_hash)
         duplicate = db.one('SELECT order_id FROM blockchain_transactions WHERE network=? AND transaction_hash=?', (method.network, txid))
         if duplicate and duplicate['order_id'] != order_id:
             fail('transaction_replayed', 'Transaction already used by another order', 409)
@@ -247,18 +261,23 @@ def register_routes(
         status = verification.get('status', 'FAILED')
         received = verification.get('received_amount', order['received_amount'])
         mapped = status
-        if status == 'CONFIRMED':
+        if status in {'CONFIRMED', 'OVERPAID'}:
             mapped = 'CONFIRMED'
+        elif status in {'CONFIRMING', 'PROVIDER_UNAVAILABLE'}:
+            mapped = 'CONFIRMING'
+        elif status == 'UNDERPAID':
+            mapped = 'UNDERPAID'
         elif status in {'NOT_FOUND', 'WRONG_NETWORK', 'WRONG_RECIPIENT', 'WRONG_ASSET', 'FAILED'}:
             mapped = 'MANUAL_REVIEW' if status.startswith('WRONG_') else 'FAILED'
         db.execute('UPDATE orders SET status=?,received_amount=?,transaction_hash=? WHERE order_id=?', (mapped, str(received), txid, order_id))
         db.execute('INSERT INTO payment_events(order_id,event_type,details_json,created_at) VALUES(?,?,?,?)', (order_id, status, json.dumps(verification, separators=(',', ':')), now()))
-        if status == 'CONFIRMED':
+        if status in {'CONFIRMED', 'OVERPAID'}:
             fp = payment_fingerprint(method.network, txid)
-            try:
-                db.execute('INSERT INTO blockchain_transactions(fingerprint,network,transaction_hash,order_id,verification_json,consumed_at) VALUES(?,?,?,?,?,?)', (fp, method.network, txid, order_id, json.dumps(verification, separators=(',', ':')), now()))
-            except sqlite3.IntegrityError:
-                fail('transaction_replayed', 'Transaction already consumed', 409)
+            if not duplicate:
+                try:
+                    db.execute('INSERT INTO blockchain_transactions(fingerprint,network,transaction_hash,order_id,verification_json,consumed_at) VALUES(?,?,?,?,?,?)', (fp, method.network, txid, order_id, json.dumps(verification, separators=(',', ':')), now()))
+                except sqlite3.IntegrityError:
+                    fail('transaction_replayed', 'Transaction already consumed', 409)
             product = db.one('SELECT * FROM products WHERE product_id=?', (order['product_id'],))
             entitlement = product['entitlement_key'] if product else ''
             if entitlement.startswith('creator_plan:'):

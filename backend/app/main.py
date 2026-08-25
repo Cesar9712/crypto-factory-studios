@@ -11,17 +11,20 @@ from .db_runtime import DB
 from .storage import StorageService
 from .security import hash_password, verify_password, new_token, token_hash, now, sha256_bytes
 from .upload_security import UploadSecurityService
-from .payments import PaymentMethodRegistry, PriceService, MockBlockchainVerifier, payment_fingerprint
+from .payments import PaymentMethodRegistry, PriceService, MockBlockchainVerifier, payment_fingerprint, canonical_txid
+from .blockchain import ProductionBlockchainVerifier
 from .routes_v03 import register_routes
 from .routes_platform import register_platform_routes
 from .routes_game_edit import register_game_edit_routes
+from .routes_payment_extras import register_payment_extra_routes
 
 settings=Settings(); db=DB(settings.database_path, settings.database_url); storage=StorageService(settings)
-payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings); payment_verifier=MockBlockchainVerifier()
+payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings)
+payment_verifier=ProductionBlockchainVerifier(settings) if settings.payments_mode=='PRODUCTION' else MockBlockchainVerifier()
 for _pm in payment_methods.values():
     db.execute('INSERT OR REPLACE INTO payment_methods(method_id,asset,network,standard,address,token_contract,enabled,production_allowed,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(_pm.method_id,_pm.asset,_pm.network,_pm.standard,_pm.address,_pm.token_contract,1 if _pm.enabled else 0,1 if _pm.production_allowed else 0,now()))
 scanner=UploadSecurityService(settings.max_upload_bytes,settings.max_uncompressed_bytes,settings.max_archive_files,settings.max_compression_ratio,settings.antivirus_required)
-app=FastAPI(title='Crypto Factory Studios API',version='0.5.0')
+app=FastAPI(title='Crypto Factory Studios API',version='0.6.0')
 app.add_middleware(CORSMiddleware,allow_origins=list(settings.allowed_origins),allow_credentials=True,allow_methods=['GET','POST','PUT','DELETE'],allow_headers=['Authorization','Content-Type','X-Owner-Bootstrap','X-CSRF-Token'])
 RATE:dict[str,list[int]]={}; REQUEST_SESSION:ContextVar[str|None]=ContextVar('cfs_request_session',default=None)
 
@@ -81,16 +84,18 @@ async def headers(request:Request,call_next):
         'Cross-Origin-Resource-Policy':'cross-origin' if play else 'same-origin',
         'X-Request-ID':request.headers.get('X-Request-ID') or rid(),
     }
-    if play:
-        security_headers['Content-Security-Policy']=PLAY_CSP
+    if play: security_headers['Content-Security-Policy']=PLAY_CSP
     response.headers.update(security_headers)
     return response
 
 @app.get('/health')
-def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.5.0','git_commit':os.getenv('RENDER_GIT_COMMIT','')}
+def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.6.0','git_commit':os.getenv('RENDER_GIT_COMMIT','')}
 @app.get('/ready')
 def ready():
-    db_ok=db.ping(); storage_ok=storage.ping(); payload={'ready':bool(db_ok and storage_ok),'environment':settings.environment,'payments_mode':settings.payments_mode,'upload_scan_engine':'external-required' if settings.antivirus_required else 'built-in-static','external_antivirus_required':settings.antivirus_required,'database_backend':db.backend,'database_persistent':db.persistent,'storage_backend':settings.storage_backend}
+    db_ok=db.ping(); storage_ok=storage.ping()
+    provider_status=payment_verifier.status() if settings.payments_mode=='PRODUCTION' else {}
+    payments_ready=(all(provider_status.get(m.method_id,False) for m in payment_methods.values() if m.enabled and m.production_allowed) if settings.payments_mode=='PRODUCTION' else True)
+    payload={'ready':bool(db_ok and storage_ok),'environment':settings.environment,'payments_mode':settings.payments_mode,'payments_ready':payments_ready,'upload_scan_engine':'external-required' if settings.antivirus_required else 'built-in-static','external_antivirus_required':settings.antivirus_required,'database_backend':db.backend,'database_persistent':db.persistent,'storage_backend':settings.storage_backend}
     if not payload['ready']: raise HTTPException(503,detail=payload)
     return payload
 
@@ -118,6 +123,7 @@ def logout(authorization:str|None=Header(default=None)):
 def me(authorization:str|None=Header(default=None)):
     user,_=session_user(authorization); return {'user':user,'creator':creator_profile(user['id']),'plan':effective_plan(user['id'])}
 
-register_routes(app,db=db,settings=settings,payment_methods=payment_methods,price_service=price_service,payment_verifier=payment_verifier,session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,slugify=slugify,now=now,payment_fingerprint=payment_fingerprint)
+register_routes(app,db=db,settings=settings,payment_methods=payment_methods,price_service=price_service,payment_verifier=payment_verifier,session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,slugify=slugify,now=now,payment_fingerprint=payment_fingerprint,canonical_txid=canonical_txid)
 register_platform_routes(app,db=db,settings=settings,scanner=scanner,storage=storage,session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,now=now,sha256_bytes=sha256_bytes,verify_password=verify_password)
 register_game_edit_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
+register_payment_extra_routes(app,db=db,settings=settings,payment_methods=payment_methods,session_user=session_user,fail=fail)
