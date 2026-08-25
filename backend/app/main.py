@@ -25,6 +25,15 @@ app=FastAPI(title='Crypto Factory Studios API',version='0.5.0')
 app.add_middleware(CORSMiddleware,allow_origins=list(settings.allowed_origins),allow_credentials=True,allow_methods=['GET','POST','PUT','DELETE'],allow_headers=['Authorization','Content-Type','X-Owner-Bootstrap','X-CSRF-Token'])
 RATE:dict[str,list[int]]={}; REQUEST_SESSION:ContextVar[str|None]=ContextVar('cfs_request_session',default=None)
 
+PLAY_CSP=(
+    "sandbox allow-scripts allow-forms allow-modals allow-pointer-lock allow-popups allow-downloads; "
+    "default-src 'self' data: blob:; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; "
+    "connect-src https: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+)
+
 def rid()->str: return 'req_'+uuid.uuid4().hex[:16]
 def fail(code:str,msg:str,status:int=400): raise HTTPException(status,detail={'error_code':code,'message':msg,'request_id':rid()})
 def limited(key:str,limit:int,window:int=60):
@@ -63,7 +72,18 @@ async def headers(request:Request,call_next):
                 return JSONResponse(status_code=403,content={'detail':{'error_code':'csrf_failed','message':'CSRF validation failed','request_id':rid()}})
         response=await call_next(request)
     finally: REQUEST_SESSION.reset(marker)
-    response.headers.update({'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Permissions-Policy':'camera=(), microphone=(), geolocation=()','X-Frame-Options':'DENY','Cross-Origin-Resource-Policy':'same-origin','X-Request-ID':request.headers.get('X-Request-ID') or rid()})
+    play=request.url.path.startswith('/play/')
+    security_headers={
+        'X-Content-Type-Options':'nosniff',
+        'Referrer-Policy':'strict-origin-when-cross-origin',
+        'Permissions-Policy':'camera=(), microphone=(), geolocation=()',
+        'X-Frame-Options':'DENY',
+        'Cross-Origin-Resource-Policy':'cross-origin' if play else 'same-origin',
+        'X-Request-ID':request.headers.get('X-Request-ID') or rid(),
+    }
+    if play:
+        security_headers['Content-Security-Policy']=PLAY_CSP
+    response.headers.update(security_headers)
     return response
 
 @app.get('/health')
