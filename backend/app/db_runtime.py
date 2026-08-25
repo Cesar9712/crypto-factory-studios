@@ -25,6 +25,10 @@ class DB:
                 SCHEMA.replace("PRAGMA foreign_keys=ON;", "")
                 .replace(" COLLATE NOCASE", "")
                 .replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+                .replace("max_storage_bytes INTEGER", "max_storage_bytes BIGINT")
+                .replace("max_upload_bytes INTEGER", "max_upload_bytes BIGINT")
+                .replace("compressed_bytes INTEGER", "compressed_bytes BIGINT")
+                .replace("uncompressed_bytes INTEGER", "uncompressed_bytes BIGINT")
             )
             with self.lock:
                 with self.conn.cursor() as cur:
@@ -32,6 +36,17 @@ class DB:
                         statement = statement.strip()
                         if statement:
                             cur.execute(statement)
+                    # Existing Neon databases may already have been initialized with
+                    # PostgreSQL INTEGER columns before the BIGINT fix. Widening these
+                    # columns is safe and idempotent and prevents plan limits such as
+                    # 5 GiB / 25 GiB from overflowing a signed 32-bit integer.
+                    for statement in (
+                        "ALTER TABLE creator_plans ALTER COLUMN max_storage_bytes TYPE BIGINT",
+                        "ALTER TABLE creator_plans ALTER COLUMN max_upload_bytes TYPE BIGINT",
+                        "ALTER TABLE game_builds ALTER COLUMN compressed_bytes TYPE BIGINT",
+                        "ALTER TABLE game_builds ALTER COLUMN uncompressed_bytes TYPE BIGINT",
+                    ):
+                        cur.execute(statement)
         else:
             self.conn = sqlite3.connect(path, check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
