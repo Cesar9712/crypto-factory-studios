@@ -81,6 +81,17 @@ def test_production_stablecoin_quote_uses_small_unique_payment_marker(monkeypatc
     assert source=='stable_reference_unique_amount'
 
 
+def test_exclusive_deposit_mode_uses_exact_commercial_stablecoin_prices():
+    s=settings(); s.deposit_address_mode='EXCLUSIVE'
+    registry=PaymentMethodRegistry(s); service=PriceService(s)
+    plus, rate_plus, source_plus=service.quote_amount(Decimal('1.99'),registry.get('usdt_tron'))
+    pro, rate_pro, source_pro=service.quote_amount(Decimal('3.99'),registry.get('usdt_bsc'))
+    assert plus==Decimal('1.99')
+    assert pro==Decimal('3.99')
+    assert rate_plus==rate_pro==Decimal('1')
+    assert source_plus==source_pro=='stable_reference_exact_exclusive_address'
+
+
 def test_payment_status_is_safe_and_does_not_expose_treasury_addresses():
     with TestClient(app) as client:
         response=client.get('/api/v1/payments/status')
