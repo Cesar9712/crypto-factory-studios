@@ -60,8 +60,22 @@ class PaymentMethodRegistry:
             'usdt_bsc': PaymentMethod('usdt_bsc','BSC-USD','BNB Smart Chain','BEP-20',settings.bsc_usdt_address,BSC_USDT_CONTRACT,18,True,True,'USDT-compatible · BNB Smart Chain (BEP-20)','Send only Binance-Peg BSC-USD on BNB Smart Chain (BEP-20).'),
             'sol': PaymentMethod('sol','SOL','Solana','Native',settings.sol_address,None,9,True,True,'SOL · Solana','Send only native SOL on Solana.'),
         }
+        configured={
+            'usdt_tron': tuple(getattr(settings,'tron_deposit_addresses',()) or ()),
+            'usdt_bsc': tuple(getattr(settings,'bsc_deposit_addresses',()) or ()),
+            'sol': tuple(getattr(settings,'sol_deposit_addresses',()) or ()),
+        }
+        self._deposit_pools={}
+        for method_id, method in self._methods.items():
+            seen=[]
+            for address in (method.address, *configured[method_id]):
+                if address not in seen: seen.append(address)
+            validator=validate_tron_address if method_id=='usdt_tron' else validate_evm_address if method_id=='usdt_bsc' else validate_solana_address
+            if not all(validator(address) for address in seen): raise RuntimeError(f'Invalid deposit address pool for {method_id}')
+            self._deposit_pools[method_id]=tuple(seen)
     def get(self, method_id: str) -> PaymentMethod | None: return self._methods.get(method_id)
     def values(self): return tuple(self._methods.values())
+    def deposit_addresses(self, method_id: str) -> tuple[str,...]: return self._deposit_pools.get(method_id,())
     def public(self) -> list[dict[str,Any]]:
         out=[]
         for m in self._methods.values():
@@ -83,29 +97,26 @@ class PriceService:
             raise RuntimeError('SOL price provider unavailable') from exc
     @staticmethod
     def _production_marker(decimals: int) -> Decimal:
-        # Static treasury addresses cannot cryptographically identify which order
-        # owns a transfer. A tiny server-generated amount marker makes each active
-        # checkout substantially harder to race/claim using another customer's TX.
-        # The marker is always below one cent for stablecoins and below 10k lamports
-        # for SOL, while remaining exactly representable in smallest units.
         marker_units=secrets.randbelow(9_999)+1
         return Decimal(marker_units)/(Decimal(10)**decimals)
     def quote_amount(self, usd_price: Decimal, method: PaymentMethod) -> tuple[Decimal, Decimal, str]:
+        deposit_mode=str(getattr(self.settings,'deposit_address_mode','SHARED_MARKER')).upper()
         if method.method_id in {'usdt_tron','usdt_bsc'}:
+            if deposit_mode=='EXCLUSIVE':
+                return usd_price.quantize(Decimal('0.01')), Decimal('1'), 'stable_reference_exact_exclusive_address'
             base=usd_price.quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
             if self.settings.payments_mode == 'PRODUCTION':
-                # Use six visible decimal places for both stablecoin routes even
-                # though the BSC token itself supports 18 decimals.
                 amount=(base+self._production_marker(6)).quantize(Decimal('0.000001'))
                 return amount, Decimal('1'), 'stable_reference_unique_amount'
             return base, Decimal('1'), 'stable_reference'
         if self.settings.payments_mode == 'PRODUCTION':
-            sol_usd=self._live_sol_usd(); source='coingecko_live_unique_amount'
+            sol_usd=self._live_sol_usd(); source='coingecko_live'
         else:
             sol_usd=Decimal(str(self.settings.mock_sol_usd_rate)); source='mock_fixed_rate'
         amount=(usd_price/sol_usd).quantize(Decimal('0.000000001'), rounding=ROUND_DOWN)
-        if self.settings.payments_mode == 'PRODUCTION':
+        if self.settings.payments_mode == 'PRODUCTION' and deposit_mode!='EXCLUSIVE':
             amount=(amount+self._production_marker(9)).quantize(Decimal('0.000000001'))
+            source='coingecko_live_unique_amount'
         return amount, sol_usd, source
 
 class MockBlockchainVerifier:
