@@ -30,3 +30,58 @@ jobs:
           node --check worker/index.js
       - name: Validate Wrangler configuration
         run: npx --yes wrangler@4 deploy --dry-run
+
+  production-smoke:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for Render production deployment and verify backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://crypto-factory-studios.onrender.com'
+          for attempt in $(seq 1 36); do
+            health_code=$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 "$base/health" || true)
+            ready_code=$(curl -sS -o /tmp/ready.json -w '%{http_code}' --max-time 20 "$base/ready" || true)
+            echo "attempt=$attempt health=$health_code ready=$ready_code"
+            if [ "$health_code" = '200' ] && [ "$ready_code" = '200' ]; then
+              python - <<'PY'
+          import json
+          health=json.load(open('/tmp/health.json'))
+          ready=json.load(open('/tmp/ready.json'))
+          assert health.get('ok') is True, health
+          assert ready.get('ready') is True, ready
+          assert ready.get('database_backend') == 'postgres', ready
+          assert ready.get('database_persistent') is True, ready
+          assert ready.get('storage_backend') == 's3', ready
+          print('backend production health/readiness verified')
+          PY
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Backend production did not become healthy and ready in time'
+          cat /tmp/health.json 2>/dev/null || true
+          cat /tmp/ready.json 2>/dev/null || true
+          exit 1
+
+      - name: Verify Cloudflare edge health and upstream readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          edge='https://crypto-factory-studios.cesargp9712.workers.dev'
+          curl --fail --silent --show-error --max-time 30 "$edge/health" -o /tmp/edge-health.json
+          curl --fail --silent --show-error --max-time 30 "$edge/ready" -o /tmp/edge-ready.json
+          python - <<'PY'
+          import json
+          health=json.load(open('/tmp/edge-health.json'))
+          ready=json.load(open('/tmp/edge-ready.json'))
+          assert health.get('ok') is True, health
+          assert health.get('api_configured') is True, health
+          assert ready.get('ok') is True, ready
+          assert ready.get('api_configured') is True, ready
+          assert ready.get('upstream_status') == 200, ready
+          print('Cloudflare edge and Render upstream verified')
+          PY
