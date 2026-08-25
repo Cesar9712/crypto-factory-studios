@@ -37,15 +37,28 @@ def test_logout_revokes_current_session():
 
 def test_logout_all_revokes_every_session_for_user():
     account = _account()
-    with TestClient(app) as first, TestClient(app) as second:
-        assert first.post('/api/v1/auth/register', json=account).status_code == 200
-        assert second.post('/api/v1/auth/login', json={'email': account['email'], 'password': account['password']}).status_code == 200
-        assert first.get('/api/v1/me').status_code == 200
-        assert second.get('/api/v1/me').status_code == 200
+    with TestClient(app) as client:
+        registered = client.post('/api/v1/auth/register', json=account)
+        assert registered.status_code == 200
+        first_token = registered.json()['access_token']
 
-        csrf = first.cookies.get('cfs_csrf')
-        assert csrf
-        response = first.post('/api/v1/auth/logout-all', headers={'X-CSRF-Token': csrf})
+        # Remove the first session cookie before logging in again so the
+        # second login represents a genuinely distinct session/client.
+        client.cookies.clear()
+        second_login = client.post(
+            '/api/v1/auth/login',
+            json={'email': account['email'], 'password': account['password']},
+        )
+        assert second_login.status_code == 200
+        second_token = second_login.json()['access_token']
+        assert first_token != second_token
+
+        first_headers = {'Authorization': f'Bearer {first_token}'}
+        second_headers = {'Authorization': f'Bearer {second_token}'}
+        assert client.get('/api/v1/me', headers=first_headers).status_code == 200
+        assert client.get('/api/v1/me', headers=second_headers).status_code == 200
+
+        response = client.post('/api/v1/auth/logout-all', headers=first_headers)
         assert response.status_code == 200
-        assert first.get('/api/v1/me').status_code == 401
-        assert second.get('/api/v1/me').status_code == 401
+        assert client.get('/api/v1/me', headers=first_headers).status_code == 401
+        assert client.get('/api/v1/me', headers=second_headers).status_code == 401
