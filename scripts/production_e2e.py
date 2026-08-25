@@ -74,6 +74,14 @@ def main() -> int:
         ready = expect(client.get("/ready"), 200, "edge ready")
         assert ready.get("ok") is True and ready.get("upstream_status") == 200, ready
 
+        payment_status = expect(client.get("/api/v1/payments/status"), 200, "payment status")
+        assert payment_status.get("mode") == "PRODUCTION", payment_status
+        assert payment_status.get("production_enabled") is True, payment_status
+        assert payment_status.get("payments_ready") is True, payment_status
+        providers = payment_status.get("providers") or {}
+        for method_id in ("usdt_tron", "usdt_bsc", "sol"):
+            assert providers.get(method_id) is True, providers
+
         registered_payload = expect(
             client.post(
                 "/api/v1/auth/register",
@@ -100,6 +108,57 @@ def main() -> int:
             "activate creator",
         )
         assert creator["creator"]["slug"] == CREATOR_SLUG
+
+        products = expect(client.get("/api/v1/products"), 200, "payment product catalog").get("products") or []
+        assert products, "production payment product catalog is empty"
+        methods = expect(client.get("/api/v1/payments/methods"), 200, "payment methods")
+        assert methods.get("mode") == "PRODUCTION", methods
+        method_rows = {row.get("method_id"): row for row in (methods.get("methods") or [])}
+        assert method_rows.get("usdt_tron", {}).get("production_allowed") is True, method_rows
+
+        quote = expect(
+            client.post(
+                "/api/v1/payments/quotes",
+                headers=csrf_headers(client),
+                json={"product_id": products[0]["product_id"], "method_id": "usdt_tron"},
+            ),
+            200,
+            "create production payment quote",
+        )
+        assert quote["method_id"] == "usdt_tron" and quote.get("crypto_amount"), quote
+
+        order = expect(
+            client.post(
+                "/api/v1/payments/orders",
+                headers=csrf_headers(client),
+                json={"quote_id": quote["quote_id"], "idempotency_key": f"e2e-payment-{RUN_ID}"},
+            ),
+            200,
+            "create production payment order",
+        )
+        order_id = order["order_id"]
+        assert order["status"] == "AWAITING_PAYMENT", order
+
+        checkout = expect(client.get(f"/api/v1/payments/orders/{order_id}/checkout"), 200, "production checkout")
+        assert checkout["order"]["order_id"] == order_id, checkout
+        payment_method = checkout["payment_method"]
+        assert payment_method["method_id"] == "usdt_tron", payment_method
+        assert payment_method.get("address"), "production checkout did not return a treasury address"
+        assert checkout["order"].get("expected_amount") == quote.get("crypto_amount"), checkout
+
+        rejected_tx = expect(
+            client.post(
+                f"/api/v1/payments/orders/{order_id}/submit-tx",
+                headers=csrf_headers(client),
+                json={"transaction_hash": "not-a-real-transaction"},
+            ),
+            200,
+            "reject nonexistent production transaction",
+        )
+        assert rejected_tx["status"] == "FAILED", rejected_tx
+        purchases_before_funds = expect(client.get("/api/v1/purchases"), 200, "purchases before real funds")
+        assert not any(row.get("order_id") == order_id for row in purchases_before_funds.get("purchases", [])), purchases_before_funds
+        print(f"production payment quote/order/checkout verified safely: order={order_id} method=usdt_tron")
 
         created = expect(
             client.post(
