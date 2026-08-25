@@ -39,13 +39,17 @@ def test_solana_only_accepts_system_program_native_transfer(monkeypatch):
     s=settings(); method=PaymentMethodRegistry(s).get('sol'); verifier=ProductionBlockchainVerifier(s)
     txid='2'*88
     malicious={
-        'slot':123,'meta':{'err':None},
+        'slot':123,'meta':{'err':None,'innerInstructions':[]},
         'transaction':{'message':{'instructions':[{
             'program':'spl-token',
             'parsed':{'type':'transfer','info':{'destination':method.address,'lamports':20_000_000}}
         }]}}
     }
-    monkeypatch.setattr(verifier,'_rpc',lambda *a,**k:malicious)
+    def rpc(url,name,params):
+        if name=='getTransaction': return malicious
+        if name=='getSignatureStatuses': return {'value':[{'err':None,'confirmationStatus':'finalized'}]}
+        raise AssertionError(name)
+    monkeypatch.setattr(verifier,'_rpc',rpc)
     result=verifier.verify(method,txid,Decimal('0.02'))
     assert result['status']=='WRONG_RECIPIENT'
 
@@ -53,7 +57,7 @@ def test_solana_only_accepts_system_program_native_transfer(monkeypatch):
 def test_production_overpayment_requires_manual_review(monkeypatch):
     s=settings(); method=PaymentMethodRegistry(s).get('usdt_bsc'); verifier=ProductionBlockchainVerifier(s)
     recipient=method.address.lower().removeprefix('0x').rjust(64,'0')
-    receipt={'status':'0x1','blockNumber':'0x64','logs':[{
+    receipt={'transactionHash':'0x'+'a'*64,'status':'0x1','blockNumber':'0x64','logs':[{
         'address':method.token_contract,
         'topics':[TRANSFER_TOPIC,'0x'+'1'.rjust(64,'0'),'0x'+recipient],
         'data':hex(2*10**18),
