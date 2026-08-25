@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, re, sqlite3, uuid
+import json, os, re, sqlite3, uuid
 from contextvars import ContextVar
 from typing import Any
 from fastapi import FastAPI, HTTPException, Header, Request
@@ -67,7 +67,7 @@ async def headers(request:Request,call_next):
     return response
 
 @app.get('/health')
-def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.5.0'}
+def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.5.0','git_commit':os.getenv('RENDER_GIT_COMMIT','')}
 @app.get('/ready')
 def ready():
     db_ok=db.ping(); storage_ok=storage.ping(); payload={'ready':bool(db_ok and storage_ok),'environment':settings.environment,'payments_mode':settings.payments_mode,'antivirus_required':settings.antivirus_required,'database_backend':db.backend,'database_persistent':db.persistent,'storage_backend':settings.storage_backend}

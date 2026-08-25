@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: Wait for Render production deployment and verify backend
+      - name: Wait for exact Render production commit and verify backend
         shell: bash
         run: |
           set -euo pipefail
@@ -75,24 +75,36 @@ jobs:
           for attempt in $(seq 1 36); do
             health_code=$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 "$base/health" || true)
             ready_code=$(curl -sS -o /tmp/ready.json -w '%{http_code}' --max-time 20 "$base/ready" || true)
-            echo "attempt=$attempt health=$health_code ready=$ready_code"
-            if [ "$health_code" = '200' ] && [ "$ready_code" = '200' ]; then
-              python - <<'PY'
+            deployed_commit=''
+            if [ "$health_code" = '200' ]; then
+              deployed_commit=$(python - <<'PY'
           import json
+          try:
+              print(json.load(open('/tmp/health.json')).get('git_commit', ''))
+          except Exception:
+              print('')
+          PY
+              )
+            fi
+            echo "attempt=$attempt health=$health_code ready=$ready_code deployed_commit=${deployed_commit:-unknown} expected_commit=$GITHUB_SHA"
+            if [ "$health_code" = '200' ] && [ "$ready_code" = '200' ] && [ "$deployed_commit" = "$GITHUB_SHA" ]; then
+              python - <<'PY'
+          import json, os
           health=json.load(open('/tmp/health.json'))
           ready=json.load(open('/tmp/ready.json'))
           assert health.get('ok') is True, health
+          assert health.get('git_commit') == os.environ['GITHUB_SHA'], health
           assert ready.get('ready') is True, ready
           assert ready.get('database_backend') == 'postgres', ready
           assert ready.get('database_persistent') is True, ready
           assert ready.get('storage_backend') == 's3', ready
-          print('backend production health/readiness verified')
+          print('exact Render production commit health/readiness verified')
           PY
               exit 0
             fi
             sleep 10
           done
-          echo 'Backend production did not become healthy and ready in time'
+          echo 'Expected Render production commit did not become healthy and ready in time'
           cat /tmp/health.json 2>/dev/null || true
           cat /tmp/ready.json 2>/dev/null || true
           exit 1
