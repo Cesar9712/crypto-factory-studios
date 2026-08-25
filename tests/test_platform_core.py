@@ -66,6 +66,10 @@ def test_upload_publish_and_play_game():
         play = client.get(f"/play/{row['slug']}/")
         assert play.status_code == 200
         assert 'QA Game' in play.text
+        csp = play.headers.get('content-security-policy', '')
+        assert 'sandbox' in csp
+        assert 'allow-same-origin' not in csp
+        assert play.headers.get('cross-origin-resource-policy') == 'cross-origin'
 
 
 def test_unpublish_republish_and_delete_game():
