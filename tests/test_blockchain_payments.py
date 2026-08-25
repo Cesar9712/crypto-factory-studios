@@ -12,8 +12,9 @@ def settings():
         sol_address='EpiJ5GUjXMhcQpZtErxwGq5VZKwvkxV8kSz8PUKtpsr2',
         tron_rpc_url='https://tron.invalid', tron_api_key='',
         bsc_rpc_url='https://bsc.invalid', solana_rpc_url='https://sol.invalid',
-        blockchain_timeout_seconds=1, tron_min_confirmations=20,
-        bsc_min_confirmations=5, solana_commitment='finalized',
+        blockchain_timeout_seconds=1, blockchain_retries=0,
+        tron_min_confirmations=20, bsc_min_confirmations=5,
+        solana_commitment='finalized',
     )
 
 
@@ -30,23 +31,23 @@ def test_bsc_verifier_checks_contract_recipient_amount_and_confirmations(monkeyp
     sender='1'.rjust(64, '0')
     txid='0x'+'a'*64
     receipt={
-        'status':'0x1','blockNumber':'0x64',
-        'logs':[{'address':method.token_contract,'topics':[TRANSFER_TOPIC,'0x'+sender,'0x'+recipient],'data':hex(2*10**18)}]
+        'transactionHash':txid,'status':'0x1','blockNumber':'0x64',
+        'logs':[{'address':method.token_contract,'topics':[TRANSFER_TOPIC,'0x'+sender,'0x'+recipient],'data':hex(1_990_000_000_000_000_000)}]
     }
     def rpc(url, name, params):
         return {'eth_chainId':'0x38','eth_getTransactionReceipt':receipt,'eth_blockNumber':'0x70'}[name]
     monkeypatch.setattr(verifier,'_rpc',rpc)
     result=verifier.verify(method,txid,Decimal('1.99'))
-    assert result['status']=='OVERPAID'
+    assert result['status']=='CONFIRMED'
     assert result['success'] is True
-    assert Decimal(result['received_amount'])==Decimal('2')
+    assert Decimal(result['received_amount'])==Decimal('1.99')
     assert result['confirmations']>=5
 
 
 def test_bsc_wrong_recipient_is_rejected(monkeypatch):
     s=settings(); method=PaymentMethodRegistry(s).get('usdt_bsc'); verifier=ProductionBlockchainVerifier(s)
     wrong='2'.rjust(64,'0'); txid='0x'+'b'*64
-    receipt={'status':'0x1','blockNumber':'0x64','logs':[{'address':method.token_contract,'topics':[TRANSFER_TOPIC,'0x'+'1'.rjust(64,'0'),'0x'+wrong],'data':hex(2*10**18)}]}
+    receipt={'transactionHash':txid,'status':'0x1','blockNumber':'0x64','logs':[{'address':method.token_contract,'topics':[TRANSFER_TOPIC,'0x'+'1'.rjust(64,'0'),'0x'+wrong],'data':hex(2*10**18)}]}
     monkeypatch.setattr(verifier,'_rpc',lambda url,name,params:{'eth_chainId':'0x38','eth_getTransactionReceipt':receipt,'eth_blockNumber':'0x70'}[name])
     assert verifier.verify(method,txid,Decimal('1.99'))['status']=='WRONG_RECIPIENT'
 
@@ -58,7 +59,7 @@ def test_tron_verifier_checks_transfer_log(monkeypatch):
     recipient_payload=_tron_payload_hex(method.address)
     recipient_topic=recipient_payload[2:].rjust(64,'0')
     transfer_topic=TRANSFER_TOPIC.removeprefix('0x')
-    info={'id':txid,'blockNumber':100,'receipt':{'result':'SUCCESS'},'log':[{'address':contract,'topics':[transfer_topic,'0'*64,recipient_topic],'data':hex(1_990_000)[2:]}]}
+    info={'id':txid,'blockNumber':100,'receipt':{'result':'SUCCESS'},'log':[{'address':contract[-40:],'topics':[transfer_topic,'0'*64,recipient_topic],'data':hex(1_990_000)[2:]}]}
     def post(url,payload,headers=None):
         if url.endswith('gettransactionbyid'): return {'txID':txid}
         if url.endswith('gettransactioninfobyid'): return info
@@ -73,13 +74,17 @@ def test_tron_verifier_checks_transfer_log(monkeypatch):
 def test_solana_verifier_requires_exact_treasury_transfer(monkeypatch):
     s=settings(); method=PaymentMethodRegistry(s).get('sol'); verifier=ProductionBlockchainVerifier(s)
     txid='2'*88
-    result={
-        'slot':123,'meta':{'err':None},
-        'transaction':{'message':{'instructions':[{'parsed':{'type':'transfer','info':{'destination':method.address,'lamports':20_000_000}}}]}}
+    transaction={
+        'slot':123,'meta':{'err':None,'innerInstructions':[]},
+        'transaction':{'message':{'instructions':[{'program':'system','parsed':{'type':'transfer','info':{'destination':method.address,'lamports':19_000_000}}}]}}
     }
-    monkeypatch.setattr(verifier,'_rpc',lambda url,name,params:result)
+    def rpc(url,name,params):
+        if name=='getTransaction': return transaction
+        if name=='getSignatureStatuses': return {'value':[{'err':None,'confirmationStatus':'finalized'}]}
+        raise AssertionError(name)
+    monkeypatch.setattr(verifier,'_rpc',rpc)
     verified=verifier.verify(method,txid,Decimal('0.019'))
-    assert verified['status']=='OVERPAID'
+    assert verified['status']=='CONFIRMED'
     assert verified['success'] is True
 
 
