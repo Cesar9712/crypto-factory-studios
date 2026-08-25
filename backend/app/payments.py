@@ -106,5 +106,11 @@ class MockBlockchainVerifier:
         return {**base,'status':'CONFIRMED','received_amount':str(expected_amount)}
     def status(self): return {'usdt_tron':True,'usdt_bsc':True,'sol':True}
 
+def canonical_txid(method: PaymentMethod, txid: str) -> str:
+    tx=txid.strip()
+    if method.method_id in {'usdt_tron','usdt_bsc'}:
+        return tx.lower()
+    return tx
+
 def payment_fingerprint(network: str, txid: str) -> str:
-    return hashlib.sha256(f'{network.lower()}:{txid.strip().lower()}'.encode()).hexdigest()
+    return hashlib.sha256(f'{network.lower()}:{txid.strip()}'.encode()).hexdigest()
