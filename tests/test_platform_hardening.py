@@ -27,6 +27,22 @@ def tiny_zip():
     return buf.getvalue()
 
 
+def test_login_accepts_correct_password_and_rejects_wrong_password():
+    with TestClient(app) as client:
+        suffix=uuid.uuid4().hex[:10]
+        email=f'login-{suffix}@example.com'
+        registered=client.post('/api/v1/auth/register',json={'email':email,'password':PASSWORD,'display_name':'Login QA'})
+        assert registered.status_code==200
+        csrf=client.cookies.get('cfs_csrf')
+        assert client.post('/api/v1/auth/logout',headers={'X-CSRF-Token':csrf}).status_code==200
+        bad=client.post('/api/v1/auth/login',json={'email':email,'password':'NotTheRightPassword!'})
+        assert bad.status_code==401
+        good=client.post('/api/v1/auth/login',json={'email':email,'password':PASSWORD})
+        assert good.status_code==200
+        assert good.json()['user']['email']==email
+        assert client.get('/api/v1/me').status_code==200
+
+
 def test_report_moderation_requires_admin_and_updates_status():
     with TestClient(app) as reporter:
         user, headers=register(reporter,'reporter')
