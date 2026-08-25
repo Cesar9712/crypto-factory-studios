@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_DOWN
 from typing import Any
 import hashlib
 import re
+import secrets
 import httpx
 
 _B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -80,14 +81,31 @@ class PriceService:
             return rate
         except Exception as exc:
             raise RuntimeError('SOL price provider unavailable') from exc
+    @staticmethod
+    def _production_marker(decimals: int) -> Decimal:
+        # Static treasury addresses cannot cryptographically identify which order
+        # owns a transfer. A tiny server-generated amount marker makes each active
+        # checkout substantially harder to race/claim using another customer's TX.
+        # The marker is always below one cent for stablecoins and below 10k lamports
+        # for SOL, while remaining exactly representable in smallest units.
+        marker_units=secrets.randbelow(9_999)+1
+        return Decimal(marker_units)/(Decimal(10)**decimals)
     def quote_amount(self, usd_price: Decimal, method: PaymentMethod) -> tuple[Decimal, Decimal, str]:
         if method.method_id in {'usdt_tron','usdt_bsc'}:
-            return usd_price.quantize(Decimal('0.000001'), rounding=ROUND_DOWN), Decimal('1'), 'stable_reference'
+            base=usd_price.quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+            if self.settings.payments_mode == 'PRODUCTION':
+                # Use six visible decimal places for both stablecoin routes even
+                # though the BSC token itself supports 18 decimals.
+                amount=(base+self._production_marker(6)).quantize(Decimal('0.000001'))
+                return amount, Decimal('1'), 'stable_reference_unique_amount'
+            return base, Decimal('1'), 'stable_reference'
         if self.settings.payments_mode == 'PRODUCTION':
-            sol_usd=self._live_sol_usd(); source='coingecko_live'
+            sol_usd=self._live_sol_usd(); source='coingecko_live_unique_amount'
         else:
             sol_usd=Decimal(str(self.settings.mock_sol_usd_rate)); source='mock_fixed_rate'
         amount=(usd_price/sol_usd).quantize(Decimal('0.000000001'), rounding=ROUND_DOWN)
+        if self.settings.payments_mode == 'PRODUCTION':
+            amount=(amount+self._production_marker(9)).quantize(Decimal('0.000000001'))
         return amount, sol_usd, source
 
 class MockBlockchainVerifier:

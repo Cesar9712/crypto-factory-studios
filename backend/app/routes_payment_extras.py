@@ -8,8 +8,38 @@ from fastapi import Header
 from fastapi.responses import Response
 from qrcode.image.svg import SvgPathImage
 
+from .blockchain import ProductionBlockchainVerifier
+
 
 def register_payment_extra_routes(app, *, db, settings, payment_methods, session_user: Callable, fail: Callable):
+    @app.get('/api/v1/payments/status')
+    def payment_status():
+        if settings.payments_mode == 'PRODUCTION':
+            provider_status = ProductionBlockchainVerifier(settings).status()
+        else:
+            provider_status = {m.method_id: True for m in payment_methods.values() if m.enabled}
+        methods=[]
+        for method in payment_methods.values():
+            if not method.enabled:
+                continue
+            ready=bool(provider_status.get(method.method_id, False))
+            methods.append({
+                'method_id': method.method_id,
+                'asset': method.asset,
+                'network': method.network,
+                'standard': method.standard,
+                'production_allowed': method.production_allowed,
+                'provider_ready': ready,
+            })
+        production_enabled=(settings.payments_mode == 'PRODUCTION' and settings.production_payments_enabled)
+        payments_ready=(all(x['provider_ready'] for x in methods if x['production_allowed']) if production_enabled else True)
+        return {
+            'mode': settings.payments_mode,
+            'production_enabled': production_enabled,
+            'payments_ready': payments_ready,
+            'methods': methods,
+        }
+
     @app.get('/api/v1/payments/orders/{order_id}/qr.svg')
     def payment_qr(order_id: str, authorization: str | None = Header(default=None)):
         user, _ = session_user(authorization)
