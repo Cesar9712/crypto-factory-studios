@@ -36,6 +36,25 @@ def test_billing_has_responsive_asset_and_csp_safe_plan_binding():
     assert 'onclick=' not in html.lower()
 
 
+def test_billing_exposes_all_three_supported_payment_networks():
+    js = read('billing.js')
+    for method_id in ('usdt_tron', 'usdt_bsc', 'sol'):
+        assert method_id in js
+    assert 'BNB SMART CHAIN' in js
+    assert 'TRC-20' in js
+    assert 'SOLANA' in js
+    assert 'clearCheckout()' in js
+
+
+def test_billing_layout_has_anti_overlap_guards():
+    css = read('responsive.css')
+    assert 'minmax(380px,.85fr)' in css
+    assert '@media(max-width:1180px)' in css
+    assert '.billing-page .order-summary{grid-template-columns:1fr}' in css
+    assert 'word-break:break-all' in css
+    assert '.qr-fallback.show' in css
+
+
 def test_core_pages_are_mobile_viewport_ready():
     for name in ('index.html', 'billing.html', 'creator.html', 'profile.html'):
         html = read(name)
@@ -45,7 +64,7 @@ def test_core_pages_are_mobile_viewport_ready():
 
 def test_responsive_layer_covers_phone_and_desktop_breakpoints():
     css = read('responsive.css')
-    for breakpoint in ('390px', '620px', '900px', '1024px', '1200px'):
+    for breakpoint in ('390px', '620px', '900px', '1024px', '1180px', '1200px'):
         assert breakpoint in css
     assert 'overflow-x:hidden' in css
     assert '.payment-terminal' in css
