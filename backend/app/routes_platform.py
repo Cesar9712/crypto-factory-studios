@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import json
-import mimetypes
 import uuid
-from pathlib import Path
 from typing import Any, Callable
 
 from fastapi import File, Form, Header, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 
@@ -24,7 +22,7 @@ class ReportIn(BaseModel):
     details: str = Field(min_length=4, max_length=2000)
 
 
-def register_platform_routes(app, *, db, settings, scanner, session_user: Callable, creator_profile: Callable,
+def register_platform_routes(app, *, db, settings, scanner, storage, session_user: Callable, creator_profile: Callable,
                              effective_plan: Callable, audit: Callable, fail: Callable, now: Callable,
                              sha256_bytes: Callable):
     def current_user(authorization: str | None):
@@ -86,15 +84,16 @@ def register_platform_routes(app, *, db, settings, scanner, session_user: Callab
             fail('unsafe_archive', str(exc), 400)
         scan = scanner.scan(data)
         bid = 'build_' + uuid.uuid4().hex
-        archive_path = settings.quarantine_dir / f'{bid}.zip'
-        archive_path.parent.mkdir(parents=True, exist_ok=True)
-        archive_path.write_bytes(data)
+        try:
+            archive_ref = storage.store_archive(bid, data)
+        except Exception:
+            fail('storage_unavailable', 'Persistent storage is unavailable', 503)
         status = 'READY_FOR_REVIEW' if scan.status == 'CLEAN' else 'QUARANTINED'
         t = now()
         db.execute('''INSERT INTO game_builds(build_id,game_id,creator_id,version,status,archive_path,manifest_json,
                     compressed_bytes,uncompressed_bytes,file_count,sha256,scan_status,created_at,published_at)
                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0)''',
-                   (bid, game_id, user['id'], version[:40], status, str(archive_path), json.dumps(manifest, separators=(',', ':')),
+                   (bid, game_id, user['id'], version[:40], status, archive_ref, json.dumps(manifest, separators=(',', ':')),
                     len(data), manifest['uncompressed_bytes'], manifest['file_count'], sha256_bytes(data), scan.status, t))
         db.execute('INSERT INTO security_scans(scan_id,build_id,engine,status,details,created_at) VALUES(?,?,?,?,?,?)',
                    ('scan_' + uuid.uuid4().hex, bid, scan.engine, scan.status, scan.details[:2000], t))
@@ -117,12 +116,13 @@ def register_platform_routes(app, *, db, settings, scanner, session_user: Callab
             fail('build_not_found', 'Build not found', 404)
         if build['scan_status'] != 'CLEAN':
             fail('build_not_clean', 'Only clean builds can be published', 409)
-        data = Path(build['archive_path']).read_bytes()
-        destination = settings.published_dir / build['game_id'] / build_id
-        if destination.exists():
-            import shutil
-            shutil.rmtree(destination)
-        scanner.safe_extract(data, destination)
+        try:
+            data = storage.read_archive(build['archive_path'])
+            storage.publish_zip(build['game_id'], build_id, data, scanner)
+        except ValueError:
+            fail('unsafe_archive', 'Published archive failed path validation', 400)
+        except Exception:
+            fail('storage_unavailable', 'Persistent storage is unavailable', 503)
         t = now()
         db.execute("UPDATE game_builds SET status='PUBLISHED',published_at=? WHERE build_id=?", (t, build_id))
         db.execute("UPDATE games SET status='PUBLISHED',published_build_id=?,updated_at=? WHERE game_id=? AND creator_id=?",
@@ -136,16 +136,16 @@ def register_platform_routes(app, *, db, settings, scanner, session_user: Callab
         game = db.one("SELECT game_id,published_build_id FROM games WHERE slug=? AND status='PUBLISHED' AND visibility='PUBLIC'", (slug,))
         if not game or not game['published_build_id']:
             fail('game_not_found', 'Published game not found', 404)
-        root = (settings.published_dir / game['game_id'] / game['published_build_id']).resolve()
-        requested = (root / (asset_path or 'index.html')).resolve()
-        if root not in requested.parents and requested != root:
+        try:
+            asset = storage.get_published(game['game_id'], game['published_build_id'], asset_path or 'index.html')
+        except ValueError:
             fail('invalid_path', 'Invalid asset path', 400)
-        if requested.is_dir():
-            requested = requested / 'index.html'
-        if not requested.is_file():
+        except Exception:
+            fail('storage_unavailable', 'Persistent storage is unavailable', 503)
+        if not asset:
             fail('asset_not_found', 'Asset not found', 404)
-        media_type = mimetypes.guess_type(str(requested))[0] or 'application/octet-stream'
-        return FileResponse(requested, media_type=media_type, headers={'Cache-Control': 'public, max-age=300'})
+        data, media_type = asset
+        return Response(content=data, media_type=media_type, headers={'Cache-Control': 'public, max-age=300'})
 
     @app.get('/api/v1/games/{game_id}/save')
     def get_save(game_id: str, authorization: str | None = Header(default=None)):
@@ -195,7 +195,7 @@ def register_platform_routes(app, *, db, settings, scanner, session_user: Callab
     @app.get('/api/v1/admin/moderation')
     def admin_moderation(authorization: str | None = Header(default=None)):
         admin_user(authorization)
-        return {'reports': db.all('SELECT * FROM reports WHERE status=\'OPEN\' ORDER BY created_at DESC LIMIT 100')}
+        return {'reports': db.all("SELECT * FROM reports WHERE status='OPEN' ORDER BY created_at DESC LIMIT 100")}
 
     @app.get('/api/v1/admin/payments')
     def admin_payments(authorization: str | None = Header(default=None)):
