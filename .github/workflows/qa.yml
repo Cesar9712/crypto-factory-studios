@@ -22,6 +22,10 @@ jobs:
         run: pytest -q
       - name: Validate production E2E script
         run: python -m py_compile scripts/production_e2e.py
+      - name: Validate canonical SEO host
+        env:
+          SITE_URL: https://crypto-factory-studios.cesargp9712.workers.dev
+        run: python scripts/seo_validate.py
       - name: Validate frontend JavaScript
         run: |
           node --check frontend/app.js
