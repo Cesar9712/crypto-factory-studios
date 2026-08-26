@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-SITE_URL = os.getenv("SITE_URL", "https://crypto-factory-studios.cesargp9712.workers.dev").rstrip("/")
+SITE_URL = os.getenv("SITE_URL", "https://crypto-factory-studios.cryptofactorystudios.workers.dev").rstrip("/")
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 SEO_PAGES = {
     "index.html": "/",
@@ -18,7 +18,7 @@ SEO_PAGES = {
     "creator-platform.html": "/creator-platform.html",
 }
 FORBIDDEN_SEO_HOSTS = {
-    "https://crypto-factory-studios.cryptofactorystudios.workers.dev",
+    "https://crypto-factory-studios.cesargp9712.workers.dev",
     "https://crypto-factory-studios.onrender.com",
 }
 
