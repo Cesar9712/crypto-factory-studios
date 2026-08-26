@@ -1,26 +1,12 @@
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-SITE_URL = os.getenv("SITE_URL", "https://crypto-factory-studios.cryptofactorystudios.workers.dev").rstrip("/")
+from seo_config import FORBIDDEN_SEO_HOSTS, SEO_PAGES, SITE_URL
+
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-SEO_PAGES = {
-    "index.html": "/",
-    "publish-web-game.html": "/publish-web-game.html",
-    "publish-html5-game.html": "/publish-html5-game.html",
-    "godot-web-hosting.html": "/godot-web-hosting.html",
-    "how-to-publish-godot-game-web.html": "/how-to-publish-godot-game-web.html",
-    "indie-game-hosting.html": "/indie-game-hosting.html",
-    "browser-games.html": "/browser-games.html",
-    "creator-platform.html": "/creator-platform.html",
-}
-FORBIDDEN_SEO_HOSTS = {
-    "https://crypto-factory-studios.cesargp9712.workers.dev",
-    "https://crypto-factory-studios.onrender.com",
-}
 
 
 def _attr(html: str, tag_pattern: str, attr: str) -> str | None:
