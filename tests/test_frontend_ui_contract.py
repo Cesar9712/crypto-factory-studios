@@ -55,6 +55,20 @@ def test_billing_layout_has_anti_overlap_guards():
     assert 'word-break:break-all' in css
 
 
+def test_creator_studio_surfaces_one_click_publish_and_share_contract():
+    js = read('creator.js')
+    assert 'Godot detected ✓' in js
+    assert 'Build root prepared ✓' in js
+    assert 'Ready to publish ✓' in js
+    assert '>PLAY<' in js
+    assert 'COPY LINK' in js
+    assert 'SHARE' in js
+    assert 'navigator.share' in js
+    assert "document.execCommand('copy')" in js
+    assert '/billing.html?source=creator-studio' in js
+    assert 'Unlock Creator Pro' in js
+
+
 def test_core_pages_are_mobile_viewport_ready():
     for name in ('index.html', 'billing.html', 'creator.html', 'profile.html'):
         html = read(name)
