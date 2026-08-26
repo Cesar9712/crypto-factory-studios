@@ -150,15 +150,34 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
         db.execute('INSERT INTO security_scans(scan_id,build_id,engine,status,details,created_at) VALUES(?,?,?,?,?,?)',
                    ('scan_' + uuid.uuid4().hex, bid, scan.engine, scan.status, scan.details[:2000], t))
         audit(user['id'], 'build_uploaded', 'build', bid, {'scan_status': scan.status})
-        return {'build_id': bid, 'scan_status': scan.status, 'status': status, 'version': version}
+        return {
+            'build_id': bid,
+            'scan_status': scan.status,
+            'status': status,
+            'version': version,
+            'godot_detected': bool(manifest.get('godot_detected')),
+            'normalized': bool(manifest.get('normalized')),
+            'ready_to_publish': scan.status == 'CLEAN' and status == 'READY_FOR_REVIEW',
+        }
 
     @app.get('/api/v1/creator/games/{game_id}/builds')
     def list_builds(game_id: str, authorization: str | None = Header(default=None)):
         user = current_user(authorization)
         creator_game(user['id'], game_id)
-        rows = db.all('''SELECT build_id,version,status,compressed_bytes,uncompressed_bytes,file_count,sha256,scan_status,created_at,published_at
+        rows = db.all('''SELECT build_id,version,status,compressed_bytes,uncompressed_bytes,file_count,sha256,scan_status,created_at,published_at,manifest_json
                          FROM game_builds WHERE game_id=? AND creator_id=? ORDER BY created_at DESC''', (game_id, user['id']))
-        return {'builds': rows}
+        builds = []
+        for row in rows:
+            item = dict(row)
+            try:
+                manifest = json.loads(item.pop('manifest_json') or '{}')
+            except (TypeError, ValueError):
+                manifest = {}
+            item['godot_detected'] = bool(manifest.get('godot_detected'))
+            item['normalized'] = bool(manifest.get('normalized'))
+            item['ready_to_publish'] = item['scan_status'] == 'CLEAN' and item['status'] == 'READY_FOR_REVIEW'
+            builds.append(item)
+        return {'builds': builds}
 
     @app.post('/api/v1/creator/builds/{build_id}/publish')
     def publish_build(build_id: str, authorization: str | None = Header(default=None)):
@@ -258,45 +277,21 @@ def register_platform_routes(app, *, db, settings, scanner, storage, session_use
             fail('creator_not_found', 'Creator not found', 404)
         rid = 'report_' + uuid.uuid4().hex
         db.execute('INSERT INTO reports(report_id,reporter_id,game_id,creator_id,category,details,status,created_at) VALUES(?,?,?,?,?,?,?,?)',
-                   (rid, user['id'], body.game_id, body.creator_id, body.category.strip(), body.details.strip(), 'OPEN', now()))
-        audit(user['id'], 'report_created', 'report', rid)
-        return {'report_id': rid, 'status': 'OPEN'}
+                   (rid, user['id'], body.game_id, body.creator_id, body.category, body.details, 'OPEN', now()))
+        return {'ok': True, 'report_id': rid}
 
-    @app.get('/api/v1/admin/overview')
-    def admin_overview(authorization: str | None = Header(default=None)):
+    @app.get('/api/v1/admin/reports')
+    def admin_reports(authorization: str | None = Header(default=None)):
         admin_user(authorization)
-        return {
-            'users': db.one('SELECT COUNT(*) AS n FROM users')['n'],
-            'creators': db.one('SELECT COUNT(*) AS n FROM creator_profiles')['n'],
-            'games': db.one('SELECT COUNT(*) AS n FROM games')['n'],
-            'published': db.one("SELECT COUNT(*) AS n FROM games WHERE status='PUBLISHED'")['n'],
-            'open_reports': db.one("SELECT COUNT(*) AS n FROM reports WHERE status='OPEN'")['n'],
-            'orders': db.one('SELECT COUNT(*) AS n FROM orders')['n'],
-        }
+        return {'reports': db.all('SELECT * FROM reports ORDER BY created_at DESC')}
 
-    @app.get('/api/v1/admin/moderation')
-    def admin_moderation(authorization: str | None = Header(default=None)):
+    @app.put('/api/v1/admin/reports/{report_id}')
+    def admin_report_status(report_id: str, body: ModerationStatusIn, authorization: str | None = Header(default=None)):
         admin_user(authorization)
-        return {'reports': db.all("SELECT * FROM reports WHERE status='OPEN' ORDER BY created_at DESC LIMIT 100")}
-
-    @app.post('/api/v1/admin/reports/{report_id}/status')
-    def moderate_report(report_id: str, body: ModerationStatusIn, authorization: str | None = Header(default=None)):
-        admin = admin_user(authorization)
-        status = body.status.upper().strip()
-        if status not in {'OPEN', 'RESOLVED', 'DISMISSED'}:
-            fail('invalid_status', 'Invalid moderation status', 400)
-        report = db.one('SELECT report_id FROM reports WHERE report_id=?', (report_id,))
-        if not report:
+        status = body.status.upper()
+        if status not in {'OPEN', 'REVIEWING', 'RESOLVED', 'DISMISSED'}:
+            fail('invalid_status', 'Invalid report status', 400)
+        if not db.one('SELECT report_id FROM reports WHERE report_id=?', (report_id,)):
             fail('report_not_found', 'Report not found', 404)
         db.execute('UPDATE reports SET status=? WHERE report_id=?', (status, report_id))
-        audit(admin['id'], 'report_moderated', 'report', report_id, {'status': status})
         return {'ok': True, 'report_id': report_id, 'status': status}
-
-    @app.get('/api/v1/admin/payments')
-    def admin_payments(authorization: str | None = Header(default=None)):
-        admin_user(authorization)
-        orders = db.all('''SELECT o.order_id,o.expected_amount,o.asset,o.network,o.status,o.transaction_hash,o.created_at,
-                           u.display_name,p.label AS product_label
-                           FROM orders o JOIN users u ON u.id=o.user_id JOIN products p ON p.product_id=o.product_id
-                           ORDER BY o.created_at DESC LIMIT 200''')
-        return {'orders': orders}
