@@ -44,6 +44,11 @@ def test_valid_html_zip():
     assert s().scan(make({'index.html':b'ok'})).engine=='built-in-static'
 
 
+def test_index_must_be_at_build_root():
+    with pytest.raises(ValueError,match='missing_root_index_html'):
+        s().validate_zip(make({'export/index.html':b'ok','export/game.wasm':b'wasm'}))
+
+
 def test_encrypted_or_traversal_guard():
     with pytest.raises(ValueError,match='path_traversal'):
         s().validate_zip(make({'../../x.html':b'x','index.html':b'ok'}))
