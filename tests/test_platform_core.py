@@ -18,6 +18,17 @@ def make_zip():
     return buf.getvalue()
 
 
+def make_godot_zip(nested=False):
+    buf = io.BytesIO()
+    prefix = 'godot-export/' if nested else ''
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr(prefix + 'index.html', '<!doctype html><title>Godot QA</title>')
+        z.writestr(prefix + 'game.js', 'const GODOT_CONFIG = {};')
+        z.writestr(prefix + 'game.wasm', b'wasm-qa')
+        z.writestr(prefix + 'game.pck', b'pck-qa')
+    return buf.getvalue()
+
+
 def auth_creator(client: TestClient):
     suffix = uuid.uuid4().hex[:10]
     r = client.post('/api/v1/auth/register', json={
@@ -70,6 +81,42 @@ def test_upload_publish_and_play_game():
         assert 'sandbox' in csp
         assert 'allow-same-origin' not in csp
         assert play.headers.get('cross-origin-resource-policy') == 'cross-origin'
+
+
+def test_creator_build_api_exposes_godot_and_publish_readiness():
+    with TestClient(app) as client:
+        headers = auth_creator(client)
+        r = client.post('/api/v1/creator/games', headers=headers, json={
+            'title': 'Godot One Click QA', 'description': 'QA', 'genre': 'RPG'
+        })
+        assert r.status_code == 200
+        game = r.json()['game']
+        uploaded = client.post(
+            f"/api/v1/creator/games/{game['game_id']}/builds",
+            headers=headers,
+            data={'version': '4.7-web'},
+            files={'archive': ('godot.zip', make_godot_zip(nested=True), 'application/zip')},
+        )
+        assert uploaded.status_code == 200
+        body = uploaded.json()
+        assert body['scan_status'] == 'CLEAN'
+        assert body['godot_detected'] is True
+        assert body['normalized'] is True
+        assert body['ready_to_publish'] is True
+
+        builds = client.get(f"/api/v1/creator/games/{game['game_id']}/builds", headers=headers)
+        assert builds.status_code == 200
+        listed = builds.json()['builds'][0]
+        assert listed['godot_detected'] is True
+        assert listed['normalized'] is True
+        assert listed['ready_to_publish'] is True
+
+        published = client.post(f"/api/v1/creator/builds/{body['build_id']}/publish", headers=headers)
+        assert published.status_code == 200
+        listed = client.get(f"/api/v1/creator/games/{game['game_id']}/builds", headers=headers).json()['builds'][0]
+        assert listed['status'] == 'PUBLISHED'
+        assert listed['ready_to_publish'] is False
+        assert client.get(f"/play/{game['slug']}/").status_code == 200
 
 
 def test_unpublish_republish_and_delete_game():
