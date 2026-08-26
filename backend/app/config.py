@@ -4,9 +4,16 @@ from pathlib import Path
 import os
 
 def _origins() -> tuple[str, ...]:
+    defaults=(
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+        'https://crypto-factory-studios.cesargp9712.workers.dev',
+        'https://crypto-factory-studios.cryptofactorystudios.workers.dev',
+    )
     raw=os.getenv('CFS_ALLOWED_ORIGINS','').strip()
-    if raw: return tuple(x.strip().rstrip('/') for x in raw.split(',') if x.strip())
-    return ('http://localhost:8000','http://127.0.0.1:8000','https://crypto-factory-studios.cesargp9712.workers.dev')
+    if not raw: return defaults
+    configured=tuple(x.strip().rstrip('/') for x in raw.split(',') if x.strip())
+    return tuple(dict.fromkeys((*configured,*defaults)))
 
 def _csv_env(name: str) -> tuple[str, ...]:
     raw=os.getenv(name,'').strip()
