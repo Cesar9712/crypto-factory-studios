@@ -49,7 +49,7 @@ class UploadSecurityService:
         total=0
         count=0
         entries=[]
-        has_root_index=False
+        file_paths=[]
         seen:set[str]=set()
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             for info in z.infolist():
@@ -76,15 +76,26 @@ class UploadSecurityService:
                 ext=Path(str(p)).suffix.lower()
                 if ext not in ALLOWED_EXTENSIONS:
                     raise ValueError(f'file_type_not_allowed:{ext or "none"}')
-                # The play endpoint serves /play/<slug>/ as the build root. Requiring
-                # index.html at that exact root prevents a build from validating and
-                # publishing successfully only to fail with asset_not_found at launch.
-                if len(p.parts)==1 and p.name.lower()=='index.html':
-                    has_root_index=True
+                file_paths.append(p)
                 entries.append({'path':str(p),'size':info.file_size,'compressed':info.compress_size})
-        if not has_root_index:
-            raise ValueError('missing_root_index_html')
-        return {'file_count':count,'uncompressed_bytes':total,'entries':entries}
+        indexes=[p for p in file_paths if p.name.lower()=='index.html']
+        root_index=next((p for p in indexes if len(p.parts)==1),None)
+        strip_prefix=None
+        if root_index is None:
+            if not indexes:
+                raise ValueError('missing_index_html')
+            if len(indexes)>1:
+                raise ValueError('ambiguous_index_html')
+            candidate=indexes[0]
+            if len(candidate.parts)!=2:
+                raise ValueError('missing_root_index_html')
+            prefix=candidate.parts[0]
+            if not all(len(p.parts)>=2 and p.parts[0].casefold()==prefix.casefold() for p in file_paths):
+                raise ValueError('ambiguous_build_root')
+            strip_prefix=prefix
+        godot_exts={Path(str(p)).suffix.lower() for p in file_paths}
+        godot_detected='.wasm' in godot_exts and ('.pck' in godot_exts or '.js' in godot_exts or '.mjs' in godot_exts)
+        return {'file_count':count,'uncompressed_bytes':total,'entries':entries,'strip_prefix':strip_prefix,'normalized':bool(strip_prefix),'godot_detected':godot_detected}
 
     def scan(self,data:bytes)->ScanResult:
         if EICAR_FRAGMENT in data:
@@ -111,6 +122,8 @@ class UploadSecurityService:
         return ScanResult('CLEAN','built-in-static','Archive allowlist, limits, path checks and built-in signature scan passed')
 
     def safe_extract(self,data:bytes,destination:Path)->None:
+        manifest=self.validate_zip(data)
+        prefix=manifest.get('strip_prefix')
         destination.mkdir(parents=True,exist_ok=True)
         root=destination.resolve()
         with zipfile.ZipFile(io.BytesIO(data)) as z:
@@ -118,6 +131,12 @@ class UploadSecurityService:
                 p=self._normalized_path(info.filename)
                 if self._is_symlink(info):
                     raise ValueError('symlink_not_allowed')
+                if prefix:
+                    if not p.parts or p.parts[0].casefold()!=prefix.casefold():
+                        raise ValueError('ambiguous_build_root')
+                    if len(p.parts)==1:
+                        continue
+                    p=PurePosixPath(*p.parts[1:])
                 target=(destination/str(p)).resolve()
                 if root not in target.parents and target!=root:
                     raise ValueError('path_traversal')
