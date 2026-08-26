@@ -2,25 +2,10 @@ from __future__ import annotations
 
 import re
 import time
-import urllib.error
 import urllib.request
 from xml.etree import ElementTree as ET
 
-SITE_URL = "https://crypto-factory-studios.cryptofactorystudios.workers.dev"
-SEO_PAGES = {
-    "/": "/",
-    "/publish-web-game.html": "/publish-web-game.html",
-    "/publish-html5-game.html": "/publish-html5-game.html",
-    "/godot-web-hosting.html": "/godot-web-hosting.html",
-    "/how-to-publish-godot-game-web.html": "/how-to-publish-godot-game-web.html",
-    "/indie-game-hosting.html": "/indie-game-hosting.html",
-    "/browser-games.html": "/browser-games.html",
-    "/creator-platform.html": "/creator-platform.html",
-}
-FORBIDDEN = (
-    "crypto-factory-studios.cesargp9712.workers.dev",
-    "crypto-factory-studios.onrender.com",
-)
+from seo_config import FORBIDDEN_SEO_HOSTS, SEO_PAGES, SITE_URL
 
 
 def fetch(path: str) -> tuple[int, str, str]:
@@ -63,7 +48,7 @@ def wait_for_frontend() -> None:
 
 
 def validate_pages() -> None:
-    for path in SEO_PAGES:
+    for path in SEO_PAGES.values():
         status, content_type, html = fetch(path)
         expected = expected_url(path)
         assert status == 200, (path, status)
@@ -72,28 +57,28 @@ def validate_pages() -> None:
         og_url = extract(html, r"<meta\b[^>]*property=[\"']og:url[\"'][^>]*>", "content")
         assert canonical == expected, (path, canonical, expected)
         assert og_url == expected, (path, og_url, expected)
-        assert not any(host in html for host in FORBIDDEN), f"{path}: obsolete SEO host found"
+        assert not any(host in html for host in FORBIDDEN_SEO_HOSTS), f"{path}: obsolete SEO host found"
         print(f"page ok: {expected}")
 
 
 def validate_robots() -> None:
-    status, content_type, robots = fetch("/robots.txt")
+    status, _, robots = fetch("/robots.txt")
     assert status == 200, status
     assert "Sitemap: " + SITE_URL + "/sitemap.xml" in robots, robots
-    assert not any(host in robots for host in FORBIDDEN), "robots contains obsolete SEO host"
+    assert not any(host in robots for host in FORBIDDEN_SEO_HOSTS), "robots contains obsolete SEO host"
     print("robots.txt ok")
 
 
 def validate_sitemap() -> None:
-    status, content_type, xml = fetch("/sitemap.xml")
+    status, _, xml = fetch("/sitemap.xml")
     assert status == 200, status
     root = ET.fromstring(xml)
     ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     locs = [node.text.strip() for node in root.findall("sm:url/sm:loc", ns) if node.text]
-    expected = {expected_url(path) for path in SEO_PAGES}
+    expected = {expected_url(path) for path in SEO_PAGES.values()}
     assert set(locs) == expected, (set(locs), expected)
     assert len(locs) == len(set(locs)), "duplicate sitemap URLs"
-    assert not any(host in xml for host in FORBIDDEN), "sitemap contains obsolete SEO host"
+    assert not any(host in xml for host in FORBIDDEN_SEO_HOSTS), "sitemap contains obsolete SEO host"
     print("sitemap.xml ok")
 
 
