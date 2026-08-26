@@ -1,7 +1,7 @@
 const API='/api/v1';
 const gamesById=new Map();
 function csrf(){return document.cookie.split('; ').find(x=>x.startsWith('cfs_csrf='))?.split('=')[1]||''}
-function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]))}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
 async function api(path,opt={}){opt.credentials='same-origin';opt.headers={...(opt.headers||{})};if((opt.method||'GET').toUpperCase()!=='GET')opt.headers['X-CSRF-Token']=csrf();const r=await fetch(API+path,opt);let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.detail?.message||`HTTP ${r.status}`);return d}
 async function init(){try{const me=await api('/me');document.getElementById('welcome').textContent='Hola, '+me.user.display_name;if(!me.creator){document.getElementById('creatorState').textContent='Tu cuenta todavía es Player.';document.getElementById('activate').classList.remove('hidden')}else{document.getElementById('createPanel').classList.remove('hidden');await loadOverview();await loadGames()}}catch(e){document.getElementById('creatorState').innerHTML='Necesitas iniciar sesión desde el <a href="/">portal</a>.'}}
