@@ -24,7 +24,7 @@ jobs:
         run: python -m py_compile scripts/production_e2e.py
       - name: Validate canonical SEO host
         env:
-          SITE_URL: https://crypto-factory-studios.cesargp9712.workers.dev
+          SITE_URL: https://crypto-factory-studios.cryptofactorystudios.workers.dev
         run: python scripts/seo_validate.py
       - name: Validate frontend JavaScript
         run: |
@@ -160,7 +160,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          edge='https://crypto-factory-studios.cesargp9712.workers.dev'
+          edge='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
           curl --fail --silent --show-error --max-time 30 "$edge/health" -o /tmp/edge-health.json
           curl --fail --silent --show-error --max-time 30 "$edge/ready" -o /tmp/edge-ready.json
           python - <<'PY'
@@ -177,5 +177,5 @@ jobs:
 
       - name: Run disposable production end-to-end verification
         env:
-          CFS_E2E_BASE_URL: https://crypto-factory-studios.cesargp9712.workers.dev
+          CFS_E2E_BASE_URL: https://crypto-factory-studios.cryptofactorystudios.workers.dev
         run: python scripts/production_e2e.py
