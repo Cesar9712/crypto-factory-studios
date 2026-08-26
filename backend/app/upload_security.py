@@ -49,7 +49,7 @@ class UploadSecurityService:
         total=0
         count=0
         entries=[]
-        has_index=False
+        has_root_index=False
         seen:set[str]=set()
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             for info in z.infolist():
@@ -76,11 +76,14 @@ class UploadSecurityService:
                 ext=Path(str(p)).suffix.lower()
                 if ext not in ALLOWED_EXTENSIONS:
                     raise ValueError(f'file_type_not_allowed:{ext or "none"}')
-                if p.name.lower()=='index.html':
-                    has_index=True
+                # The play endpoint serves /play/<slug>/ as the build root. Requiring
+                # index.html at that exact root prevents a build from validating and
+                # publishing successfully only to fail with asset_not_found at launch.
+                if len(p.parts)==1 and p.name.lower()=='index.html':
+                    has_root_index=True
                 entries.append({'path':str(p),'size':info.file_size,'compressed':info.compress_size})
-        if not has_index:
-            raise ValueError('missing_index_html')
+        if not has_root_index:
+            raise ValueError('missing_root_index_html')
         return {'file_count':count,'uncompressed_bytes':total,'entries':entries}
 
     def scan(self,data:bytes)->ScanResult:
