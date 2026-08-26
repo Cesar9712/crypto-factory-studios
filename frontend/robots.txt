@@ -6,4 +6,4 @@ Disallow: /profile.html
 Disallow: /creator.html
 Disallow: /api/
 
-Sitemap: https://crypto-factory-studios.cryptofactorystudios.workers.dev/sitemap.xml
+Sitemap: https://crypto-factory-studios.cesargp9712.workers.dev/sitemap.xml
