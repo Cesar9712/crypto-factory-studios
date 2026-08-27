@@ -36,10 +36,6 @@ class DB:
                         statement = statement.strip()
                         if statement:
                             cur.execute(statement)
-                    # Existing Neon databases may already have been initialized with
-                    # PostgreSQL INTEGER columns before the BIGINT fix. Widening these
-                    # columns is safe and idempotent and prevents plan limits such as
-                    # 5 GiB / 25 GiB from overflowing a signed 32-bit integer.
                     for statement in (
                         "ALTER TABLE creator_plans ALTER COLUMN max_storage_bytes TYPE BIGINT",
                         "ALTER TABLE creator_plans ALTER COLUMN max_upload_bytes TYPE BIGINT",
@@ -126,6 +122,18 @@ class DB:
         products = [
             ("creator_plus_monthly", "Creator Plus", "More games, storage and creator tools", "1.99", "creator_plan:plus", 1, 0),
             ("creator_pro_monthly", "Creator Pro", "Higher limits and professional creator tools", "3.99", "creator_plan:pro", 1, 0),
+            ("cryptoquest_bp_s01", "CryptoQuest Battle Pass · Sombras del Bastión", "Ruta Premium de 50 niveles · Temporada 01", "4.99", "cryptoquest_battle_pass:s01", 1, 0),
+            ("cryptoquest_bp_s02", "CryptoQuest Battle Pass · Corazón de Hielo", "Ruta Premium de 50 niveles · Temporada 02", "4.99", "cryptoquest_battle_pass:s02", 1, 0),
+            ("cryptoquest_bp_s03", "CryptoQuest Battle Pass · Sangre del Dragón", "Ruta Premium de 50 niveles · Temporada 03", "4.99", "cryptoquest_battle_pass:s03", 1, 0),
+            ("cryptoquest_bp_s04", "CryptoQuest Battle Pass · Reino de los Muertos", "Ruta Premium de 50 niveles · Temporada 04", "4.99", "cryptoquest_battle_pass:s04", 1, 0),
+            ("cryptoquest_bp_s05", "CryptoQuest Battle Pass · Llamas del Abismo", "Ruta Premium de 50 niveles · Temporada 05", "4.99", "cryptoquest_battle_pass:s05", 1, 0),
+            ("cryptoquest_bp_s06", "CryptoQuest Battle Pass · Templo Perdido", "Ruta Premium de 50 niveles · Temporada 06", "4.99", "cryptoquest_battle_pass:s06", 1, 0),
+            ("cryptoquest_bp_s07", "CryptoQuest Battle Pass · Plaga Eterna", "Ruta Premium de 50 niveles · Temporada 07", "4.99", "cryptoquest_battle_pass:s07", 1, 0),
+            ("cryptoquest_bp_s08", "CryptoQuest Battle Pass · Titanes Caídos", "Ruta Premium de 50 niveles · Temporada 08", "4.99", "cryptoquest_battle_pass:s08", 1, 0),
+            ("cryptoquest_bp_s09", "CryptoQuest Battle Pass · Eclipse Arcano", "Ruta Premium de 50 niveles · Temporada 09", "4.99", "cryptoquest_battle_pass:s09", 1, 0),
+            ("cryptoquest_bp_s10", "CryptoQuest Battle Pass · Guerra Celestial", "Ruta Premium de 50 niveles · Temporada 10", "4.99", "cryptoquest_battle_pass:s10", 1, 0),
+            ("cryptoquest_bp_s11", "CryptoQuest Battle Pass · Legión del Vacío", "Ruta Premium de 50 niveles · Temporada 11", "4.99", "cryptoquest_battle_pass:s11", 1, 0),
+            ("cryptoquest_bp_s12", "CryptoQuest Battle Pass · Corona del Abismo", "Ruta Premium de 50 niveles · Temporada 12", "4.99", "cryptoquest_battle_pass:s12", 1, 0),
         ]
         sql = """INSERT INTO products(product_id,label,description,price_usd,entitlement_key,active,created_at)
                  VALUES(?,?,?,?,?,?,?)
