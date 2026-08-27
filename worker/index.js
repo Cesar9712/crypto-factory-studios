@@ -7,6 +7,8 @@ const CRYPTOQUEST_CSP = "default-src 'self' data: blob:; script-src 'self' 'unsa
 const LEGACY_PUBLIC_ORIGIN = 'https://crypto-factory-studios.cesargp9712.workers.dev';
 const CQ_V20_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v20-premium.css?v=20.0.0">';
 const CQ_V20_SCRIPT = '<script src="/games/cryptoquest/v20-battle-pass.js?v=20.0.0" defer></script>';
+const CQ_V21_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v21-reference.css?v=21.0.0">';
+const CQ_V21_SCRIPT = '<script src="/games/cryptoquest/v21-runtime.js?v=21.0.0" defer></script>';
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {status, headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...SECURITY_HEADERS,...extraHeaders}});
@@ -35,14 +37,16 @@ async function serveAsset(request,env){
     headers.set('Cache-Control','no-store, max-age=0');
     headers.set('Pragma','no-cache');
     headers.set('X-Content-Type-Options','nosniff');
-    headers.set('X-CryptoQuest-Visual','V20');
+    headers.set('X-CryptoQuest-Visual','V21');
   }
   if(!isText)return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
   const currentOrigin=new URL(request.url).origin;
   let body=(await response.text()).split(LEGACY_PUBLIC_ORIGIN).join(currentOrigin);
   if(isCryptoQuest&&type.includes('text/html')){
     if(!body.includes('/games/cryptoquest/v20-premium.css'))body=body.replace('</head>',`${CQ_V20_STYLE}</head>`);
+    if(!body.includes('/games/cryptoquest/v21-reference.css'))body=body.replace('</head>',`${CQ_V21_STYLE}</head>`);
     if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=body.replace('</body>',`${CQ_V20_SCRIPT}</body>`);
+    if(!body.includes('/games/cryptoquest/v21-runtime.js'))body=body.replace('</body>',`${CQ_V21_SCRIPT}</body>`);
   }
   headers.delete('content-length');
   return new Response(body,{status:response.status,statusText:response.statusText,headers});
