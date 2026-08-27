@@ -24,7 +24,8 @@ async function serveAsset(request,env){
   const pathname=new URL(request.url).pathname;
   if(pathname==='/games/cryptoquest' || pathname.startsWith('/games/cryptoquest/')){
     headers.set('Content-Security-Policy',CRYPTOQUEST_CSP);
-    headers.set('Cache-Control','no-cache');
+    headers.set('Cache-Control','no-store, max-age=0');
+    headers.set('Pragma','no-cache');
     headers.set('X-Content-Type-Options','nosniff');
   }
   if(!isText)return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
