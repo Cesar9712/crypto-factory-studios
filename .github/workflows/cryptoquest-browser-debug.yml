@@ -1,6 +1,7 @@
 name: CryptoQuest Browser Debug
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - '.github/workflows/cryptoquest-browser-debug.yml'
