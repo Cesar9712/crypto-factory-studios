@@ -1,0 +1,75 @@
+name: CryptoQuest V19 Production
+
+on:
+  push:
+    paths:
+      - 'frontend/games/cryptoquest/v19-release.json'
+      - 'frontend/games/cryptoquest/game.html'
+      - '.github/workflows/cryptoquest-v19-production.yml'
+  workflow_dispatch:
+
+jobs:
+  verify-v19:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Verify V19 mobile UI and energy on production
+        shell: bash
+        run: |
+          cat > /tmp/verify-v19.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const url='https://crypto-factory-studios.cryptofactorystudios.workers.dev/games/cryptoquest/';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:412,height:915},isMobile:true,hasTouch:true});
+          const pageErrors=[];
+          page.on('pageerror',e=>pageErrors.push(e.stack||e.message));
+          let ready=false,last={};
+          for(let attempt=1;attempt<=60;attempt++){
+            try{
+              const r=await page.goto(url+'?v19='+Date.now(),{waitUntil:'load',timeout:30000});
+              await page.waitForTimeout(900);
+              last=await page.evaluate(()=>({status:document.readyState,title:document.title,boot:Boolean(document.querySelector('.boot-state')),recoverable:Boolean(document.querySelector('.recoverable-error')),v19:Boolean(document.querySelector('#cq-v19-reference-ui')),text:(document.body.innerText||'').slice(0,1000)}));
+              console.log('attempt',attempt,'http',r?.status(),JSON.stringify(last));
+              if(r?.status()===200 && last.v19 && last.title.includes('V19 Energy') && !last.boot && !last.recoverable){ready=true;break;}
+            }catch(e){console.log('attempt',attempt,'error',e.message)}
+            await new Promise(r=>setTimeout(r,10000));
+          }
+          if(!ready)throw new Error('V19 did not become available in production: '+JSON.stringify(last));
+          const result=await page.evaluate(()=>{
+            deleteGame();
+            game=createGame(createPlayer('QAENERGY','warrior'));
+            render();
+            const initial={current:game.energy.current,max:game.energy.max,regenMs:game.energy.regenMs};
+            const costs={normal:campaignEnergyCost({}),elite:campaignEnergyCost({elite:true}),boss:campaignEnergyCost({boss:true}),exp:[1,2,3,4,5].map(expeditionEnergyCost)};
+            game.energy.current=2;const denied=spendEnergy(game,3),afterDenied=game.energy.current;
+            game.energy.current=60;game.energy.lastUpdate=Date.now();const spent=spendEnergy(game,3),afterSpend=game.energy.current;
+            game.energy.current=59;game.energy.max=60;game.energy.lastUpdate=Date.now()-301000;game.activeTab='adventure';game.moreScreen='menu';regenerateOffline(game);const afterFieldRegen=game.energy.current;
+            game.energy.current=50;game.energy.max=60;game.energy.lastUpdate=Date.now()-241000;game.activeTab='more';game.moreScreen='city';game.recovery={lastUpdate:Date.now()-241000,inSafeZone:true};regenerateOffline(game);const afterBastionRegen=game.energy.current;
+            game.player.level=11;const progressionMax=energyCapacityFor(game);regenerateOffline(game);const appliedMax=game.energy.max;
+            game.activeTab='more';game.moreScreen='city';render();const energyPanel=Boolean(document.querySelector('.energy-command'));
+            game.activeTab='adventure';render();const mapHasCost=(document.querySelector('#game')?.innerText||'').includes('⚡ 3');
+            const snapshot={initial,costs,denied,afterDenied,spent,afterSpend,afterFieldRegen,afterBastionRegen,progressionMax,appliedMax,energyPanel,mapHasCost,title:document.title,uiLayer:Boolean(document.querySelector('#cq-v19-reference-ui'))};
+            deleteGame();
+            return snapshot;
+          });
+          console.log('ENERGY_RESULT',JSON.stringify(result,null,2));
+          if(result.initial.current!==60||result.initial.max!==60||result.initial.regenMs!==300000)throw new Error('initial energy invalid');
+          if(JSON.stringify(result.costs)!==JSON.stringify({normal:3,elite:5,boss:8,exp:[6,8,10,12,14]}))throw new Error('energy costs invalid');
+          if(result.denied!==false||result.afterDenied!==2)throw new Error('insufficient energy handling invalid');
+          if(result.spent!==true||result.afterSpend!==57)throw new Error('spend energy invalid');
+          if(result.afterFieldRegen!==60)throw new Error('5-minute field regen invalid');
+          if(result.afterBastionRegen<51)throw new Error('Bastion accelerated regen invalid');
+          if(result.progressionMax<65||result.appliedMax<65)throw new Error('energy progression invalid');
+          if(!result.energyPanel||!result.mapHasCost||!result.uiLayer)throw new Error('V19 UI integration incomplete');
+          if(pageErrors.length)throw new Error('page errors: '+pageErrors.join('\n'));
+          await browser.close();
+          JS
+          node /tmp/verify-v19.mjs
