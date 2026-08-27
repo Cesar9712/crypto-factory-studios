@@ -10,63 +10,50 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - name: Wait for CryptoQuest public preview and verify browser runtime
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser
         shell: bash
         run: |
           set -euo pipefail
-          edge='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
-          base="$edge/games/cryptoquest"
-
-          for attempt in $(seq 1 60); do
-            echo "CryptoQuest production verification attempt $attempt"
-            rm -f /tmp/cq-index.html /tmp/cq-headers /tmp/cq.b64 /tmp/cq.html
-
-            index_code=$(curl -sS -L -D /tmp/cq-headers -o /tmp/cq-index.html -w '%{http_code}' --max-time 25 "$base/?verify=$GITHUB_SHA" || true)
-            csp=$(tr -d '\r' </tmp/cq-headers | awk 'BEGIN{IGNORECASE=1} /^content-security-policy:/{sub(/^[^:]+:[[:space:]]*/,""); print; exit}')
-            echo "index HTTP=$index_code CSP=$csp"
-
-            if [ "$index_code" = '200' ] && grep -q 'CryptoQuest RPG · CFS Preview' /tmp/cq-index.html \
-               && [[ "$csp" == *"script-src 'self' 'unsafe-inline' 'unsafe-eval'"* ]]; then
-              ok=1
-              for i in $(seq -w 0 11); do
-                code=$(curl -sS -L -o "/tmp/cq-$i.txt" -w '%{http_code}' --max-time 25 "$base/data/p$i.txt?verify=$GITHUB_SHA" || true)
-                if [ "$code" != '200' ]; then
-                  echo "chunk p$i returned HTTP $code"
-                  ok=0
-                  break
-                fi
-                cat "/tmp/cq-$i.txt" >> /tmp/cq.b64
-              done
-
-              if [ "$ok" = '1' ]; then
-                python - <<'PY'
-          import base64, gzip, re
-          from pathlib import Path
-
-          encoded = Path('/tmp/cq.b64').read_text().strip()
-          raw = gzip.decompress(base64.b64decode(encoded))
-          html = raw.decode('utf-8')
-          assert len(html) > 500_000, len(html)
-          for marker in ('CRYPTOQUEST RPG', 'V18.1A', 'Dark Fantasy', 'Bastion'):
-              assert marker in html, marker
-          assert '<script' in html.lower(), 'runtime scripts missing'
-          assert '<style' in html.lower(), 'runtime styles missing'
-          external_scripts = re.findall(r'<script[^>]+src=["\'](.*?)["\']', html, re.I)
-          external_styles = re.findall(r'<link[^>]+rel=["\']stylesheet["\'][^>]+href=["\'](.*?)["\']', html, re.I)
-          assert not external_scripts, external_scripts
-          assert not external_styles, external_styles
-          Path('/tmp/cq.html').write_text(html)
-          print(f'CryptoQuest browser payload verified: {len(html)} UTF-8 characters; CSP permits embedded runtime')
-          PY
-                exit 0
-              fi
-            else
-              echo "preview not browser-ready yet (HTTP=$index_code, expected marker/CSP missing)"
-            fi
-            sleep 10
-          done
-
-          echo 'CryptoQuest public preview did not become browser-ready in time'
-          cat /tmp/cq-headers 2>/dev/null || true
-          cat /tmp/cq-index.html 2>/dev/null | head -c 1000 || true
-          exit 1
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Wait for direct runtime and verify mobile boot
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > cq-production-probe.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const url='https://crypto-factory-studios.cryptofactorystudios.workers.dev/games/cryptoquest/?verify='+process.env.GITHUB_SHA;
+          let last='';
+          for(let attempt=1;attempt<=36;attempt++){
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:412,height:915},isMobile:true,hasTouch:true});
+            const pageErrors=[];
+            page.on('pageerror',e=>pageErrors.push(e.message));
+            try{
+              const response=await page.goto(url,{waitUntil:'load',timeout:30000});
+              await page.waitForTimeout(2500);
+              const state=await page.evaluate(()=>({
+                boot:Boolean(document.querySelector('.boot-state')),
+                recoverable:Boolean(document.querySelector('.recoverable-error')),
+                text:(document.querySelector('#game')?.innerText||'').slice(0,1000),
+                title:document.title
+              }));
+              const cache=response?.headers()?.['cache-control']||'';
+              last=JSON.stringify({attempt,status:response?.status(),cache,state,pageErrors},null,2);
+              console.log(last);
+              if(response?.status()===200 && !state.boot && !state.recoverable && pageErrors.length===0 && state.text.includes('Elige tu destino') && cache.includes('no-store')){
+                await browser.close();
+                process.exit(0);
+              }
+            }catch(e){last=String(e);console.log(last)}
+            await browser.close();
+            await new Promise(r=>setTimeout(r,10000));
+          }
+          console.error('CryptoQuest production did not become playable:',last);
+          process.exit(1);
+          JS
+          node cq-production-probe.mjs
