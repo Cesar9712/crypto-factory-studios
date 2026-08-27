@@ -1,0 +1,80 @@
+name: CryptoQuest Browser Debug
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cryptoquest-browser-debug.yml'
+      - 'frontend/games/cryptoquest/game.html'
+      - 'frontend/games/cryptoquest/index.html'
+
+permissions:
+  contents: write
+
+jobs:
+  browser-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start static server
+        shell: bash
+        run: |
+          python3 -m http.server 4173 --directory frontend >/tmp/cq-http.log 2>&1 &
+          echo $! >/tmp/cq-http.pid
+          sleep 2
+      - name: Run browser startup probe
+        shell: bash
+        run: |
+          cat > /tmp/cq-probe.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          const browser = await chromium.launch({headless:true});
+          const page = await browser.newPage({viewport:{width:412,height:915}, isMobile:true, hasTouch:true});
+          const errors=[];
+          const consoleLines=[];
+          page.on('pageerror', e => errors.push(`PAGEERROR: ${e.stack||e.message}`));
+          page.on('console', msg => consoleLines.push(`CONSOLE ${msg.type()}: ${msg.text()}`));
+          const out=[];
+          for (const url of ['http://127.0.0.1:4173/games/cryptoquest/game.html','http://127.0.0.1:4173/games/cryptoquest/']) {
+            errors.length=0; consoleLines.length=0;
+            out.push(`=== ${url} ===`);
+            try {
+              const response=await page.goto(url,{waitUntil:'load',timeout:30000});
+              await page.waitForTimeout(2500);
+              const state=await page.evaluate(()=>({
+                title:document.title,
+                boot:Boolean(document.querySelector('.boot-state')),
+                gameText:(document.querySelector('#game')?.innerText||'').slice(0,800),
+                bodyClass:document.body.className,
+                recoverable:Boolean(document.querySelector('.recoverable-error')),
+                htmlLength:document.documentElement.outerHTML.length
+              }));
+              out.push(`HTTP: ${response?.status()}`);
+              out.push(JSON.stringify(state,null,2));
+            } catch(e) { out.push(`NAVERROR: ${e.stack||e.message}`); }
+            out.push(...errors,...consoleLines,'');
+          }
+          fs.writeFileSync('frontend/games/cryptoquest/browser-debug-report.txt',out.join('\n'));
+          await browser.close();
+          JS
+          node /tmp/cq-probe.mjs
+          cat frontend/games/cryptoquest/browser-debug-report.txt
+      - name: Commit browser report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/games/cryptoquest/browser-debug-report.txt
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'ci: capture CryptoQuest browser startup report'
+          git push
