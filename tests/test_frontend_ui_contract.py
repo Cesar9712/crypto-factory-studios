@@ -32,6 +32,11 @@ def test_home_surfaces_verified_cryptoquest_runtime():
     assert 'href="/games/cryptoquest/"' in html
     assert '>Jugar ahora</a>' in html
     assert '<span class="status live">LIVE</span>' in html
+    assert 'LIVE GAME' in html
+    assert 'CRYPTOQUEST<br>RPG' in html
+    assert 'aria-label="Jugar CryptoQuest RPG ahora"' in html
+    assert 'aria-label="Abrir CryptoQuest RPG"' in html
+    assert 'EN INTEGRACIÓN</button>' not in html
     assert 'ClamAV en producción' not in html
     assert 'Escaneo estructural y firmas integradas' in html
 
