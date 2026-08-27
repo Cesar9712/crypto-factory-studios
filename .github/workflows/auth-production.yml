@@ -1,0 +1,78 @@
+name: CFS Auth Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Wait for production and verify complete auth flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          edge='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
+          email="cfs-auth-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.com"
+          password='CfsAuthTest-2026!'
+          cookies=/tmp/cfs-cookies.txt
+
+          for attempt in $(seq 1 60); do
+            echo "auth production verification attempt $attempt"
+            rm -f "$cookies" /tmp/register.json /tmp/logout.json /tmp/login.json /tmp/me.json /tmp/invalid.json
+
+            code=$(curl -sS -c "$cookies" -b "$cookies" -o /tmp/register.json -w '%{http_code}' --max-time 25 \
+              -H 'Content-Type: application/json' \
+              --data "{\"email\":\"$email\",\"password\":\"$password\",\"display_name\":\"CFS Auth Test\"}" \
+              "$edge/api/v1/auth/register" || true)
+
+            if [ "$code" = '200' ]; then
+              csrf=$(awk '$6=="cfs_csrf"{print $7}' "$cookies" | tail -1)
+              test -n "$csrf"
+
+              logout_code=$(curl -sS -c "$cookies" -b "$cookies" -o /tmp/logout.json -w '%{http_code}' --max-time 25 \
+                -X POST -H "X-CSRF-Token: $csrf" "$edge/api/v1/auth/logout" || true)
+              [ "$logout_code" = '200' ]
+
+              login_code=$(curl -sS -c "$cookies" -b "$cookies" -D /tmp/login.headers -o /tmp/login.json -w '%{http_code}' --max-time 25 \
+                -H 'Content-Type: application/json' \
+                --data "{\"email\":\"$email\",\"password\":\"$password\"}" \
+                "$edge/api/v1/auth/login" || true)
+              [ "$login_code" = '200' ]
+              grep -qi '^content-type: application/json' /tmp/login.headers
+
+              me_code=$(curl -sS -c "$cookies" -b "$cookies" -o /tmp/me.json -w '%{http_code}' --max-time 25 "$edge/api/v1/me" || true)
+              [ "$me_code" = '200' ]
+
+              invalid_code=$(curl -sS -D /tmp/invalid.headers -o /tmp/invalid.json -w '%{http_code}' --max-time 25 \
+                -H 'Content-Type: application/json' \
+                --data '{"email":"does-not-exist-cfs@example.com","password":"DefinitelyWrong-2026!"}' \
+                "$edge/api/v1/auth/login" || true)
+              [ "$invalid_code" = '401' ]
+              grep -qi '^content-type: application/json' /tmp/invalid.headers
+
+              python - <<'PY'
+          import json
+          from pathlib import Path
+          reg=json.loads(Path('/tmp/register.json').read_text())
+          login=json.loads(Path('/tmp/login.json').read_text())
+          me=json.loads(Path('/tmp/me.json').read_text())
+          invalid=json.loads(Path('/tmp/invalid.json').read_text())
+          assert reg.get('user',{}).get('email')
+          assert login.get('user',{}).get('email') == reg['user']['email']
+          assert me.get('user',{}).get('email') == reg['user']['email']
+          assert invalid.get('detail',{}).get('error_code') == 'invalid_credentials', invalid
+          print('CFS production auth verified: register -> logout -> login -> me; invalid login returns structured JSON')
+          PY
+              exit 0
+            fi
+
+            echo "register HTTP=$code; waiting for current deployment"
+            cat /tmp/register.json 2>/dev/null | head -c 500 || true
+            sleep 10
+          done
+
+          echo 'CFS production auth did not become healthy in time'
+          exit 1
