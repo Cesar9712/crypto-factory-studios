@@ -98,28 +98,30 @@ jobs:
           const enterZone=page.getByRole('button',{name:/ENTRAR EN BOSQUE SOMBRÍO/i}).last();
           if(!(await enterZone.count())) throw new Error('Bosque Sombrío entry button missing');
           await enterZone.click();
-          await page.waitForTimeout(700);
+          await page.waitForTimeout(500);
+
+          // Dynamic world events are legitimate gameplay overlays. Dismiss them before
+          // selecting the deterministic normal encounter used by this production probe.
+          const eventOverlay=page.locator('.event-decision');
+          if(await eventOverlay.count() && await eventOverlay.isVisible()){
+            const ignore=page.getByRole('button',{name:/IGNORAR/i}).last();
+            if(!(await ignore.count())) throw new Error('Dynamic event overlay appeared without an Ignore action');
+            await ignore.click();
+            await page.waitForTimeout(450);
+          }
+
           let after=await persistedEnergy();
           let stageText=(await page.locator('body').innerText()).slice(0,7000);
           console.log('AFTER_ZONE',JSON.stringify(after),stageText.slice(0,2600));
 
-          // Some builds charge on entering the first encounter; others open the encounter picker first.
           if(!after||after.current===60){
-            const buttons=page.locator('button');
-            const labels=[];
-            for(let i=0;i<await buttons.count();i++){
-              const b=buttons.nth(i);
-              try{if(await b.isVisible())labels.push({i,text:((await b.innerText())||'').trim()});}catch{}
-            }
-            console.log('ENCOUNTER_BUTTONS',JSON.stringify(labels));
-            const preferred=labels.find(x=>/goblin|combatir|enfrentar|iniciar combate|atacar|comenzar/i.test(x.text) && !/rey goblin/i.test(x.text));
-            if(preferred){
-              await buttons.nth(preferred.i).click();
-              await page.waitForTimeout(800);
-              after=await persistedEnergy();
-              stageText=(await page.locator('body').innerText()).slice(0,7000);
-              console.log('AFTER_ENCOUNTER',JSON.stringify(after),stageText.slice(0,2600));
-            }
+            const goblin=page.locator('button[data-fight="0:0"]').first();
+            if(!(await goblin.count())) throw new Error('Normal Goblin encounter button missing');
+            await goblin.click({force:true});
+            await page.waitForTimeout(900);
+            after=await persistedEnergy();
+            stageText=(await page.locator('body').innerText()).slice(0,7000);
+            console.log('AFTER_ENCOUNTER',JSON.stringify(after),stageText.slice(0,2600));
           }
 
           if(!after) throw new Error('Energy disappeared from persisted game state');
