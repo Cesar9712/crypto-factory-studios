@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 env:
-  PROBE_REVISION: "4"
+  PROBE_REVISION: "5"
 
 jobs:
   browser-debug:
@@ -45,6 +45,7 @@ jobs:
           const page = await browser.newPage({viewport:{width:412,height:915}, isMobile:true, hasTouch:true});
           const errors=[];
           const consoleLines=[];
+          let failed=false;
           page.on('pageerror', e => errors.push(`PAGEERROR: ${e.stack||e.message}`));
           page.on('console', msg => consoleLines.push(`CONSOLE ${msg.type()}: ${msg.text()}`));
           const out=[];
@@ -57,15 +58,19 @@ jobs:
               const state=await page.evaluate(()=>({title:document.title,boot:Boolean(document.querySelector('.boot-state')),gameText:(document.querySelector('#game')?.innerText||'').slice(0,800),bodyClass:document.body.className,recoverable:Boolean(document.querySelector('.recoverable-error')),htmlLength:document.documentElement.outerHTML.length}));
               out.push(`HTTP: ${response?.status()}`);
               out.push(JSON.stringify(state,null,2));
-            } catch(e) { out.push(`NAVERROR: ${e.stack||e.message}`); }
+              if(response?.status()!==200 || state.boot || state.recoverable || !state.gameText.includes('Elige tu destino')) failed=true;
+            } catch(e) { out.push(`NAVERROR: ${e.stack||e.message}`); failed=true; }
+            if(errors.length) failed=true;
             out.push(...errors,...consoleLines,'');
           }
           fs.writeFileSync('frontend/games/cryptoquest/browser-debug-report.txt',out.join('\n'));
           await browser.close();
+          if(failed) process.exit(1);
           JS
           node cq-probe.mjs
           cat frontend/games/cryptoquest/browser-debug-report.txt
       - name: Commit browser report
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
