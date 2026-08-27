@@ -26,6 +26,16 @@ def test_portal_session_state_is_server_driven():
     assert 'Iniciar sesión' in js and 'Crear cuenta' in js and 'Cerrar sesión' in js
 
 
+def test_home_surfaces_verified_cryptoquest_runtime():
+    html = read('index.html')
+    assert '<h3>CryptoQuest RPG</h3>' in html
+    assert 'href="/games/cryptoquest/"' in html
+    assert '>Jugar ahora</a>' in html
+    assert '<span class="status live">LIVE</span>' in html
+    assert 'ClamAV en producción' not in html
+    assert 'Escaneo estructural y firmas integradas' in html
+
+
 def test_billing_has_responsive_asset_and_csp_safe_plan_binding():
     html = read('billing.html')
     js = read('billing.js')
