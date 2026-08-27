@@ -1,0 +1,50 @@
+name: CryptoQuest Energy UI Audit
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cryptoquest-energy-ui-audit.yml'
+      - 'frontend/games/cryptoquest/game.html'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect game systems
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('frontend/games/cryptoquest/game.html')
+          s=p.read_text(encoding='utf-8')
+          terms=['energy','energia','ENERGY','bastion','Bastion','expedition','Expedition','dungeon','Dungeon','maxEnergy','lastEnergy','energyMax','energyCost','spendEnergy','regen']
+          out=[]
+          lines=s.splitlines()
+          out.append(f'lines={len(lines)} chars={len(s)}')
+          for term in terms:
+            hits=[i for i,l in enumerate(lines) if term in l]
+            out.append(f'\n## {term} hits={len(hits)}')
+            for i in hits[:40]:
+              lo=max(0,i-2); hi=min(len(lines),i+3)
+              out.extend(f'{j+1}: {lines[j]}' for j in range(lo,hi))
+          out.append('\n## key functions/constants')
+          for pat in [r'function\s+\w+', r'const\s+\w+\s*=', r'let\s+\w+\s*=']:
+            vals=re.findall(pat,s)
+            out.extend(vals[:300])
+          Path('frontend/games/cryptoquest/audit-energy-ui.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+      - name: Commit report
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/games/cryptoquest/audit-energy-ui.txt
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'chore: capture CryptoQuest energy UI audit'
+          git push
