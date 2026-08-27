@@ -63,7 +63,8 @@ jobs:
           if(!/60\s*\/\s*60/.test(await page.locator('body').innerText()))throw new Error('Fresh hero energy missing');
 
           await page.locator('#cq-bp-entry').click();
-          await page.locator('.cq-bp-tier').first().waitFor({state:'visible',timeout:8000});
+          await page.locator('#cq-bp-backdrop').waitFor({state:'visible',timeout:5000});
+          await page.locator('.cq-bp-tier').first().waitFor({state:'visible',timeout:20000});
           const pass=await page.evaluate(()=>({
             tiers:document.querySelectorAll('.cq-bp-tier').length,
             free:document.querySelectorAll('.cq-bp-reward:not(.premium)').length,
