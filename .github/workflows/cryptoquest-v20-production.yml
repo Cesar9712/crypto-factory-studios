@@ -3,6 +3,7 @@ name: CryptoQuest V21 Production
 on:
   push:
     paths:
+      - 'frontend/games/cryptoquest/index.html'
       - 'frontend/games/cryptoquest/v20-premium.css'
       - 'frontend/games/cryptoquest/v20-battle-pass.js'
       - 'frontend/games/cryptoquest/v21-reference.css'
