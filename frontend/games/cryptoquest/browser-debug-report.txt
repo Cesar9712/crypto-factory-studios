@@ -6,7 +6,7 @@ HTTP: 200
   "gameText": "CQ\n\nCRYPTOQUEST RPG · ALPHA 0.1\n\nElige tu destino\nNOMBRE DEL HÉROE\nCONTINUAR\n›",
   "bodyClass": "",
   "recoverable": false,
-  "htmlLength": 559198
+  "htmlLength": 559134
 }
 
 === http://127.0.0.1:4173/games/cryptoquest/ ===
@@ -17,5 +17,5 @@ HTTP: 200
   "gameText": "CQ\n\nCRYPTOQUEST RPG · ALPHA 0.1\n\nElige tu destino\nNOMBRE DEL HÉROE\nCONTINUAR\n›",
   "bodyClass": "",
   "recoverable": false,
-  "htmlLength": 559198
+  "htmlLength": 559134
 }
