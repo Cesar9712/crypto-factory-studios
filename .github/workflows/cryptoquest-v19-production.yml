@@ -6,10 +6,14 @@ on:
       - 'frontend/games/cryptoquest/v19-release.json'
       - 'frontend/games/cryptoquest/game.html'
       - '.github/workflows/cryptoquest-v19-production.yml'
+  workflow_run:
+    workflows: ['Cloudflare Explicit Deploy']
+    types: [completed]
   workflow_dispatch:
 
 jobs:
   verify-v19:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-node@v4
