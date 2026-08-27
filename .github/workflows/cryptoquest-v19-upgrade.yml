@@ -1,0 +1,126 @@
+name: CryptoQuest V19 UI Energy Upgrade
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cryptoquest-v19-upgrade.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upgrade CryptoQuest UI and energy
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('frontend/games/cryptoquest/game.html')
+          s=p.read_text(encoding='utf-8')
+          original=s
+
+          # 1) 5-minute base regeneration instead of 10.
+          s=s.replace("regenMs:10*60*1000", "regenMs:5*60*1000")
+          s=s.replace("whole(data.energy.regenMs,1000,86400000,600000)", "whole(data.energy.regenMs,1000,86400000,300000)")
+
+          # 2) Energy helpers and progression.
+          if 'function energyCapacityFor(game)' not in s:
+            anchor='function spendEnergy(game,amount){'
+            assert anchor in s, 'spendEnergy anchor missing'
+            helpers="""function energyCapacityFor(game){const level=Math.max(1,Number(game?.player?.level)||1),prestige=Math.max(0,Number(game?.player?.prestige?.level)||0);return Math.min(100,60+Math.floor((level-1)/10)*5+Math.floor(prestige/5)*5);}\nfunction campaignEnergyCost(enemy){if(enemy?.boss)return 8;if(enemy?.elite||enemy?.miniboss||enemy?.rare)return 5;return 3;}\nfunction expeditionEnergyCost(tier=1){return Math.max(5,Math.min(15,6+(Math.max(1,Number(tier)||1)-1)*2));}\nfunction refundEnergy(game,amount){regenerateOffline(game);const value=Math.max(0,Math.floor(Number(amount)||0));if(!value)return 0;const before=game.energy.current;game.energy.current=Math.min(game.energy.max,before+value);if(game.energy.current>=game.energy.max)game.energy.lastUpdate=Date.now();saveGame(game);return game.energy.current-before;}\n"""
+            s=s.replace(anchor,helpers+anchor,1)
+
+          # 3) Offline regeneration + Bastion 25% faster + level/prestige capacity.
+          pattern=r"function regenerateOffline\(game,now=Date\.now\(\)\)\{.*?\n\}\n\nfunction calculateStats"
+          new_regen="""function regenerateOffline(game,now=Date.now()){\n  const safeNow=finite(now,Date.now()),baseRegenMs=whole(game.energy?.regenMs,1000,86400000,300000),lastUpdate=Math.min(safeNow,finite(game.energy?.lastUpdate,safeNow)),progressionMax=energyCapacityFor(game),storedMax=whole(game.energy?.max,1,10000,60),maximum=Math.max(storedMax,progressionMax),current=whole(game.energy?.current,0,maximum,maximum),safe=isSafeRecoveryZone(game),effectiveRegenMs=safe?Math.max(60000,Math.round(baseRegenMs*.8)):baseRegenMs,elapsed=Math.max(0,safeNow-lastUpdate),ticks=Math.floor(elapsed/effectiveRegenMs);game.energy.max=maximum;game.energy.current=current;game.energy.regenMs=baseRegenMs;game.energy.lastUpdate=lastUpdate;if(ticks){game.energy.current=Math.min(maximum,current+ticks);game.energy.lastUpdate=Math.min(safeNow,lastUpdate+ticks*effectiveRegenMs);}if(game.energy.current>=maximum)game.energy.lastUpdate=safeNow;\n  const p=game.player,stats=calculateStats(p),recovery=game.recovery||(game.recovery={lastUpdate:safeNow,inSafeZone:safe}),wasSafe=Boolean(recovery.inSafeZone),restElapsed=wasSafe?Math.max(0,safeNow-Math.min(safeNow,finite(recovery.lastUpdate,safeNow))):0;\n  if(wasSafe&&restElapsed>0){p.currentHp=Math.min(stats.maxHp,(p.currentHp??stats.maxHp)+stats.maxHp*.05*(restElapsed/60000));p.currentMana=Math.min(stats.maxMana,(p.currentMana??stats.maxMana)+stats.maxMana*.07*(restElapsed/60000));}\n  recovery.lastUpdate=safeNow;recovery.inSafeZone=safe;\n}\n\nfunction calculateStats"""
+          s,n=re.subn(pattern,new_regen,s,count=1,flags=re.S)
+          assert n==1, f'regenerateOffline replacement count={n}'
+
+          # 4) Better timer label.
+          timer_old="const energyTimer=()=>game.energy.current>=game.energy.max?'LLENA':`${Math.max(1,Math.ceil((game.energy.regenMs-(Date.now()-game.energy.lastUpdate)%game.energy.regenMs)/60000))} MIN`;"
+          timer_new="const energyTimer=()=>{if(game.energy.current>=game.energy.max)return 'ENERGÍA COMPLETA';const safe=isSafeRecoveryZone(game),tick=safe?Math.max(60000,Math.round(game.energy.regenMs*.8)):game.energy.regenMs,remain=Math.max(0,tick-(Date.now()-game.energy.lastUpdate)%tick),m=Math.floor(remain/60000),sec=Math.floor((remain%60000)/1000);return `+1 EN ${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;};"
+          assert timer_old in s, 'energyTimer anchor missing'
+          s=s.replace(timer_old,timer_new,1)
+
+          # 5) Campaign battles cost energy only when the actual fight starts.
+          fight_anchor="if(eventChoice){enemy.xp=Math.round(enemy.xp*1.2);enemy.gold=Math.round(enemy.gold*1.3);}combat=new CombatSession(game,enemy,`${mi}-${ni}`,{activity:{type:'campaign',mapEvent:eventChoice||null}});"
+          fight_new="if(eventChoice){enemy.xp=Math.round(enemy.xp*1.2);enemy.gold=Math.round(enemy.gold*1.3);}const energyCost=campaignEnergyCost(enemy);if(!spendEnergy(game,energyCost)){toast(`Energía insuficiente · necesitas ${energyCost} ⚡`);return;}combat=new CombatSession(game,enemy,`${mi}-${ni}`,{activity:{type:'campaign',mapEvent:eventChoice||null,energyCost}});"
+          assert fight_anchor in s, 'campaign fight anchor missing'
+          s=s.replace(fight_anchor,fight_new,1)
+
+          # 6) Show campaign energy cost on every encounter.
+          reward_anchor='<em>+${e.xp} EXP · +${e.gold} 🪙</em>'
+          assert reward_anchor in s, 'campaign reward anchor missing'
+          s=s.replace(reward_anchor,'<em>⚡ ${campaignEnergyCost(e)} · +${e.xp} EXP · +${e.gold} 🪙</em>',1)
+
+          # 7) Expeditions cost energy at start; rest node restores a little energy.
+          exp_click="if(button.dataset.startExpedition){const run=startExpedition(game,Number(button.dataset.startExpedition));toast(run?'Expedición iniciada':'Tier no disponible',run?'success':'');render();return;}"
+          exp_click_new="if(button.dataset.startExpedition){const tier=Number(button.dataset.startExpedition),cost=expeditionEnergyCost(tier);if(!game.expeditions.active&&!spendEnergy(game,cost)){toast(`Energía insuficiente · necesitas ${cost} ⚡`);return;}const run=startExpedition(game,tier);toast(run?`Expedición iniciada · ${cost} ⚡`:'Tier no disponible',run?'success':'');render();return;}"
+          assert exp_click in s, 'expedition click anchor missing'
+          s=s.replace(exp_click,exp_click_new,1)
+
+          rest_anchor="if(node.type==='rest'){const s=calculateStats(game.player);game.player.currentHp=Math.min(s.maxHp,(game.player.currentHp||1)+Math.round(s.maxHp*.45));game.player.currentMana=Math.min(s.maxMana,(game.player.currentMana||0)+Math.round(s.maxMana*.45));}"
+          rest_new="if(node.type==='rest'){const s=calculateStats(game.player);game.player.currentHp=Math.min(s.maxHp,(game.player.currentHp||1)+Math.round(s.maxHp*.45));game.player.currentMana=Math.min(s.maxMana,(game.player.currentMana||0)+Math.round(s.maxMana*.45));refundEnergy(game,2);toast('Fogata: +45% HP/MP · +2 ⚡','success');}"
+          assert rest_anchor in s, 'expedition rest anchor missing'
+          s=s.replace(rest_anchor,rest_new,1)
+
+          # 8) Make energy visible in expedition/dungeon UI.
+          s=s.replace("screenHead('RUTAS ROGUELITE','Expediciones',`${state.completed} COMPLETADAS`)","screenHead('RUTAS ROGUELITE','Expediciones',`${state.completed} COMPLETADAS · ⚡ ${game.energy.current}/${game.energy.max} · ${energyTimer()}`)",1)
+          tier_anchor="<span>${t===1?'Mecánicas base':t<4?'Más afijos y élites':'Botín y patrones avanzados'}</span></button>"
+          assert tier_anchor in s, 'tier card anchor missing'
+          s=s.replace(tier_anchor,"<span>${t===1?'Mecánicas base':t<4?'Más afijos y élites':'Botín y patrones avanzados'} · ⚡ ${expeditionEnergyCost(t)}</span></button>",1)
+          s=s.replace("screenHead('LLAVES DE DESAFÍO','Mazmorras V15',`⚡ ${game.energy.current}`)","screenHead('LLAVES DE DESAFÍO','Mazmorras',`⚡ ${game.energy.current}/${game.energy.max} · ${energyTimer()}`)",1)
+          dungeon_loot="<em>${d.lootSet?`BOTÍN · ${SETS[d.lootSet]?.name||d.lootSet}`:'BOTÍN ESPECÍFICO · materiales y recetas'}${wish?' · ★ CONTIENE UN OBJETIVO':''}</em>"
+          assert dungeon_loot in s, 'dungeon loot anchor missing'
+          s=s.replace(dungeon_loot,"<em>⚡ ${d.energy} · ${d.lootSet?`BOTÍN · ${SETS[d.lootSet]?.name||d.lootSet}`:'BOTÍN ESPECÍFICO · materiales y recetas'}${wish?' · ★ CONTIENE UN OBJETIVO':''}</em>",1)
+
+          # 9) Bastion energy panel.
+          bastion_anchor='<div class="bastion-recovery rpg-frame"><b>DESCANSANDO EN EL BASTIÓN</b>'
+          assert bastion_anchor in s, 'bastion panel anchor missing'
+          bastion_new='<div class="energy-command rpg-frame"><div><small>ENERGÍA DE AVENTURA</small><b>⚡ ${game.energy.current}/${game.energy.max}</b><span>${energyTimer()} · Bastión: recuperación 25% más rápida</span></div><i><span style="width:${pct(game.energy.current,game.energy.max)}%"></span></i><em>Combates 3–8 ⚡ · Mazmorras 10–22 ⚡ · Expediciones 6–14 ⚡</em></div><div class="bastion-recovery rpg-frame"><b>DESCANSANDO EN EL BASTIÓN</b>'
+          s=s.replace(bastion_anchor,bastion_new,1)
+
+          # 10) Premium reference-driven UI layer; no external/generated images.
+          if 'id="cq-v19-reference-ui"' not in s:
+            css='''\n<style id="cq-v19-reference-ui">\n:root{--cq-gold:#c29a4a;--cq-gold2:#6e5127;--cq-ink:#050505;--cq-panel:#0a0b0c;--cq-panel2:#101113;--cq-line:#5b4528;--cq-soft:#b9ae98}\nbody{background:radial-gradient(circle at 50% 8%,#17120b 0,#090806 26%,#030303 68%);color:#e8e1d5}\n.rpg-frame,.content-card,.activity-card,.dungeon-card-v9,.main-quest,.player-hud,.screen-heading,.service-grid>button,.more-grid>button{border-color:color-mix(in srgb,var(--cq-gold) 52%,#18130c);box-shadow:inset 0 0 0 1px #000,0 8px 28px #0008;background:linear-gradient(180deg,#11100e 0,#080808 100%)}\n.screen-heading{padding:10px 12px;border:1px solid var(--cq-line);margin-bottom:10px}.screen-heading small,.section-title,.home-resource-strip small{letter-spacing:.12em;color:#9f875a}.screen-heading h2{font-family:Cinzel,serif;color:#ead8a6;text-shadow:0 1px 10px #a9772430}\n.home-resource-strip{background:linear-gradient(180deg,#090909,#050505);border:1px solid #4d3a22}.home-resource-strip>span{border-right:1px solid #2e2418}.home-resource-strip>span:last-child{border-right:0}.home-resource-strip b{color:#f0dfae}\n.home-vitals,.main-quest,.home-quick{filter:saturate(.9)}.home-bar-track,.quest-progress,.energy-command>i{background:#020202;border:1px solid #33291c}.home-bar-track>i,.quest-progress>i,.energy-command>i>span{box-shadow:0 0 10px currentColor}\n.map-zone{background:linear-gradient(180deg,#0b0b0a,#060606);border:1px solid #47361f}.map-banner{border-bottom:1px solid #33291c}.path-step button{background:linear-gradient(90deg,#080808,#0e0c09);border-color:#3f3020}.path-step.boss button{border-color:#7a432d;box-shadow:inset 0 0 24px #611b121f}.path-step .node-info em{color:#d7b86a}\n.dungeon-card-v9,.activity-card{border-radius:3px}.dungeon-main>i,.activity-card>i{filter:drop-shadow(0 0 8px #b9832b35)}\n.tier-grid button{background:linear-gradient(180deg,#12100c,#070707);border-color:#564024;border-radius:3px}.tier-grid b{font-family:Cinzel,serif;color:#ead29a}.tier-grid span{font-size:.66rem;color:#b8ad98}\n.energy-command{display:grid;gap:8px;margin:10px 0;padding:12px;border-color:#806125;background:radial-gradient(circle at 92% 12%,#5d3d111f,transparent 42%),linear-gradient(180deg,#11100d,#070707)}.energy-command>div{display:grid;grid-template-columns:1fr auto;gap:2px 10px}.energy-command small{color:#a78b52;letter-spacing:.12em}.energy-command b{grid-row:1/3;grid-column:2;font:700 1.15rem Cinzel;color:#f0cf77}.energy-command span,.energy-command em{font-size:.72rem;color:#bdb29e}.energy-command>i{height:7px;display:block}.energy-command>i>span{display:block;height:100%;background:linear-gradient(90deg,#8e5a1c,#efd171)}\n.bastion-recovery{border-color:#4b3b25;background:linear-gradient(180deg,#0d0d0c,#080808)}\n.adventure-cta,.primary{background:linear-gradient(180deg,#6d4b19,#2b1c0b);border:1px solid #b18337;color:#f7e8bd;text-shadow:0 1px #000}.adventure-cta:active,.primary:active{transform:translateY(1px)}\n.bottom-nav{background:linear-gradient(180deg,#0b0b0b,#030303);border-top:1px solid #594526}.bottom-nav button.active{color:#e5c774}.bottom-nav button.active svg{filter:drop-shadow(0 0 7px #d4a74788)}\n@media(max-width:420px){.screen-heading h2{font-size:1rem}.home-resource-strip b{font-size:.78rem}.path-step button{min-height:72px}.node-info small,.node-info em{font-size:.66rem}.energy-command{margin-inline:2px}.dungeon-main{grid-template-columns:34px 1fr}.tier-grid{gap:4px}.tier-grid button{min-height:78px;padding:7px 4px}}\n</style>\n'''
+            assert '</head>' in s
+            s=s.replace('</head>',css+'</head>',1)
+
+          # 11) Version marker for QA.
+          s=s.replace('<title>CryptoQuest RPG</title>','<title>CryptoQuest RPG · V19 Energy</title>',1)
+
+          assert s!=original, 'no changes produced'
+          p.write_text(s,encoding='utf-8')
+          print('CryptoQuest V19 upgrade applied',len(original),'->',len(s))
+          PY
+      - name: Validate JavaScript and upgrade markers
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('frontend/games/cryptoquest/game.html').read_text(encoding='utf-8')
+          assert 'cq-v19-reference-ui' in s
+          assert 'function energyCapacityFor(game)' in s
+          assert 'regenMs:5*60*1000' in s
+          assert 'campaignEnergyCost(enemy)' in s
+          assert 'expeditionEnergyCost(tier=1)' in s
+          assert 'Bastión: recuperación 25% más rápida' in s
+          scripts=re.findall(r'<script[^>]*>([\s\S]*?)</script>',s)
+          Path('/tmp/cq-script.js').write_text('\n'.join(scripts),encoding='utf-8')
+          PY
+          node --check /tmp/cq-script.js
+      - name: Commit upgraded game
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/games/cryptoquest/game.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'feat: upgrade CryptoQuest UI and adventure energy system'
+          git push
