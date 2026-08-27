@@ -23,20 +23,24 @@ jobs:
           import re
           p=Path('frontend/games/cryptoquest/game.html')
           s=p.read_text(encoding='utf-8')
-          terms=['energy','energia','ENERGY','bastion','Bastion','expedition','Expedition','dungeon','Dungeon','maxEnergy','lastEnergy','energyMax','energyCost','spendEnergy','regen']
-          out=[]
           lines=s.splitlines()
-          out.append(f'lines={len(lines)} chars={len(s)}')
+          out=[f'lines={len(lines)} chars={len(s)}']
+          terms=['energy','energia','stamina','bastion','expedition','dungeon','regen','rest','resting']
           for term in terms:
-            hits=[i for i,l in enumerate(lines) if term in l]
-            out.append(f'\n## {term} hits={len(hits)}')
-            for i in hits[:40]:
-              lo=max(0,i-2); hi=min(len(lines),i+3)
-              out.extend(f'{j+1}: {lines[j]}' for j in range(lo,hi))
-          out.append('\n## key functions/constants')
-          for pat in [r'function\s+\w+', r'const\s+\w+\s*=', r'let\s+\w+\s*=']:
-            vals=re.findall(pat,s)
-            out.extend(vals[:300])
+            out.append(f'\n## {term}')
+            for i,l in enumerate(lines):
+              if term.lower() in l.lower():
+                compact=' '.join(l.strip().split())
+                out.append(f'{i+1}: {compact[:360]}')
+          out.append('\n## energy-like identifiers')
+          ids=sorted(set(re.findall(r'\b[A-Za-z_$][\w$]*(?:Energy|energy|Stamina|stamina|Regen|regen)[A-Za-z_$\w]*\b',s)))
+          out.extend(ids)
+          out.append('\n## functions touching energy/stamina')
+          for m in re.finditer(r'function\s+(\w+)\s*\([^)]*\)\s*\{',s):
+            start=m.start(); end=s.find('\nfunction ',start+1)
+            if end<0:end=min(len(s),start+6000)
+            body=s[start:end]
+            if re.search(r'energy|stamina|regen|bastion|expedition|dungeon',body,re.I): out.append(m.group(1))
           Path('frontend/games/cryptoquest/audit-energy-ui.txt').write_text('\n'.join(out),encoding='utf-8')
           PY
       - name: Commit report
@@ -46,5 +50,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add frontend/games/cryptoquest/audit-energy-ui.txt
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'chore: capture CryptoQuest energy UI audit'
+          git commit -m 'chore: refresh CryptoQuest energy UI audit'
           git push
