@@ -14,7 +14,8 @@ Crypto Factory Studios is a security-first Web game publishing platform for play
 - Published-game CSP sandbox isolation from platform credentials.
 - Per-user cloud saves with optimistic revision conflict detection.
 - Reports, moderation, audit logs and administrative endpoints.
-- Server-authoritative products, quotes, orders, anti-replay/idempotency and purchase history for payment TEST/MOCK flows.
+- Server-authoritative products, quotes, orders, anti-replay/idempotency and purchase history for MOCK, TEST and guarded PRODUCTION payment flows.
+- Production blockchain verification paths for USDT on TRON, the configured BEP-20 stable asset on BNB Smart Chain, and native SOL on Solana.
 - PostgreSQL compatibility tests plus disposable production E2E verification.
 
 ## Production architecture
@@ -39,7 +40,7 @@ Published creator content is treated as untrusted and served with CSP sandbox is
 
 ## Payment safety
 
-Real blockchain payments are intentionally disabled. `CFS_PAYMENTS_MODE` may be `MOCK` or `TEST`; production blockchain mode fails closed until a real on-chain verifier is implemented and audited. MOCK/TEST UI must remain clearly identified as simulation and must not instruct users to send real funds.
+`CFS_PAYMENTS_MODE` supports `MOCK`, `TEST` and `PRODUCTION`. Production payment mode is fail-closed: it additionally requires `CFS_PRODUCTION_PAYMENTS_ENABLED=true`, valid configured treasury/deposit addresses, live provider configuration, and successful server-side on-chain verification before an order can be treated as paid. Production verification validates network, recipient, asset/token contract, confirmation state and exact expected amount; provider failures or ambiguous payments do not auto-fulfil orders. MOCK/TEST UI must remain clearly identified as simulation and must not instruct users to send real funds.
 
 ## Local development
 
@@ -53,7 +54,7 @@ Development defaults to SQLite/local storage. Production requires persistent Pos
 
 ## QA
 
-The GitHub Actions workflow runs the full Python suite, the same suite against PostgreSQL, frontend JavaScript validation and Wrangler validation. Pushes to `main` also wait for the exact Render commit to become healthy, verify Cloudflare → Render readiness, and run a disposable production E2E flow covering registration, creator activation, game creation/editing, real upload/scan/storage, publication, catalog/play, saves, logout/login persistence and cleanup.
+The GitHub Actions workflow runs the full Python suite, the same suite against PostgreSQL, frontend JavaScript validation and Wrangler validation. Pushes to `main` also wait for the exact Render commit to become healthy, verify Cloudflare → Render readiness, verify production payment readiness, and run a disposable production E2E flow covering registration, creator activation, game creation/editing, real upload/scan/storage, publication, catalog/play, saves, logout/login persistence and cleanup.
 
 Useful local checks:
 
@@ -68,6 +69,6 @@ python -m py_compile scripts/production_e2e.py
 Production endpoints:
 
 - Backend: `https://crypto-factory-studios.onrender.com`
-- Frontend/edge: `https://crypto-factory-studios.cesargp9712.workers.dev`
+- Frontend/edge: `https://crypto-factory-studios.cryptofactorystudios.workers.dev`
 
 See the `docs/` directory for payment architecture, security and validation notes.
