@@ -5,6 +5,8 @@ const SECURITY_HEADERS = {
 
 const CRYPTOQUEST_CSP = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 const LEGACY_PUBLIC_ORIGIN = 'https://crypto-factory-studios.cesargp9712.workers.dev';
+const CQ_V20_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v20-premium.css?v=20.0.0">';
+const CQ_V20_SCRIPT = '<script src="/games/cryptoquest/v20-battle-pass.js?v=20.0.0" defer></script>';
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {status, headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...SECURITY_HEADERS,...extraHeaders}});
@@ -27,15 +29,21 @@ async function serveAsset(request,env){
   const isText=type.includes('text/html')||type.includes('application/xml')||type.includes('text/xml')||type.includes('text/plain');
   const headers=new Headers(response.headers);
   const pathname=new URL(request.url).pathname;
-  if(pathname==='/games/cryptoquest' || pathname.startsWith('/games/cryptoquest/')){
+  const isCryptoQuest=pathname==='/games/cryptoquest' || pathname.startsWith('/games/cryptoquest/');
+  if(isCryptoQuest){
     headers.set('Content-Security-Policy',CRYPTOQUEST_CSP);
     headers.set('Cache-Control','no-store, max-age=0');
     headers.set('Pragma','no-cache');
     headers.set('X-Content-Type-Options','nosniff');
+    headers.set('X-CryptoQuest-Visual','V20');
   }
   if(!isText)return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
   const currentOrigin=new URL(request.url).origin;
-  const body=(await response.text()).split(LEGACY_PUBLIC_ORIGIN).join(currentOrigin);
+  let body=(await response.text()).split(LEGACY_PUBLIC_ORIGIN).join(currentOrigin);
+  if(isCryptoQuest&&type.includes('text/html')){
+    if(!body.includes('/games/cryptoquest/v20-premium.css'))body=body.replace('</head>',`${CQ_V20_STYLE}</head>`);
+    if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=body.replace('</body>',`${CQ_V20_SCRIPT}</body>`);
+  }
   headers.delete('content-length');
   return new Response(body,{status:response.status,statusText:response.statusText,headers});
 }
