@@ -11,6 +11,9 @@ on:
 permissions:
   contents: write
 
+env:
+  PROBE_REVISION: "4"
+
 jobs:
   browser-debug:
     runs-on: ubuntu-latest
@@ -51,14 +54,7 @@ jobs:
             try {
               const response=await page.goto(url,{waitUntil:'load',timeout:30000});
               await page.waitForTimeout(2500);
-              const state=await page.evaluate(()=>({
-                title:document.title,
-                boot:Boolean(document.querySelector('.boot-state')),
-                gameText:(document.querySelector('#game')?.innerText||'').slice(0,800),
-                bodyClass:document.body.className,
-                recoverable:Boolean(document.querySelector('.recoverable-error')),
-                htmlLength:document.documentElement.outerHTML.length
-              }));
+              const state=await page.evaluate(()=>({title:document.title,boot:Boolean(document.querySelector('.boot-state')),gameText:(document.querySelector('#game')?.innerText||'').slice(0,800),bodyClass:document.body.className,recoverable:Boolean(document.querySelector('.recoverable-error')),htmlLength:document.documentElement.outerHTML.length}));
               out.push(`HTTP: ${response?.status()}`);
               out.push(JSON.stringify(state,null,2));
             } catch(e) { out.push(`NAVERROR: ${e.stack||e.message}`); }
