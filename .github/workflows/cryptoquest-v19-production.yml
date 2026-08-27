@@ -67,26 +67,24 @@ jobs:
           const continueButton=page.locator('button').filter({hasText:/CONTINUAR/i}).last();
           if(!(await continueButton.count())) throw new Error('Continue button missing');
           await continueButton.click();
-          await page.waitForTimeout(900);
+          await page.waitForTimeout(700);
 
+          // The real flow is: hero name -> class selection -> start adventure.
           let text=(await page.locator('body').innerText()).slice(0,9000);
-          if(text.includes('Elige tu destino')){
-            const options=page.locator('[data-class], [data-archetype], .class-card, .class-option, button');
-            for(let i=0;i<Math.min(await options.count(),12)&&text.includes('Elige tu destino');i++){
-              const el=options.nth(i);
-              try{
-                if(!(await el.isVisible()))continue;
-                const label=((await el.innerText().catch(()=>''))||'').trim();
-                if(!label||label==='›'||label==='‹'||/continuar/i.test(label))continue;
-                await el.click();
-                await continueButton.click().catch(()=>{});
-                await page.waitForTimeout(450);
-                text=(await page.locator('body').innerText()).slice(0,9000);
-              }catch{}
-            }
+          if(text.includes('Selecciona una clase')){
+            const warrior=page.getByText('GUERRERO',{exact:true}).first();
+            if(!(await warrior.count())) throw new Error('Warrior class option missing');
+            await warrior.click();
+            await page.waitForTimeout(250);
+            const start=page.getByRole('button',{name:/COMENZAR AVENTURA/i}).last();
+            if(!(await start.count())) throw new Error('Start adventure button missing');
+            await start.click();
+            await page.waitForTimeout(900);
           }
-          console.log('HOME',text.slice(0,2000));
-          if(text.includes('Elige tu destino')) throw new Error('Character creation did not enter the game');
+
+          text=(await page.locator('body').innerText()).slice(0,9000);
+          console.log('HOME',text.slice(0,2200));
+          if(text.includes('Elige tu destino')||text.includes('Selecciona una clase')) throw new Error('Character creation did not enter the game');
           if(!/60\s*\/\s*60/.test(text)) throw new Error('60/60 energy is not visible on a fresh hero');
 
           const saved=await page.evaluate(()=>{
@@ -114,6 +112,7 @@ jobs:
           const adventureText=(await page.locator('body').innerText()).slice(0,10000);
           console.log('ADVENTURE',adventureText.slice(0,2400));
           if(!/⚡\s*3|3\s*⚡/.test(adventureText)) throw new Error('3-energy encounter cost is not visible');
+
           if(errors.length) throw new Error('Browser page errors: '+errors.join(' | '));
           console.log('CRYPTOQUEST_V19_PRODUCTION_OK');
           await browser.close();
