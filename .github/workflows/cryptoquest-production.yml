@@ -1,0 +1,61 @@
+name: CryptoQuest Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify-cryptoquest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Wait for CryptoQuest public preview and verify payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          edge='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
+          base="$edge/games/cryptoquest"
+
+          for attempt in $(seq 1 60); do
+            echo "CryptoQuest production verification attempt $attempt"
+            rm -f /tmp/cq-index.html /tmp/cq.b64 /tmp/cq.html
+
+            index_code=$(curl -sS -L -o /tmp/cq-index.html -w '%{http_code}' --max-time 25 "$base/?verify=$GITHUB_SHA" || true)
+            if [ "$index_code" = '200' ] && grep -q 'CryptoQuest RPG · CFS Preview' /tmp/cq-index.html; then
+              ok=1
+              for i in $(seq -w 0 11); do
+                code=$(curl -sS -L -o "/tmp/cq-$i.txt" -w '%{http_code}' --max-time 25 "$base/data/p$i.txt?verify=$GITHUB_SHA" || true)
+                if [ "$code" != '200' ]; then
+                  echo "chunk p$i returned HTTP $code"
+                  ok=0
+                  break
+                fi
+                cat "/tmp/cq-$i.txt" >> /tmp/cq.b64
+              done
+
+              if [ "$ok" = '1' ]; then
+                python - <<'PY'
+          import base64, gzip
+          from pathlib import Path
+
+          encoded = Path('/tmp/cq.b64').read_text().strip()
+          raw = gzip.decompress(base64.b64decode(encoded))
+          html = raw.decode('utf-8')
+          assert len(html) > 500_000, len(html)
+          for marker in ('CRYPTOQUEST RPG', 'V18.1A', 'Dark Fantasy', 'Bastion'):
+              assert marker in html, marker
+          Path('/tmp/cq.html').write_text(html)
+          print(f'CryptoQuest public payload verified: {len(html)} UTF-8 characters')
+          PY
+                exit 0
+              fi
+            else
+              echo "preview index returned HTTP $index_code or expected marker is not deployed yet"
+            fi
+            sleep 10
+          done
+
+          echo 'CryptoQuest public preview did not become valid in time'
+          cat /tmp/cq-index.html 2>/dev/null | head -c 1000 || true
+          exit 1
