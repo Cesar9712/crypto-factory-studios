@@ -6,10 +6,10 @@ HTTP: 200
   "gameText": "CQ\nCRYPTOQUEST RPG\nALPHA 0.1 · V18.1A · DARK FANTASY UI",
   "bodyClass": "",
   "recoverable": false,
-  "htmlLength": 557943
+  "htmlLength": 557959
 }
-PAGEERROR: ReferenceError: Cannot access 'SPECIALIZATION_SETS' before initialization
-    at http://127.0.0.1:4173/games/cryptoquest/game.html:1931:6
+PAGEERROR: ReferenceError: Cannot access 'UNIQUE_ITEMS' before initialization
+    at http://127.0.0.1:4173/games/cryptoquest/game.html:1982:62
 
 === http://127.0.0.1:4173/games/cryptoquest/ ===
 HTTP: 200
@@ -19,7 +19,7 @@ HTTP: 200
   "gameText": "CQ\nCRYPTOQUEST RPG\nALPHA 0.1 · V18.1A · DARK FANTASY UI",
   "bodyClass": "",
   "recoverable": false,
-  "htmlLength": 557943
+  "htmlLength": 557959
 }
-PAGEERROR: ReferenceError: Cannot access 'SPECIALIZATION_SETS' before initialization
-    at <anonymous>:294:6
+PAGEERROR: ReferenceError: Cannot access 'UNIQUE_ITEMS' before initialization
+    at http://127.0.0.1:4173/games/cryptoquest/:1982:62
