@@ -24,7 +24,7 @@ jobs:
       - name: Verify V19 mobile UI and energy on production
         shell: bash
         run: |
-          cat > /tmp/verify-v19.mjs <<'JS'
+          cat > verify-v19.mjs <<'JS'
           import { chromium } from 'playwright';
           const url='https://crypto-factory-studios.cryptofactorystudios.workers.dev/games/cryptoquest/';
           const browser=await chromium.launch({headless:true});
@@ -72,4 +72,4 @@ jobs:
           if(pageErrors.length)throw new Error('page errors: '+pageErrors.join('\n'));
           await browser.close();
           JS
-          node /tmp/verify-v19.mjs
+          node verify-v19.mjs
