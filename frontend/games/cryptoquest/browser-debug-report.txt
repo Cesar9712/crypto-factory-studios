@@ -2,24 +2,20 @@
 HTTP: 200
 {
   "title": "CryptoQuest RPG",
-  "boot": true,
-  "gameText": "CQ\nCRYPTOQUEST RPG\nALPHA 0.1 · V18.1A · DARK FANTASY UI",
+  "boot": false,
+  "gameText": "CQ\n\nCRYPTOQUEST RPG · ALPHA 0.1\n\nElige tu destino\nNOMBRE DEL HÉROE\nCONTINUAR\n›",
   "bodyClass": "",
   "recoverable": false,
-  "htmlLength": 557959
+  "htmlLength": 559198
 }
-PAGEERROR: ReferenceError: Cannot access 'UNIQUE_ITEMS' before initialization
-    at http://127.0.0.1:4173/games/cryptoquest/game.html:1982:62
 
 === http://127.0.0.1:4173/games/cryptoquest/ ===
 HTTP: 200
 {
   "title": "CryptoQuest RPG",
-  "boot": true,
-  "gameText": "CQ\nCRYPTOQUEST RPG\nALPHA 0.1 · V18.1A · DARK FANTASY UI",
+  "boot": false,
+  "gameText": "CQ\n\nCRYPTOQUEST RPG · ALPHA 0.1\n\nElige tu destino\nNOMBRE DEL HÉROE\nCONTINUAR\n›",
   "bodyClass": "",
   "recoverable": false,
-  "htmlLength": 557959
+  "htmlLength": 559198
 }
-PAGEERROR: ReferenceError: Cannot access 'UNIQUE_ITEMS' before initialization
-    at http://127.0.0.1:4173/games/cryptoquest/:1982:62
