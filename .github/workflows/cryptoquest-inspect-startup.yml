@@ -19,7 +19,17 @@ jobs:
         run: |
           set -euo pipefail
           F=frontend/games/cryptoquest/game.html
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('frontend/games/cryptoquest/game.html').read_text()
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.I|re.S)
+          Path('/tmp/cryptoquest-runtime.js').write_text('\n'.join(scripts))
+          PY
           {
+            echo '=== JavaScript syntax ==='
+            node --check /tmp/cryptoquest-runtime.js 2>&1 || true
+            echo
             echo '=== splash / alpha / boot ==='
             grep -Ein -C 8 'ALPHA 0\.1|DARK FANTASY UI|splash|boot|loader|loading' "$F" || true
             echo
