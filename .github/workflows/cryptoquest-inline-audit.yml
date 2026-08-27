@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  AUDIT_REVISION: "2"
+
 jobs:
   audit:
     runs-on: ubuntu-latest
@@ -20,14 +23,15 @@ jobs:
           from pathlib import Path
           import re
           p=Path('frontend/games/cryptoquest/index.html')
-          lines=p.read_text().splitlines()
+          text=p.read_text()
           rx=re.compile(r'\son(?:click|submit|change|input|load|error)\s*=',re.I)
           out=[]
-          for i,line in enumerate(lines,1):
-              if rx.search(line):
-                  out.append(f'{i}: {line[:1200]}')
-          Path('frontend/games/cryptoquest/inline-handlers.txt').write_text('\n'.join(out))
-          print('\n'.join(out))
+          for m in rx.finditer(text):
+              line=text.count('\n',0,m.start())+1
+              a=max(0,m.start()-350); b=min(len(text),m.end()+700)
+              out.append(f'=== line {line} {m.group(0).strip()} ===\n{text[a:b]}')
+          Path('frontend/games/cryptoquest/inline-handlers.txt').write_text('\n\n'.join(out))
+          print('\n\n'.join(out))
           PY
       - name: Commit report
         shell: bash
@@ -36,5 +40,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add frontend/games/cryptoquest/inline-handlers.txt
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'ci: record CryptoQuest inline handlers'
+          git commit -m 'ci: record CryptoQuest inline handler context'
           git push
