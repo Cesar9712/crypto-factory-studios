@@ -3,6 +3,7 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
 };
 
+const CRYPTOQUEST_CSP = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 const LEGACY_PUBLIC_ORIGIN = 'https://crypto-factory-studios.cesargp9712.workers.dev';
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -19,10 +20,17 @@ async function serveAsset(request,env){
   const response=await env.ASSETS.fetch(request);
   const type=(response.headers.get('content-type')||'').toLowerCase();
   const isText=type.includes('text/html')||type.includes('application/xml')||type.includes('text/xml')||type.includes('text/plain');
-  if(!isText)return response;
+  const headers=new Headers(response.headers);
+  const pathname=new URL(request.url).pathname;
+  if(pathname==='/games/cryptoquest' || pathname.startsWith('/games/cryptoquest/')){
+    headers.set('Content-Security-Policy',CRYPTOQUEST_CSP);
+    headers.set('Cache-Control','no-cache');
+    headers.set('X-Content-Type-Options','nosniff');
+  }
+  if(!isText)return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
   const currentOrigin=new URL(request.url).origin;
   const body=(await response.text()).split(LEGACY_PUBLIC_ORIGIN).join(currentOrigin);
-  const headers=new Headers(response.headers);headers.delete('content-length');
+  headers.delete('content-length');
   return new Response(body,{status:response.status,statusText:response.statusText,headers});
 }
 export default {async fetch(request,env){const url=new URL(request.url);if(url.pathname==='/health')return json({ok:true,service:'cfs-edge',api_configured:Boolean(normalizeOrigin(env.API_ORIGIN))});if(url.pathname==='/ready'){const configured=Boolean(normalizeOrigin(env.API_ORIGIN));if(!configured)return json({ok:false,service:'cfs-edge',api_configured:false},503);const probe=new Request(new URL('/ready',normalizeOrigin(env.API_ORIGIN)),{headers:{'X-CFS-Edge':'cloudflare-worker'}});try{const r=await fetch(probe);return json({ok:r.ok,service:'cfs-edge',api_configured:true,upstream_status:r.status},r.ok?200:503)}catch{return json({ok:false,service:'cfs-edge',api_configured:true,upstream_status:0},503)}}if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/play/'))return proxyUpstream(request,env);return serveAsset(request,env)}};
