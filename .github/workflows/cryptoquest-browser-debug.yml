@@ -34,7 +34,7 @@ jobs:
       - name: Run browser startup probe
         shell: bash
         run: |
-          cat > /tmp/cq-probe.mjs <<'JS'
+          cat > cq-probe.mjs <<'JS'
           import { chromium } from 'playwright';
           import fs from 'node:fs';
           const browser = await chromium.launch({headless:true});
@@ -66,12 +66,13 @@ jobs:
           fs.writeFileSync('frontend/games/cryptoquest/browser-debug-report.txt',out.join('\n'));
           await browser.close();
           JS
-          node /tmp/cq-probe.mjs
+          node cq-probe.mjs
           cat frontend/games/cryptoquest/browser-debug-report.txt
       - name: Commit browser report
         shell: bash
         run: |
           set -euo pipefail
+          rm -f cq-probe.mjs package.json package-lock.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add frontend/games/cryptoquest/browser-debug-report.txt
