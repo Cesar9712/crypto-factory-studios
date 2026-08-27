@@ -1928,7 +1928,6 @@ const SETS={
   dawn:{id:'dawn',name:'BASTIÓN DEL ALBA',classes:['paladin'],bonuses:{2:{defensePct:.08},4:{holyDamage:14},6:{healingPct:.25}}},
   graveKing:{id:'graveKing',name:'REY DE LA TUMBA',classes:['necromancer'],bonuses:{2:{magicDamage:10},4:{summonDamage:.22},6:{dotDamage:.28}}},
   wanderer:{id:'wanderer',name:'VIAJERO DE AETHER',classes:['all'],bonuses:{2:{expBonus:5},4:{goldBonus:8},6:{lootBonus:6}}},
-  ...SPECIALIZATION_SETS
 };
 
 const MATERIALS={iron:{id:'iron',name:'Hierro',icon:'⛓️',category:'Minerales'},wood:{id:'wood',name:'Madera',icon:'🪵',category:'Madera'},hide:{id:'hide',name:'Piel',icon:'🟫',category:'Pieles'},herb:{id:'herb',name:'Hierba',icon:'🌿',category:'Hierbas'},darkEssence:{id:'darkEssence',name:'Esencia Oscura',icon:'🌑',category:'Esencias'},crystal:{id:'crystal',name:'Cristal',icon:'💎',category:'Cristales'},runeShard:{id:'runeShard',name:'Fragmento Rúnico',icon:'🔷',category:'Runas'},legendaryShard:{id:'legendaryShard',name:'Fragmento Legendario',icon:'✨',category:'Fragmentos'},bossCore:{id:'bossCore',name:'Núcleo de Jefe',icon:'🔴',category:'Materiales de jefe'},petEssence:{id:'petEssence',name:'Esencia de Compañero',icon:'🐾',category:'Mascotas'},reforgeStone:{id:'reforgeStone',name:'Piedra de Reforja',icon:'♻️',category:'Forja'}};
@@ -2271,6 +2270,7 @@ const SET_EFFECTS={
  summoner:{2:{summonDamage:.12},4:{maxSummons:1},6:{capstonePower:1}},hemomancer:{2:{lifeSteal:3},4:{lowHpDamage:.1},6:{capstonePower:1}},plagueLord:{2:{dotDamage:.12},4:{resourceGainPct:.1},6:{capstonePower:1}}
 };
 const SPECIALIZATION_SETS=Object.fromEntries(Object.values(SPECIALIZATIONS_V4).flat().map(s=>[`${s.id}Set`,{id:`${s.id}Set`,name:s.setName,specialization:s.id,bonuses:SET_EFFECTS[s.id]}]));
+Object.assign(SETS,SPECIALIZATION_SETS);
 
 const U=(id,classId,specialization,name,effect,effectData,tags)=>({id,classId,specialization,name,effect,effectData,tags});
 const uniqueList=[
