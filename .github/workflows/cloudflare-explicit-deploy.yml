@@ -2,6 +2,14 @@ name: Cloudflare Explicit Deploy
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'worker/**'
+      - 'wrangler.toml'
+      - '.github/workflows/cloudflare-explicit-deploy.yml'
 
 jobs:
   deploy:
