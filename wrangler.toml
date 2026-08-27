@@ -9,4 +9,4 @@ API_ORIGIN = "https://crypto-factory-studios.onrender.com"
 directory = "./frontend"
 binding = "ASSETS"
 not_found_handling = "404-page"
-run_worker_first = ["/api/*", "/play/*", "/health", "/ready"]
+run_worker_first = ["/api/*", "/play/*", "/health", "/ready", "/games/cryptoquest", "/games/cryptoquest/*"]
