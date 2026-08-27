@@ -9,6 +9,8 @@ const CQ_V20_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v20-premiu
 const CQ_V20_SCRIPT = '<script src="/games/cryptoquest/v20-battle-pass.js?v=20.0.0" defer></script>';
 const CQ_V21_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v21-reference.css?v=21.0.0">';
 const CQ_V21_SCRIPT = '<script src="/games/cryptoquest/v21-runtime.js?v=21.0.0" defer></script>';
+const CQ_CORE_ANCHOR = "let game=loadGame(),creation={step:'name',name:'',classId:null},selectedItem=null,combat=null,combatReward=null,modal=game?.activities?.arena?.pendingBlessing?'arena-blessing':null;";
+const CQ_CORE_BRIDGE = `${CQ_CORE_ANCHOR}\nwindow.CryptoQuestCore={version:1,getGame:()=>game,save:()=>saveGame(game),render:()=>render(),deliverRewards:(rewards,options)=>deliverRewards(game,rewards,options)};\nObject.defineProperty(window,'game',{configurable:true,get:()=>game,set:value=>{game=value;}});\nwindow.saveGame=saveGame;window.deliverRewards=deliverRewards;window.render=render;`;
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {status, headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...SECURITY_HEADERS,...extraHeaders}});
@@ -43,6 +45,7 @@ async function serveAsset(request,env){
   const currentOrigin=new URL(request.url).origin;
   let body=(await response.text()).split(LEGACY_PUBLIC_ORIGIN).join(currentOrigin);
   if(isCryptoQuest&&type.includes('text/html')){
+    if(body.includes(CQ_CORE_ANCHOR)&&!body.includes('window.CryptoQuestCore='))body=body.replace(CQ_CORE_ANCHOR,CQ_CORE_BRIDGE);
     if(!body.includes('/games/cryptoquest/v20-premium.css'))body=body.replace('</head>',`${CQ_V20_STYLE}</head>`);
     if(!body.includes('/games/cryptoquest/v21-reference.css'))body=body.replace('</head>',`${CQ_V21_STYLE}</head>`);
     if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=body.replace('</body>',`${CQ_V20_SCRIPT}</body>`);
