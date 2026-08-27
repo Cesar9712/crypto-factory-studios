@@ -1979,7 +1979,7 @@ const ZONE_ITEM_THEMES=['Marchito','Sepulcral','Rúnico','Ígneo','Abisal','Tóx
 const ZONE_LOOT_IDS=['shadowForest','cursedCemetery','ancientRuins','fireMountains','eternalAbyss','poisonSwamp','abandonedMines','fallenDesert','blackFortress','enchantedForest','frozenLands','abyssCity','spectralCoast','lostTemple','corruptedLands','bloodVolcano','deadCity','titanValley','celestialBastion','voidRift'];
 const ITEM_VARIANTS=ZONE_ITEM_THEMES.flatMap((theme,zoneIndex)=>ITEM_TEMPLATES.map(template=>({id:`${template.baseId}-${zoneIndex+1}`,baseId:template.baseId,name:`${template.name} ${theme}`,slot:template.slot,zoneIndex,tier:Math.min(5,1+Math.floor(zoneIndex/4)),iconId:`item_${template.baseId}_${zoneIndex+1}`,assetId:`item.${template.baseId}.${zoneIndex+1}`})));
 const DROP_TABLES=Object.fromEntries(ZONE_ITEM_THEMES.map((theme,index)=>{const id=`${ZONE_LOOT_IDS[index]}Loot`;return [id,{id,zoneId:ZONE_LOOT_IDS[index],zoneIndex:index,theme,entries:ITEM_TEMPLATES.map(template=>({id:template.baseId,weight:template.slot==='weapon'?8:10,minLevel:Math.max(1,index*3),condition:null})),rareMaterials:[Object.keys(MATERIALS)[index%Object.keys(MATERIALS).length]],setChance:.16}];}));
-const ITEM_DEFINITION_COUNT=ITEM_VARIANTS.length+Object.keys(UNIQUE_ITEMS).length+Object.keys(MYTHIC_ITEMS).length;
+const ITEM_DEFINITION_COUNT=ITEM_VARIANTS.length;
 const CLASS_TEMPLATE_POOLS={warrior:['sword','axe','mace','shield','armor'],mage:['staff','wand','focus','amulet'],rogue:['dagger','bow','gloves','boots'],paladin:['mace','sword','shield','armor'],necromancer:['staff','wand','focus','amulet']};
 
 function generateItem(level=1,{rarity=null,template=null,bossName='',classId='',specialization='',difficulty='normal',luck=0,zoneId='',zoneIndex=null}={}){
