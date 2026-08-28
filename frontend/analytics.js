@@ -19,7 +19,8 @@
   function referrerHost(){try{return document.referrer?new URL(document.referrer).hostname:''}catch{return''}}
   async function capture(event,props={}){
     if(blocked()||!event)return false;
-    const payload={api_key:PROJECT_TOKEN,event:safeText(event),properties:{distinct_id:distinctId(),$current_url:`${location.origin}${location.pathname}`,path:location.pathname,referrer_host:referrerHost(),viewport_width:window.innerWidth,viewport_height:window.innerHeight,...utm(),...props}};
+    const id=distinctId();
+    const payload={api_key:PROJECT_TOKEN,distinct_id:id,event:safeText(event),properties:{$process_person_profile:false,$current_url:`${location.origin}${location.pathname}`,path:location.pathname,referrer_host:referrerHost(),viewport_width:window.innerWidth,viewport_height:window.innerHeight,...utm(),...props}};
     try{
       const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true,credentials:'omit'});
       return r.ok;
