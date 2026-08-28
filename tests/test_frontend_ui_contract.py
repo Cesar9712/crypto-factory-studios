@@ -41,6 +41,15 @@ def test_home_surfaces_verified_cryptoquest_runtime():
     assert 'Escaneo estructural y firmas integradas' in html
 
 
+def test_analytics_uses_valid_anonymous_posthog_capture_contract():
+    js = read('analytics.js')
+    assert "https://us.i.posthog.com/i/v0/e/" in js
+    assert 'api_key:PROJECT_TOKEN,distinct_id:id,event:' in js
+    assert '$process_person_profile:false' in js
+    assert 'properties:{distinct_id:' not in js
+    assert "capture('$pageview'" in js
+
+
 def test_billing_has_responsive_asset_and_csp_safe_plan_binding():
     html = read('billing.html')
     js = read('billing.js')
