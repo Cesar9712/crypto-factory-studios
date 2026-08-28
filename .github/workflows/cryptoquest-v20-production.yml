@@ -30,7 +30,7 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Verify V21 mobile runtime and battle pass
+      - name: Verify V21 mobile runtime, visual gates and battle pass
         run: |
           cat > verify-v21.mjs <<'JS'
           import { chromium } from 'playwright';
@@ -40,7 +40,7 @@ jobs:
           const page=await context.newPage();
           const pageErrors=[];
           page.on('pageerror',e=>pageErrors.push(e.message));
-          const response=await page.goto(base+'/games/cryptoquest/?qa=v21-'+Date.now(),{waitUntil:'load',timeout:30000});
+          const response=await page.goto(base+'/games/cryptoquest/?qa=v21-repair-'+Date.now(),{waitUntil:'load',timeout:30000});
           await page.waitForTimeout(1800);
           const boot=await page.evaluate(()=>({
             status:document.readyState,
@@ -63,13 +63,84 @@ jobs:
           await page.getByText('GUERRERO',{exact:true}).first().click();
           await page.getByRole('button',{name:/COMENZAR AVENTURA/i}).last().click();
           await page.waitForTimeout(900);
-          await page.screenshot({path:'v21-home.png',fullPage:true});
-          if(!/60\s*\/\s*60/.test(await page.locator('body').innerText()))throw new Error('Fresh hero energy missing');
 
-          await page.locator('#cq-bp-entry').click();
-          await page.locator('#cq-bp-backdrop').waitFor({state:'visible',timeout:5000});
-          await page.locator('.cq-bp-tier').first().waitFor({state:'visible',timeout:20000});
-          const pass=await page.evaluate(()=>({
+          const homeVisual=await page.evaluate(()=>{
+            const hero=document.querySelector('.hero-art-slot img');
+            const entry=document.querySelector('#cq-bp-entry');
+            const stage=document.querySelector('.home-hero-stage');
+            const hr=hero?.getBoundingClientRect(),er=entry?.getBoundingClientRect(),sr=stage?.getBoundingClientRect();
+            return {
+              hero:{exists:!!hero,visible:!!hero&&getComputedStyle(hero).display!=='none'&&hr.height>0,height:hr?.height||0,width:hr?.width||0},
+              stage:{height:sr?.height||0},
+              pass:{display:entry?getComputedStyle(entry).display:'none',width:er?.width||0,height:er?.height||0},
+              homeClass:document.documentElement.classList.contains('cq-home-active')
+            };
+          });
+          console.log('HOME_VISUAL',JSON.stringify(homeVisual));
+          if(!homeVisual.hero.exists||!homeVisual.hero.visible||homeVisual.hero.height<180)throw new Error('Hero art regressed or is not visible');
+          if(homeVisual.stage.height<240||homeVisual.stage.height>330)throw new Error('Home hero stage proportions regressed: '+homeVisual.stage.height);
+          if(!homeVisual.homeClass||homeVisual.pass.display==='none'||homeVisual.pass.width>52||homeVisual.pass.height>52)throw new Error('Battle Pass shortcut is missing or invasive on Home');
+          if(!/60\s*\/\s*60/.test(await page.locator('body').innerText()))throw new Error('Fresh hero energy missing');
+          await page.screenshot({path:'v21-home.png',fullPage:true});
+
+          // Inventory visual regression gate: pass must disappear and grid must stay dense.
+          const bagButton=page.locator('.bottom-nav button').filter({hasText:/BOLSA/i}).last();
+          if(!(await bagButton.count()))throw new Error('Bag navigation missing');
+          await bagButton.click();await page.waitForTimeout(450);
+          const bagVisual=await page.evaluate(()=>{
+            const entry=document.querySelector('#cq-bp-entry');
+            const grid=document.querySelector('.bag-screen .inventory-grid');
+            const slots=[...document.querySelectorAll('.bag-screen .inventory-slot')];
+            const cols=grid?getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length:0;
+            const first=slots[0]?.getBoundingClientRect();
+            return {passDisplay:entry?getComputedStyle(entry).display:'none',cols,slots:slots.length,slotWidth:first?.width||0,slotHeight:first?.height||0};
+          });
+          console.log('BAG_VISUAL',JSON.stringify(bagVisual));
+          if(bagVisual.passDisplay!=='none')throw new Error('Battle Pass shortcut overlays non-Home screens');
+          if(bagVisual.cols&&bagVisual.cols<4)throw new Error('Inventory regressed to oversized cards; columns='+bagVisual.cols);
+          if(bagVisual.slotWidth>120||bagVisual.slotHeight>150)throw new Error('Inventory slots are oversized');
+          await page.screenshot({path:'v21-bag.png',fullPage:true});
+
+          // Reach a deterministic normal combat and verify no emoji fallback is visible as enemy art.
+          const adventure=page.locator('.bottom-nav button').filter({hasText:/AVENTURA/i}).last();
+          await adventure.click();await page.waitForTimeout(450);
+          const enterZone=page.getByRole('button',{name:/ENTRAR EN BOSQUE SOMBRÍO/i}).last();
+          if(!(await enterZone.count()))throw new Error('Bosque Sombrío entry missing');
+          await enterZone.click();await page.waitForTimeout(450);
+          const eventOverlay=page.locator('.event-decision');
+          if(await eventOverlay.count()&&await eventOverlay.isVisible()){
+            const ignore=page.getByRole('button',{name:/IGNORAR/i}).last();
+            if(await ignore.count()){await ignore.click();await page.waitForTimeout(350);}
+          }
+          const goblin=page.locator('button[data-fight="0:0"]').first();
+          if(await goblin.count()){await goblin.click({force:true});await page.waitForTimeout(800);}
+          const combatVisual=await page.evaluate(()=>{
+            const fig=document.querySelector('.enemy-figure');
+            const fallback=document.querySelector('.enemy-asset.fallback-icon');
+            const actions=[...document.querySelectorAll('.combat-actions button')];
+            const fr=fig?.getBoundingClientRect();
+            return {combat:!!document.querySelector('.combat-screen'),fallbackDisplay:fallback?getComputedStyle(fallback).display:'absent',figureWidth:fr?.width||0,figureHeight:fr?.height||0,actions:actions.length,minActionWidth:actions.length?Math.min(...actions.map(a=>a.getBoundingClientRect().width)):0};
+          });
+          console.log('COMBAT_VISUAL',JSON.stringify(combatVisual));
+          if(!combatVisual.combat)throw new Error('Combat screen did not open');
+          if(combatVisual.fallbackDisplay!=='absent'&&combatVisual.fallbackDisplay!=='none')throw new Error('Emoji/fallback enemy art is visible');
+          if(combatVisual.figureWidth<150||combatVisual.figureHeight<130)throw new Error('Enemy presentation is too small');
+          if(combatVisual.actions<4||combatVisual.minActionWidth<40)throw new Error('Combat actions are compressed');
+          await page.screenshot({path:'v21-combat.png',fullPage:true});
+
+          // Start a fresh page for Battle Pass transaction/persistence checks.
+          const bpPage=await context.newPage();
+          const bpErrors=[];bpPage.on('pageerror',e=>bpErrors.push(e.message));
+          await bpPage.goto(base+'/games/cryptoquest/?qa=v21-pass-'+Date.now(),{waitUntil:'load',timeout:30000});
+          await bpPage.waitForTimeout(1200);
+          await bpPage.locator('input:not([type="hidden"])').first().fill('V21BP');
+          await bpPage.locator('button').filter({hasText:/CONTINUAR/i}).last().click();await bpPage.waitForTimeout(300);
+          await bpPage.getByText('GUERRERO',{exact:true}).first().click();
+          await bpPage.getByRole('button',{name:/COMENZAR AVENTURA/i}).last().click();await bpPage.waitForTimeout(700);
+          await bpPage.locator('#cq-bp-entry').click();
+          await bpPage.locator('#cq-bp-backdrop').waitFor({state:'visible',timeout:5000});
+          await bpPage.locator('.cq-bp-tier').first().waitFor({state:'visible',timeout:20000});
+          const pass=await bpPage.evaluate(()=>({
             tiers:document.querySelectorAll('.cq-bp-tier').length,
             free:document.querySelectorAll('.cq-bp-reward:not(.premium)').length,
             premium:document.querySelectorAll('.cq-bp-reward.premium').length,
@@ -79,28 +150,20 @@ jobs:
           console.log('BATTLE_PASS_UI',JSON.stringify(pass));
           if(pass.tiers!==50||pass.free!==50||pass.premium!==50||!pass.title.includes('Sombras del Bastión'))throw new Error('12x50 battle pass UI invalid');
           if(pass.premiumActive)throw new Error('Premium must not be granted to anonymous QA user');
-          await page.screenshot({path:'v21-battle-pass.png',fullPage:true});
+          await bpPage.screenshot({path:'v21-battle-pass.png',fullPage:true});
 
-          await page.evaluate(()=>window.CryptoQuestBattlePass.awardTestXp(1000));
-          await page.waitForTimeout(300);
-          const before=await page.evaluate(()=>({gold:game.player.gold,xp:game.battlePass.seasons.s01.xp,claimed:[...game.battlePass.seasons.s01.claimedFree]}));
-          const available=page.locator('.cq-bp-reward.available:not(.premium)').first();
+          await bpPage.evaluate(()=>window.CryptoQuestBattlePass.awardTestXp(1000));
+          await bpPage.waitForTimeout(300);
+          const before=await bpPage.evaluate(()=>({gold:game.player.gold,xp:game.battlePass.seasons.s01.xp,claimed:[...game.battlePass.seasons.s01.claimedFree]}));
+          const available=bpPage.locator('.cq-bp-reward.available:not(.premium)').first();
           if(!(await available.count()))throw new Error('No free reward became claimable');
-          await available.click();
-          await page.waitForTimeout(400);
-          const after=await page.evaluate(()=>({gold:game.player.gold,xp:game.battlePass.seasons.s01.xp,claimed:[...game.battlePass.seasons.s01.claimedFree]}));
+          await available.click();await bpPage.waitForTimeout(400);
+          const after=await bpPage.evaluate(()=>({gold:game.player.gold,xp:game.battlePass.seasons.s01.xp,claimed:[...game.battlePass.seasons.s01.claimedFree]}));
           console.log('FREE_CLAIM',JSON.stringify({before,after}));
           if(after.claimed.length<=before.claimed.length||after.gold<=before.gold)throw new Error('Free reward claim failed');
           const claimedTier=after.claimed[0];
-
-          await page.reload({waitUntil:'load'});await page.waitForTimeout(1300);
-          const persisted=await page.evaluate((tier)=>({
-            visual:document.documentElement.dataset.cqVisual,
-            reference:document.documentElement.dataset.cqReference,
-            xp:game?.battlePass?.seasons?.s01?.xp||0,
-            claimed:game?.battlePass?.seasons?.s01?.claimedFree?.includes(tier)||false,
-            seasons:window.CryptoQuestBattlePass?.seasons?.length||0
-          }),claimedTier);
+          await bpPage.reload({waitUntil:'load'});await bpPage.waitForTimeout(1200);
+          const persisted=await bpPage.evaluate((tier)=>({visual:document.documentElement.dataset.cqVisual,reference:document.documentElement.dataset.cqReference,xp:game?.battlePass?.seasons?.s01?.xp||0,claimed:game?.battlePass?.seasons?.s01?.claimedFree?.includes(tier)||false,seasons:window.CryptoQuestBattlePass?.seasons?.length||0}),claimedTier);
           console.log('PERSISTENCE',JSON.stringify(persisted));
           if(persisted.visual!=='v21'||persisted.reference!=='master'||persisted.seasons!==12||persisted.xp<1000||!persisted.claimed)throw new Error('Battle pass persistence failed');
 
@@ -110,8 +173,8 @@ jobs:
             console.log('BATTLE_PASS_PRODUCTS',count);
             if(count!==0&&count!==12)throw new Error('Battle pass product catalog is partially deployed');
           }
-          if(pageErrors.length)throw new Error('Browser page errors: '+pageErrors.join(' | '));
-          console.log('CRYPTOQUEST_V21_PRODUCTION_OK',JSON.stringify({seasons:12,tiers:50,freeClaim:true,persisted:true}));
+          if(pageErrors.length||bpErrors.length)throw new Error('Browser page errors: '+[...pageErrors,...bpErrors].join(' | '));
+          console.log('CRYPTOQUEST_V21_PRODUCTION_OK',JSON.stringify({visualGates:true,seasons:12,tiers:50,freeClaim:true,persisted:true}));
           await browser.close();
           JS
           node verify-v21.mjs
@@ -122,5 +185,7 @@ jobs:
           name: cryptoquest-v21-visual-qa
           path: |
             v21-home.png
+            v21-bag.png
+            v21-combat.png
             v21-battle-pass.png
           if-no-files-found: ignore
