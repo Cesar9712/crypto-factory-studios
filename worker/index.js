@@ -7,6 +7,7 @@ const CRYPTOQUEST_CSP = "default-src 'self' data: blob:; script-src 'self' 'unsa
 const LEGACY_PUBLIC_ORIGIN = 'https://crypto-factory-studios.cesargp9712.workers.dev';
 const ANALYTICS_SCRIPT = '<script src="/analytics.js?v=20260827" defer></script>';
 const CQ_V26_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v26-clean-rebuild.css?v=26.0.1">';
+const CQ_V26_RUNTIME_STYLE = '<style id="cq-v26-edge-hotfix">.combat-screen .enemy-figure{transform:translateY(-60px)!important}</style>';
 const CQ_BATTLE_PASS_SCRIPT = '<script src="/games/cryptoquest/v20-battle-pass.js?v=20.0.0" defer></script>';
 const CQ_PRESENTATION_RUNTIME = '<script src="/games/cryptoquest/v21-runtime.js?v=21.0.0" defer></script>';
 const CQ_CORE_ANCHOR = "let game=loadGame(),creation={step:'name',name:'',classId:null},selectedItem=null,combat=null,combatReward=null,modal=game?.activities?.arena?.pendingBlessing?'arena-blessing':null;";
@@ -48,6 +49,7 @@ async function serveAsset(request,env){
   if(isCryptoQuest&&type.includes('text/html')){
     if(body.includes(CQ_CORE_ANCHOR)&&!body.includes('window.CryptoQuestCore='))body=body.replace(CQ_CORE_ANCHOR,CQ_CORE_BRIDGE);
     if(!body.includes('/games/cryptoquest/v26-clean-rebuild.css'))body=body.replace('</head>',`${CQ_V26_STYLE}</head>`);
+    if(!body.includes('cq-v26-edge-hotfix'))body=body.replace('</head>',`${CQ_V26_RUNTIME_STYLE}</head>`);
     if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=body.replace('</body>',`${CQ_BATTLE_PASS_SCRIPT}</body>`);
     if(!body.includes('/games/cryptoquest/v21-runtime.js'))body=body.replace('</body>',`${CQ_PRESENTATION_RUNTIME}</body>`);
   }
