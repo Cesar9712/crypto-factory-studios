@@ -12,6 +12,8 @@ const CQ_V21_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v21-refere
 const CQ_V21_SCRIPT = '<script src="/games/cryptoquest/v21-runtime.js?v=21.0.0" defer></script>';
 const CQ_V22_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v22-masterpiece.css?v=22.0.0">';
 const CQ_V23_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v23-perfect.css?v=23.0.0">';
+const CQ_V24_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v24-structural.css?v=24.0.0">';
+const CQ_V24_SCRIPT = '<script src="/games/cryptoquest/v24-structural.js?v=24.0.0" defer></script>';
 const CQ_CORE_ANCHOR = "let game=loadGame(),creation={step:'name',name:'',classId:null},selectedItem=null,combat=null,combatReward=null,modal=game?.activities?.arena?.pendingBlessing?'arena-blessing':null;";
 const CQ_CORE_BRIDGE = `${CQ_CORE_ANCHOR}\nwindow.CryptoQuestCore={version:1,getGame:()=>game,save:()=>saveGame(game),render:()=>render(),deliverRewards:(rewards,options)=>deliverRewards(game,rewards,options)};\nObject.defineProperty(window,'game',{configurable:true,get:()=>game,set:value=>{game=value;}});\nwindow.saveGame=saveGame;window.deliverRewards=deliverRewards;window.render=render;`;
 
@@ -42,7 +44,7 @@ async function serveAsset(request,env){
     headers.set('Cache-Control','no-store, max-age=0');
     headers.set('Pragma','no-cache');
     headers.set('X-Content-Type-Options','nosniff');
-    headers.set('X-CryptoQuest-Visual','V23');
+    headers.set('X-CryptoQuest-Visual','V24-STRUCTURAL');
   }
   if(!isText)return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
   const currentOrigin=new URL(request.url).origin;
@@ -54,8 +56,10 @@ async function serveAsset(request,env){
     if(!body.includes('/games/cryptoquest/v21-reference.css'))body=body.replace('</head>',`${CQ_V21_STYLE}</head>`);
     if(!body.includes('/games/cryptoquest/v22-masterpiece.css'))body=body.replace('</head>',`${CQ_V22_STYLE}</head>`);
     if(!body.includes('/games/cryptoquest/v23-perfect.css'))body=body.replace('</head>',`${CQ_V23_STYLE}</head>`);
+    if(!body.includes('/games/cryptoquest/v24-structural.css'))body=body.replace('</head>',`${CQ_V24_STYLE}</head>`);
     if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=body.replace('</body>',`${CQ_V20_SCRIPT}</body>`);
     if(!body.includes('/games/cryptoquest/v21-runtime.js'))body=body.replace('</body>',`${CQ_V21_SCRIPT}</body>`);
+    if(!body.includes('/games/cryptoquest/v24-structural.js'))body=body.replace('</body>',`${CQ_V24_SCRIPT}</body>`);
   }
   headers.delete('content-length');
   return new Response(body,{status:response.status,statusText:response.statusText,headers});
