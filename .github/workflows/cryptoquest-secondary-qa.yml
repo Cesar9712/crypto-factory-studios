@@ -41,32 +41,32 @@ jobs:
           page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
 
           const snap=()=>page.evaluate(()=>({
-            text:(document.body?.innerText||'').replace(/\s+/g,' ').trim().slice(0,2200),
-            buttons:[...document.querySelectorAll('button')].filter(b=>b.offsetParent!==null).map(b=>b.innerText.replace(/\s+/g,' ').trim()).filter(Boolean).slice(0,100),
+            text:(document.body?.innerText||'').replace(/\s+/g,' ').trim().slice(0,2400),
+            buttons:[...document.querySelectorAll('button')].filter(b=>b.offsetParent!==null).map(b=>b.innerText.replace(/\s+/g,' ').trim()).filter(Boolean).slice(0,120),
             overflowX:document.documentElement.scrollWidth-innerWidth,
             boot:Boolean(document.querySelector('.boot-state')),
             presentation:document.documentElement.dataset.cqPresentation||'',
             storage:[...Array(localStorage.length)].map((_,i)=>localStorage.key(i))
           }));
           const assertClean=async label=>{const s=await snap();console.log(label,JSON.stringify(s));if(errors.length||s.boot||s.overflowX>4)throw new Error(`${label} failed: ${errors.join(' | ')} overflow=${s.overflowX}`);return s};
-          async function click(re,required=true){
-            const btns=page.locator('button:visible');
+          async function click(re,required=true,scope='button:visible'){
+            const btns=page.locator(scope);
             const n=await btns.count();
             for(let i=0;i<n;i++){
               const b=btns.nth(i); const t=(await b.innerText()).replace(/\s+/g,' ').trim(); re.lastIndex=0;
               if(re.test(t)){await b.click();await page.waitForTimeout(280);return t;}
             }
-            if(required)throw new Error(`Button missing: ${re}`); return null;
+            if(required)throw new Error(`Button missing: ${re} scope=${scope}`); return null;
           }
-          async function nav(tab){
-            const b=page.locator(`.bottom-nav button[data-tab="${tab}"]:visible`).first();
-            if(!(await b.count()))throw new Error(`Bottom nav tab missing: ${tab}`);
-            await b.click(); await page.waitForTimeout(300);
+          async function nav(label){
+            const hit=await click(new RegExp(`^${label}$`,'i'),false,'.bottom-nav button:visible');
+            if(!hit)throw new Error(`Bottom nav label missing: ${label}`);
           }
           async function auditBackTarget(label){
             const result=await page.evaluate(()=>{
-              const b=document.querySelector('button.back-service[data-open="menu"]');
-              if(!b||b.offsetParent===null)return {exists:false};
+              const buttons=[...document.querySelectorAll('button')].filter(b=>b.offsetParent!==null);
+              const b=buttons.find(x=>/^‹\s*MÁS$/i.test((x.innerText||'').replace(/\s+/g,' ').trim()));
+              if(!b)return {exists:false};
               const r=b.getBoundingClientRect();
               const x=Math.max(0,Math.min(innerWidth-1,r.left+r.width/2));
               const y=Math.max(0,Math.min(innerHeight-1,r.top+r.height/2));
@@ -77,7 +77,7 @@ jobs:
             if(result.exists&&!result.same)throw new Error(`Back button hit target blocked on ${label}: ${JSON.stringify(result)}`);
           }
 
-          await page.goto('http://127.0.0.1:4173/games/cryptoquest/?secondary=3',{waitUntil:'load',timeout:30000});
+          await page.goto('http://127.0.0.1:4173/games/cryptoquest/?secondary=4',{waitUntil:'load',timeout:30000});
           await page.waitForTimeout(5000);
           let s=await assertClean('CREATE_START');
           const input=page.locator('input:visible').first();
@@ -99,19 +99,19 @@ jobs:
 
           const secondary=['BASTIÓN','MISIONES','EXPEDICIONES','MAZMORRAS','LOGROS'];
           for(const name of secondary){
-            await nav('menu');
+            await nav('MÁS');
             await click(new RegExp(name,'i'));
             await assertClean(`SECONDARY_${name}`);
             await auditBackTarget(name);
           }
 
-          await nav('hero');
+          await nav('HÉROE');
           for(const tab of ['HABILIDADES','EQUIPO']){
             const hit=await click(new RegExp(tab,'i'),false);
             if(hit)await assertClean(`HERO_${tab}`);
           }
 
-          await nav('adventure');
+          await nav('AVENTURA');
           await assertClean('ADVENTURE');
           const goblin=await click(/goblin/i,false);
           if(goblin){
