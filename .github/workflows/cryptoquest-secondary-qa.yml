@@ -1,0 +1,112 @@
+name: CryptoQuest Secondary QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cryptoquest-secondary-qa.yml'
+      - 'frontend/games/cryptoquest/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secondary-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start frontend
+        run: |
+          python3 -m http.server 4173 --directory frontend >/tmp/cq-http.log 2>&1 &
+          sleep 2
+      - name: Run persistence secondary systems and combat QA
+        shell: bash
+        run: |
+          cat > cq-secondary.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+          const page=await context.newPage();
+          const errors=[];
+          page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
+
+          const snap=()=>page.evaluate(()=>({
+            text:(document.body?.innerText||'').replace(/\s+/g,' ').trim().slice(0,1800),
+            buttons:[...document.querySelectorAll('button')].filter(b=>b.offsetParent!==null).map(b=>b.innerText.replace(/\s+/g,' ').trim()).filter(Boolean).slice(0,80),
+            overflowX:document.documentElement.scrollWidth-innerWidth,
+            boot:Boolean(document.querySelector('.boot-state')),
+            presentation:document.documentElement.dataset.cqPresentation||'',
+            storage:[...Array(localStorage.length)].map((_,i)=>localStorage.key(i))
+          }));
+          const assertClean=async label=>{const s=await snap();console.log(label,JSON.stringify(s));if(errors.length||s.boot||s.overflowX>4)throw new Error(`${label} failed: ${errors.join(' | ')} overflow=${s.overflowX}`);return s};
+          async function click(re,required=true){
+            const btns=page.locator('button:visible');
+            const n=await btns.count();
+            for(let i=0;i<n;i++){
+              const b=btns.nth(i); const t=(await b.innerText()).replace(/\s+/g,' ').trim(); re.lastIndex=0;
+              if(re.test(t)){await b.click();await page.waitForTimeout(280);return t;}
+            }
+            if(required)throw new Error(`Button missing: ${re}`); return null;
+          }
+
+          await page.goto('http://127.0.0.1:4173/games/cryptoquest/?secondary=1',{waitUntil:'load',timeout:30000});
+          await page.waitForTimeout(5000);
+          let s=await assertClean('CREATE_START');
+          const input=page.locator('input:visible').first();
+          if(await input.count()){
+            await input.fill('PersistenceHero');
+            await click(/continuar/i);
+            await click(/guerrero/i);
+            await click(/comenzar aventura/i);
+            await page.waitForTimeout(600);
+          }
+          s=await assertClean('HOME_CREATED');
+          if(!/PersistenceHero/i.test(s.text))throw new Error('Created hero not visible');
+
+          await page.reload({waitUntil:'load'});
+          await page.waitForTimeout(4500);
+          s=await assertClean('AFTER_RELOAD');
+          if(!/PersistenceHero/i.test(s.text)||/elige tu destino/i.test(s.text))throw new Error('Persistence failed after reload');
+
+          const secondary=['BASTIÓN','MISIONES','EXPEDICIONES','MAZMORRAS','LOGROS'];
+          for(const name of secondary){
+            await click(/MÁS/i);
+            await click(new RegExp(name,'i'));
+            await assertClean(`SECONDARY_${name}`);
+          }
+
+          await click(/HÉROE/i);
+          for(const tab of ['HABILIDADES','EQUIPO']){
+            const hit=await click(new RegExp(tab,'i'),false);
+            if(hit)await assertClean(`HERO_${tab}`);
+          }
+
+          await click(/AVENTURA/i);
+          await assertClean('ADVENTURE');
+          const goblin=await click(/goblin/i,false);
+          if(goblin){
+            s=await assertClean('GOBLIN_OPEN');
+            const start=await click(/combatir|iniciar|entrar|atacar|batalla/i,false);
+            if(start){
+              s=await assertClean('COMBAT_OPEN');
+              const basic=await click(/ataque básico|atacar|golpear|básico/i,false);
+              if(basic)await assertClean('COMBAT_ONE_ACTION');
+            }
+          } else {
+            console.log('No Goblin button exposed; adventure page still clean.');
+          }
+
+          console.log('SECONDARY_QA_OK');
+          await browser.close();
+          JS
+          timeout 100s node cq-secondary.mjs
