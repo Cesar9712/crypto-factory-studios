@@ -4,6 +4,7 @@ const ROOT=document.documentElement;
 ROOT.dataset.cqPresentation='v31';
 const START=Date.now();
 let handled=false;
+let viewportRecovered=false;
 
 function txt(el){return (el?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase()}
 function visible(el){if(!el)return false;const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)>0&&r.width>2&&r.height>2}
@@ -46,24 +47,24 @@ function dismissSplash(){
   },700);
 }
 function recoverViewport(){
+  if(viewportRecovered)return;
+  viewportRecovered=true;
   document.body?.style.removeProperty('display');
   document.body?.style.removeProperty('place-items');
-  document.documentElement.style.minHeight='100%';
-  document.body?.style.setProperty('min-height','100dvh');
+  if(document.documentElement.style.minHeight!=='100%')document.documentElement.style.minHeight='100%';
+  if(document.body&&document.body.style.minHeight!=='100dvh')document.body.style.minHeight='100dvh';
 }
 function pass(){
   recoverViewport();
   if(Date.now()-START>2600)dismissSplash();
 }
 
-addEventListener('error',e=>{
-  console.error('[CQ V31]',e.error||e.message||e);
-},{capture:true});
+addEventListener('error',e=>console.error('[CQ V31]',e.error||e.message||e),{capture:true});
 addEventListener('unhandledrejection',e=>console.error('[CQ V31 promise]',e.reason));
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{pass();setTimeout(pass,1800);setTimeout(pass,3600);},{once:true});
 else {pass();setTimeout(pass,1800);setTimeout(pass,3600);}
 const mo=new MutationObserver(()=>{if(!handled&&Date.now()-START>2600)pass()});
-mo.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden']});
+mo.observe(document.documentElement,{childList:true,subtree:true});
 setTimeout(()=>mo.disconnect(),15000);
 })();
