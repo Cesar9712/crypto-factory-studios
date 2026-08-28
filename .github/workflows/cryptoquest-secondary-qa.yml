@@ -59,7 +59,7 @@ jobs:
             if(required)throw new Error(`Button missing: ${re}`); return null;
           }
 
-          await page.goto('http://127.0.0.1:4173/games/cryptoquest/?secondary=1',{waitUntil:'load',timeout:30000});
+          await page.goto('http://127.0.0.1:4173/games/cryptoquest/?secondary=2',{waitUntil:'load',timeout:30000});
           await page.waitForTimeout(5000);
           let s=await assertClean('CREATE_START');
           const input=page.locator('input:visible').first();
@@ -71,12 +71,13 @@ jobs:
             await page.waitForTimeout(600);
           }
           s=await assertClean('HOME_CREATED');
-          if(!/PersistenceHero/i.test(s.text))throw new Error('Created hero not visible');
+          if(!/PersistenceHer/i.test(s.text))throw new Error('Created hero not visible after expected name limit');
+          if(!s.storage.includes('cryptoquest-rpg-save-v1')||!s.storage.includes('cryptoquest-rpg-save-v1-backup'))throw new Error('Primary/backup save keys missing');
 
           await page.reload({waitUntil:'load'});
           await page.waitForTimeout(4500);
           s=await assertClean('AFTER_RELOAD');
-          if(!/PersistenceHero/i.test(s.text)||/elige tu destino/i.test(s.text))throw new Error('Persistence failed after reload');
+          if(!/PersistenceHer/i.test(s.text)||/elige tu destino/i.test(s.text))throw new Error('Persistence failed after reload');
 
           const secondary=['BASTIÓN','MISIONES','EXPEDICIONES','MAZMORRAS','LOGROS'];
           for(const name of secondary){
