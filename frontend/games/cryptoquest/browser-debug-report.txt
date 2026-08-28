@@ -1,0 +1,24 @@
+=== http://127.0.0.1:4173/games/cryptoquest/game.html ===
+HTTP: 404
+{
+  "title": "Error response",
+  "boot": false,
+  "gameText": "",
+  "bodyClass": "",
+  "recoverable": false,
+  "htmlLength": 314
+}
+CONSOLE error: Failed to load resource: the server responded with a status of 404 (File not found)
+
+=== http://127.0.0.1:4173/games/cryptoquest/ ===
+HTTP: 200
+{
+  "title": "CryptoQuest RPG",
+  "boot": true,
+  "gameText": "CQ\nCRYPTOQUEST RPG\nALPHA 0.1 · V18.1A · DARK FANTASY UI",
+  "bodyClass": "",
+  "recoverable": false,
+  "htmlLength": 558437
+}
+PAGEERROR: ReferenceError: Cannot access 'SPECIALIZATION_SETS' before initialization
+    at http://127.0.0.1:4173/games/cryptoquest/:294:6
