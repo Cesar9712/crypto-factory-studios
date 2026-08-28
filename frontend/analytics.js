@@ -1,0 +1,41 @@
+(()=>{
+  const PROJECT_TOKEN='phc_z2fyPA8VD655xhTSGBfFQgJC3ugUSCgvFLK49da86p4i';
+  const ENDPOINT='https://us.i.posthog.com/i/v0/e/';
+  const STORAGE_KEY='cfs_analytics_distinct_id';
+  const blocked=()=>navigator.globalPrivacyControl===true||navigator.doNotTrack==='1'||window.doNotTrack==='1';
+  const safeText=v=>String(v??'').slice(0,120);
+  function distinctId(){
+    try{
+      let id=localStorage.getItem(STORAGE_KEY);
+      if(!id){id=`anon_${crypto.randomUUID?.()||Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;localStorage.setItem(STORAGE_KEY,id)}
+      return id;
+    }catch{return `anon_session_${Math.random().toString(36).slice(2)}`}
+  }
+  function utm(){
+    const q=new URLSearchParams(location.search),out={};
+    for(const key of ['utm_source','utm_medium','utm_campaign','utm_content','utm_term']){const v=q.get(key);if(v)out[key]=safeText(v)}
+    return out;
+  }
+  function referrerHost(){try{return document.referrer?new URL(document.referrer).hostname:''}catch{return''}}
+  async function capture(event,props={}){
+    if(blocked()||!event)return false;
+    const payload={api_key:PROJECT_TOKEN,event:safeText(event),properties:{distinct_id:distinctId(),$current_url:`${location.origin}${location.pathname}`,path:location.pathname,referrer_host:referrerHost(),viewport_width:window.innerWidth,viewport_height:window.innerHeight,...utm(),...props}};
+    try{
+      const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true,credentials:'omit'});
+      return r.ok;
+    }catch{return false}
+  }
+  function clickEvent(target){
+    const el=target.closest?.('a,button');if(!el)return;
+    const href=el instanceof HTMLAnchorElement?el.getAttribute('href')||'':'';
+    const text=safeText((el.textContent||'').trim());
+    if(href.startsWith('/games/cryptoquest'))capture('game_play_clicked',{game:'cryptoquest',cta:text||'link'});
+    else if(href.includes('creator.html'))capture('creator_studio_clicked',{cta:text||'link'});
+    else if(href.includes('billing.html'))capture('billing_clicked',{cta:text||'link'});
+    else if(el.matches('[data-open="register"]'))capture('signup_opened',{cta:text||'register'});
+    else if(el.matches('[data-open="login"]'))capture('login_opened',{cta:text||'login'});
+  }
+  window.cfsAnalytics={capture};
+  document.addEventListener('click',e=>clickEvent(e.target),{capture:true});
+  capture('$pageview',{page_title:safeText(document.title)});
+})();
