@@ -19,12 +19,15 @@ jobs:
           raw=''.join((d/f'p{i:02}.txt').read_text().strip() for i in range(12))
           html=gzip.decompress(base64.b64decode(raw)).decode('utf-8')
           lines=html.splitlines()
+          terms=['UNIQUE_ITEMS','SPECIALIZATION_SETS']
           out=[]
-          for i,line in enumerate(lines):
-            if 'SPECIALIZATION_SETS' in line:
-              a=max(0,i-12); b=min(len(lines),i+13)
-              out.append(f'--- occurrence line {i+1} ---')
-              out.extend(f'{n+1:04}: {lines[n]}' for n in range(a,b))
+          for term in terms:
+            out.append(f'===== {term} =====')
+            for i,line in enumerate(lines):
+              if term in line:
+                a=max(0,i-10); b=min(len(lines),i+11)
+                out.append(f'--- occurrence line {i+1} ---')
+                out.extend(f'{n+1:04}: {lines[n]}' for n in range(a,b))
           pathlib.Path('cq-source-context.txt').write_text('\n'.join(out))
           print('\n'.join(out))
           PY
