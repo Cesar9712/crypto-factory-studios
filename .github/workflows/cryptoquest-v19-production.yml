@@ -4,7 +4,10 @@ on:
   push:
     paths:
       - 'frontend/games/cryptoquest/**'
+      - 'frontend/index.html'
+      - 'frontend/analytics.js'
       - 'worker/index.js'
+      - 'wrangler.toml'
       - '.github/workflows/cryptoquest-v19-production.yml'
   workflow_run:
     workflows: ['Cloudflare Explicit Deploy']
@@ -31,6 +34,18 @@ jobs:
           const base='https://crypto-factory-studios.cryptofactorystudios.workers.dev';
           const browser=await chromium.launch({headless:true});
           const context=await browser.newContext({viewport:{width:412,height:915},isMobile:true,hasTouch:true});
+
+          // Guard the portal -> Worker -> first-party analytics asset chain. This does
+          // not synthesize conversion events; it only ensures production can deliver
+          // the telemetry code that real browser interactions use.
+          const rootResponse=await context.request.get(base+'/?qa=analytics-'+Date.now(),{headers:{'cache-control':'no-cache'}});
+          const rootHtml=await rootResponse.text();
+          if(rootResponse.status()!==200||!rootHtml.includes('/analytics.js')) throw new Error('Portal analytics injection missing in production');
+          const analyticsResponse=await context.request.get(base+'/analytics.js?qa='+Date.now(),{headers:{'cache-control':'no-cache'}});
+          const analyticsJs=await analyticsResponse.text();
+          if(analyticsResponse.status()!==200||!analyticsJs.includes('window.cfsAnalytics')||!analyticsJs.includes('us.i.posthog.com/i/v0/e/')) throw new Error('First-party analytics runtime missing or invalid');
+          console.log('CFS_ANALYTICS_EDGE_OK',JSON.stringify({root:rootResponse.status(),asset:analyticsResponse.status()}));
+
           const page=await context.newPage();
           const errors=[];
           page.on('pageerror',e=>errors.push(e.message));
