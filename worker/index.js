@@ -6,7 +6,7 @@ const SECURITY_HEADERS = {
 const CRYPTOQUEST_CSP = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 const LEGACY_PUBLIC_ORIGIN = 'https://crypto-factory-studios.cesargp9712.workers.dev';
 const ANALYTICS_SCRIPT = '<script src="/analytics.js?v=20260827" defer></script>';
-const CQ_V26_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v26-clean-rebuild.css?v=26.0.0">';
+const CQ_V26_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v26-clean-rebuild.css?v=26.0.1">';
 const CQ_BATTLE_PASS_SCRIPT = '<script src="/games/cryptoquest/v20-battle-pass.js?v=20.0.0" defer></script>';
 const CQ_PRESENTATION_RUNTIME = '<script src="/games/cryptoquest/v21-runtime.js?v=21.0.0" defer></script>';
 const CQ_CORE_ANCHOR = "let game=loadGame(),creation={step:'name',name:'',classId:null},selectedItem=null,combat=null,combatReward=null,modal=game?.activities?.arena?.pendingBlessing?'arena-blessing':null;";
