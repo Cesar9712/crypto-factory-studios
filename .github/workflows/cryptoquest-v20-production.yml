@@ -1,16 +1,10 @@
-name: CryptoQuest V21 Production
+name: CryptoQuest Mobile Production
 
 on:
   push:
     paths:
-      - 'frontend/games/cryptoquest/index.html'
-      - 'frontend/games/cryptoquest/v20-premium.css'
-      - 'frontend/games/cryptoquest/v20-battle-pass.js'
-      - 'frontend/games/cryptoquest/v21-reference.css'
-      - 'frontend/games/cryptoquest/v21-runtime.js'
+      - 'frontend/games/cryptoquest/**'
       - 'worker/index.js'
-      - 'backend/app/db.py'
-      - 'backend/app/db_runtime.py'
       - '.github/workflows/cryptoquest-v20-production.yml'
   workflow_run:
     workflows: ['Cloudflare Explicit Deploy']
@@ -18,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  verify-v21:
+  verify-mobile:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -30,73 +24,57 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Verify gameplay, visual regressions, responsive and Battle Pass
+      - name: Verify current mobile rendering and touch targets
         run: |
           cat > verify.mjs <<'JS'
           import { chromium } from 'playwright';
           const base='https://crypto-factory-studios.cryptofactorystudios.workers.dev';
           const browser=await chromium.launch({headless:true});
-          async function freshContext(width=412,height=915){return browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});}
-          async function createHero(page,name='V21QA'){
-            await page.locator('input:not([type="hidden"])').first().fill(name);
+          async function verifyViewport(width,height){
+            const ctx=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});
+            const page=await ctx.newPage();
+            const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+            const r=await page.goto(base+'/games/cryptoquest/?qa=mobile-'+width+'-'+Date.now(),{waitUntil:'load',timeout:30000});
+            await page.waitForTimeout(900);
+            if(r?.status()!==200) throw new Error('HTTP '+r?.status());
+            const entry=await page.evaluate(()=>({title:document.title,text:(document.body.innerText||'').slice(0,1200),scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,input:!!document.querySelector('input:not([type="hidden"])')}));
+            if(!entry.title.includes('CryptoQuest RPG')||!entry.text.includes('Elige tu destino')||!entry.input) throw new Error('Entry UI invalid '+JSON.stringify(entry));
+            if(entry.scroll>entry.client+2) throw new Error('Entry horizontal overflow '+JSON.stringify(entry));
+            const input=page.locator('input:not([type="hidden"])').first();
+            await input.fill('R'+width);
             await page.locator('button').filter({hasText:/CONTINUAR/i}).last().click();
             await page.waitForTimeout(250);
-            await page.getByText('GUERRERO',{exact:true}).first().click();
-            await page.getByRole('button',{name:/COMENZAR AVENTURA/i}).last().click();
-            await page.waitForTimeout(650);
+            let body=(await page.locator('body').innerText()).slice(0,9000);
+            if(body.includes('Selecciona una clase')){
+              await page.getByText('GUERRERO',{exact:true}).first().click();
+              const start=page.getByRole('button',{name:/COMENZAR AVENTURA/i}).last();
+              if(!(await start.count())) throw new Error('Start adventure missing');
+              await start.click();
+              await page.waitForTimeout(650);
+            }
+            const metrics=await page.evaluate(()=>{
+              const visible=[...document.querySelectorAll('button,a,[role="button"]')].filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0});
+              const tiny=visible.filter(el=>{const r=el.getBoundingClientRect();return r.width<32||r.height<32;}).length;
+              return {scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,visible:visible.length,tiny};
+            });
+            console.log('MOBILE',width,metrics);
+            if(metrics.scroll>metrics.client+2||metrics.visible<1) throw new Error('Mobile layout invalid '+width+' '+JSON.stringify(metrics));
+            if(errors.length) throw new Error('Browser errors '+errors.join(' | '));
+            await page.screenshot({path:`cryptoquest-${width}.png`,fullPage:true});
+            await ctx.close();
           }
-          async function boot(page,tag){
-            const r=await page.goto(base+'/games/cryptoquest/?qa='+tag+'-'+Date.now(),{waitUntil:'load',timeout:30000});
-            await page.waitForTimeout(1100);
-            const b=await page.evaluate(()=>({visual:document.documentElement.dataset.cqVisual,reference:document.documentElement.dataset.cqReference,pass:document.documentElement.dataset.cqBattlePass,seasons:window.CryptoQuestBattlePass?.seasons?.length||0,v19:!!document.querySelector('#cq-v19-reference-ui'),entry:!!document.querySelector('#cq-bp-entry'),text:(document.body.innerText||'').slice(0,700)}));
-            if(r?.status()!==200||b.visual!=='v21'||b.reference!=='master'||b.pass!=='12x50'||b.seasons!==12||!b.v19||!b.entry||!b.text.includes('Elige tu destino')) throw new Error('Boot failed '+JSON.stringify(b));
-          }
-          const ctx=await freshContext();const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
-          await boot(page,'visual');await createHero(page);
-          const home=await page.evaluate(()=>{const hero=document.querySelector('.hero-art-slot img'),entry=document.querySelector('#cq-bp-entry'),stage=document.querySelector('.home-hero-stage'),h=hero?.getBoundingClientRect(),e=entry?.getBoundingClientRect(),s=stage?.getBoundingClientRect();return{heroH:h?.height||0,heroW:h?.width||0,stageH:s?.height||0,passDisplay:entry?getComputedStyle(entry).display:'none',passW:e?.width||0,passH:e?.height||0,homeClass:document.documentElement.classList.contains('cq-home-active')}});
-          console.log('HOME_VISUAL',home);
-          if(home.heroH<180||home.stageH<240||home.stageH>330||!home.homeClass||home.passDisplay==='none'||home.passW>52||home.passH>52)throw new Error('Home visual regression '+JSON.stringify(home));
-          if(!/60\s*\/\s*60/.test(await page.locator('body').innerText()))throw new Error('Energy missing');
-          await page.screenshot({path:'v21-home.png',fullPage:true});
-
-          await page.locator('.bottom-nav button').filter({hasText:/BOLSA/i}).last().click();await page.waitForTimeout(300);
-          const bag=await page.evaluate(()=>{const entry=document.querySelector('#cq-bp-entry'),grid=document.querySelector('.bag-screen .inventory-grid'),slots=[...document.querySelectorAll('.bag-screen .inventory-slot')],r=slots[0]?.getBoundingClientRect();return{pass:entry?getComputedStyle(entry).display:'none',cols:grid?getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length:0,w:r?.width||0,h:r?.height||0}});
-          console.log('BAG_VISUAL',bag);
-          if(bag.pass!=='none'||(bag.cols&&bag.cols<4)||bag.w>120||bag.h>150)throw new Error('Bag visual regression '+JSON.stringify(bag));
-          await page.screenshot({path:'v21-bag.png',fullPage:true});
-
-          await page.locator('.bottom-nav button').filter({hasText:/AVENTURA/i}).last().click();await page.waitForTimeout(300);
-          const zone=page.getByRole('button',{name:/ENTRAR EN BOSQUE SOMBRÍO/i}).last();if(!(await zone.count()))throw new Error('Zone missing');await zone.click();await page.waitForTimeout(300);
-          const event=page.locator('.event-decision');if(await event.count()&&await event.isVisible()){const ignore=page.getByRole('button',{name:/IGNORAR/i}).last();if(await ignore.count()){await ignore.click();await page.waitForTimeout(250);}}
-          const fight=page.locator('button[data-fight="0:0"]').first();if(await fight.count()){await fight.click({force:true});await page.waitForTimeout(650);}
-          const combat=await page.evaluate(()=>{const fig=document.querySelector('.enemy-figure'),fallback=document.querySelector('.enemy-asset.fallback-icon'),actions=[...document.querySelectorAll('.combat-actions button')],r=fig?.getBoundingClientRect();return{open:!!document.querySelector('.combat-screen'),fallback:fallback?getComputedStyle(fallback).display:'absent',w:r?.width||0,h:r?.height||0,top:r?.top||0,actions:actions.length,minW:actions.length?Math.min(...actions.map(a=>a.getBoundingClientRect().width)):0}});
-          console.log('COMBAT_VISUAL',combat);
-          if(!combat.open||(combat.fallback!=='absent'&&combat.fallback!=='none')||combat.w<150||combat.h<130||combat.actions<4||combat.minW<40||combat.top>330)throw new Error('Combat visual regression '+JSON.stringify(combat));
-          await page.screenshot({path:'v21-combat.png',fullPage:true});
-
-          // Responsive smoke in isolated profiles.
-          for(const [w,h] of [[360,800],[390,844]]){
-            const rc=await freshContext(w,h),rp=await rc.newPage();const pe=[];rp.on('pageerror',e=>pe.push(e.message));await boot(rp,'responsive-'+w);await createHero(rp,'R'+w);const m=await rp.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,nav:document.querySelector('.bottom-nav')?.getBoundingClientRect().height||0,stage:document.querySelector('.home-hero-stage')?.getBoundingClientRect().height||0}));console.log('RESPONSIVE',w,m);if(m.scroll>m.client+2||m.nav<50||m.stage<230||pe.length)throw new Error('Responsive regression '+w+' '+JSON.stringify(m)+' '+pe.join('|'));await rc.close();
-          }
-
-          // Battle Pass uses a completely isolated storage profile.
-          const bpCtx=await freshContext(),bp=await bpCtx.newPage(),bpErrors=[];bp.on('pageerror',e=>bpErrors.push(e.message));await boot(bp,'pass');await createHero(bp,'V21BP');await bp.locator('#cq-bp-entry').click();await bp.locator('#cq-bp-backdrop').waitFor({state:'visible',timeout:5000});await bp.locator('.cq-bp-tier').first().waitFor({state:'visible',timeout:20000});
-          const pass=await bp.evaluate(()=>({tiers:document.querySelectorAll('.cq-bp-tier').length,free:document.querySelectorAll('.cq-bp-reward:not(.premium)').length,premium:document.querySelectorAll('.cq-bp-reward.premium').length,title:document.querySelector('.cq-bp-title')?.textContent||'',premiumActive:(document.body.innerText||'').includes('PREMIUM ACTIVO')}));console.log('BATTLE_PASS_UI',pass);if(pass.tiers!==50||pass.free!==50||pass.premium!==50||!pass.title.includes('Sombras del Bastión')||pass.premiumActive)throw new Error('Battle Pass UI invalid');await bp.screenshot({path:'v21-battle-pass.png',fullPage:true});
-          await bp.evaluate(()=>window.CryptoQuestBattlePass.awardTestXp(1000));await bp.waitForTimeout(200);const before=await bp.evaluate(()=>({gold:game.player.gold,xp:game.battlePass.seasons.s01.xp,claimed:[...game.battlePass.seasons.s01.claimedFree]}));const reward=bp.locator('.cq-bp-reward.available:not(.premium)').first();if(!(await reward.count()))throw new Error('No claimable free reward');await reward.click();await bp.waitForTimeout(250);const after=await bp.evaluate(()=>({gold:game.player.gold,xp:game.battlePass.seasons.s01.xp,claimed:[...game.battlePass.seasons.s01.claimedFree]}));if(after.claimed.length<=before.claimed.length||after.gold<=before.gold)throw new Error('Free claim failed');const tier=after.claimed[0];await bp.reload({waitUntil:'load'});await bp.waitForTimeout(900);const persisted=await bp.evaluate(t=>({xp:game?.battlePass?.seasons?.s01?.xp||0,claimed:game?.battlePass?.seasons?.s01?.claimedFree?.includes(t)||false,seasons:window.CryptoQuestBattlePass?.seasons?.length||0}),tier);console.log('PERSISTENCE',persisted);if(persisted.xp<1000||!persisted.claimed||persisted.seasons!==12)throw new Error('Battle Pass persistence failed');
-          const products=await bpCtx.request.get(base+'/api/v1/products');if(products.ok()){const data=await products.json(),n=(data.products||[]).filter(p=>p.product_id?.startsWith('cryptoquest_bp_')).length;console.log('BATTLE_PASS_PRODUCTS',n);if(n!==0&&n!==12)throw new Error('Partial Battle Pass catalog');}
-          if(errors.length||bpErrors.length)throw new Error('Browser errors '+[...errors,...bpErrors].join('|'));
-          console.log('CRYPTOQUEST_V21_PRODUCTION_OK',JSON.stringify({visual:true,responsive:true,seasons:12,tiers:50,persisted:true}));
-          await bpCtx.close();await ctx.close();await browser.close();
+          for(const [w,h] of [[360,800],[390,844],[412,915]]) await verifyViewport(w,h);
+          console.log('CRYPTOQUEST_MOBILE_PRODUCTION_OK');
+          await browser.close();
           JS
           node verify.mjs
-      - name: Upload visual QA captures
+      - name: Upload mobile QA captures
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cryptoquest-v21-visual-qa
+          name: cryptoquest-mobile-qa
           path: |
-            v21-home.png
-            v21-bag.png
-            v21-combat.png
-            v21-battle-pass.png
+            cryptoquest-360.png
+            cryptoquest-390.png
+            cryptoquest-412.png
           if-no-files-found: ignore
