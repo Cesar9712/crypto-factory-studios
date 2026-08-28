@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  PROBE_REVISION: "6"
+  PROBE_REVISION: "7"
 
 jobs:
   browser-debug:
@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Decode packed source context
+      - name: Validate packed source can be decoded
         shell: bash
         run: |
           python3 - <<'PY'
@@ -30,9 +30,9 @@ jobs:
           d=pathlib.Path('frontend/games/cryptoquest/data')
           raw=''.join((d/f'p{i:02}.txt').read_text().strip() for i in range(12))
           html=gzip.decompress(base64.b64decode(raw)).decode('utf-8')
-          lines=html.splitlines()
-          for n in range(275,min(315,len(lines))+1): print(f'{n:04}: {lines[n-1]}')
-          print('SPECIALIZATION_SETS occurrences:', html.count('SPECIALIZATION_SETS'))
+          assert '<html' in html.lower() and '</html>' in html.lower()
+          assert 'SPECIALIZATION_SETS' in html and 'UNIQUE_ITEMS' in html
+          print('Packed source decoded:', len(html), 'bytes')
           PY
       - name: Install Playwright Chromium
         shell: bash
@@ -46,22 +46,94 @@ jobs:
         run: |
           python3 -m http.server 4173 --directory frontend >/tmp/cq-http.log 2>&1 &
           sleep 2
-      - name: Run browser startup probe
+      - name: Run mobile startup and creation-flow QA
         shell: bash
         run: |
           cat > cq-probe.mjs <<'JS'
           import { chromium } from 'playwright';
+
           const browser=await chromium.launch({headless:true});
-          const page=await browser.newPage({viewport:{width:412,height:915},isMobile:true,hasTouch:true});
-          const errors=[]; const consoleLines=[];
-          page.on('pageerror',e=>errors.push(`PAGEERROR: ${e.stack||e.message}`));
-          page.on('console',msg=>consoleLines.push(`CONSOLE ${msg.type()}: ${msg.text()}`));
-          const response=await page.goto('http://127.0.0.1:4173/games/cryptoquest/',{waitUntil:'load',timeout:30000});
-          await page.waitForTimeout(6500);
-          const state=await page.evaluate(()=>({title:document.title,boot:Boolean(document.querySelector('.boot-state')),bodyText:(document.body?.innerText||'').slice(0,1800),buttons:[...document.querySelectorAll('button')].map(x=>x.innerText.trim()).filter(Boolean).slice(0,30),presentation:document.documentElement.dataset.cqPresentation||'',htmlLength:document.documentElement.outerHTML.length}));
-          console.log('HTTP',response?.status()); console.log(JSON.stringify(state,null,2));
-          console.log(errors.join('\n')); console.log(consoleLines.join('\n'));
+          const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915}];
+          let failed=false;
+
+          const snapshot=page=>page.evaluate(()=>({
+            title:document.title,
+            boot:Boolean(document.querySelector('.boot-state')),
+            text:(document.body?.innerText||'').replace(/\s+/g,' ').trim().slice(0,900),
+            buttons:[...document.querySelectorAll('button')].filter(b=>b.offsetParent!==null).map(b=>b.innerText.trim()).filter(Boolean).slice(0,30),
+            inputs:[...document.querySelectorAll('input')].filter(i=>i.offsetParent!==null).map(i=>({type:i.type,placeholder:i.placeholder,value:i.value})),
+            presentation:document.documentElement.dataset.cqPresentation||'',
+            scrollWidth:document.documentElement.scrollWidth,
+            innerWidth:innerWidth,
+            overflowX:document.documentElement.scrollWidth-innerWidth
+          }));
+
+          async function clickText(page,re){
+            const btns=page.locator('button:visible');
+            const count=await btns.count();
+            for(let i=0;i<count;i++){
+              const b=btns.nth(i); const t=(await b.innerText()).trim();
+              if(re.test(t)){await b.click(); return t;}
+            }
+            return null;
+          }
+
+          for(const size of sizes){
+            const context=await browser.newContext({viewport:size,isMobile:true,hasTouch:true});
+            const page=await context.newPage();
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
+            const response=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?qa=${size.width}x${size.height}`,{waitUntil:'load',timeout:30000});
+            await page.waitForTimeout(5000);
+            let state=await snapshot(page);
+            console.log(`START ${size.width}x${size.height}`,JSON.stringify(state));
+
+            if(response?.status()!==200||errors.length||state.boot||state.buttons.length<1||state.overflowX>4){
+              console.error('Startup QA failed',size,errors,state); failed=true; await context.close(); continue;
+            }
+
+            const visibleInput=page.locator('input:visible').first();
+            if(await visibleInput.count()){
+              await visibleInput.fill(`QAHero${size.width}`);
+              const before=state.text;
+              const clicked=await clickText(page,/continuar|siguiente|aceptar/i);
+              if(clicked){
+                await page.waitForTimeout(500);
+                state=await snapshot(page);
+                console.log(`AFTER_NAME ${size.width}`,JSON.stringify(state));
+                if(errors.length||state.overflowX>4||state.text===before){console.error('Creation name transition failed',errors,state);failed=true;}
+              }
+            }
+
+            const classPicked=await clickText(page,/^guerrero\b|^mago\b|^arquero\b|^asesino\b/i);
+            if(classPicked){
+              await page.waitForTimeout(250);
+              await clickText(page,/continuar|siguiente|confirmar|elegir/i);
+              await page.waitForTimeout(500);
+              state=await snapshot(page);
+              console.log(`AFTER_CLASS ${size.width}`,JSON.stringify(state));
+              if(errors.length||state.overflowX>4){console.error('Class transition failed',errors,state);failed=true;}
+            }
+
+            const navLabels=['Inicio','Aventura','Héroe','Bolsa','Talentos','Más'];
+            const visibleTexts=(await snapshot(page)).buttons;
+            if(navLabels.filter(x=>visibleTexts.some(t=>t.includes(x))).length>=4){
+              for(const label of navLabels){
+                const clicked=await clickText(page,new RegExp(`^${label}`,'i'));
+                if(!clicked)continue;
+                await page.waitForTimeout(180);
+                const navState=await snapshot(page);
+                if(errors.length||navState.overflowX>4){console.error('Navigation QA failed',label,errors,navState);failed=true;break;}
+              }
+            }
+
+            state=await snapshot(page);
+            console.log(`FINAL ${size.width}x${size.height}`,JSON.stringify(state));
+            if(errors.length||state.boot||state.overflowX>4)failed=true;
+            await context.close();
+          }
+
           await browser.close();
-          if(response?.status()!==200||errors.length||state.boot||state.buttons.length<2)process.exit(1);
+          if(failed)process.exit(1);
           JS
-          node cq-probe.mjs
+          timeout 90s node cq-probe.mjs
