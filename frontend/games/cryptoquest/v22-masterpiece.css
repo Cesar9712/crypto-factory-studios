@@ -1,0 +1,343 @@
+/* CryptoQuest RPG V22 MASTERPIECE — reference-quality visual layer.
+   Presentation only: does not change combat, economy, energy, persistence or battle-pass logic.
+   Built to push the existing game toward the supplied dark-fantasy master reference without external images. */
+
+:root{
+  --cq22-gold:#caa352;
+  --cq22-gold-hi:#f3dca0;
+  --cq22-gold-dim:#7e5b2b;
+  --cq22-iron:#8b877d;
+  --cq22-ink:#010202;
+  --cq22-panel:#090a09;
+  --cq22-panel-2:#10110f;
+  --cq22-line:#5c4524;
+  --cq22-line-hi:#967036;
+  --cq22-text:#efe6d4;
+  --cq22-muted:#9f957f;
+  --cq22-red:#a82e2e;
+  --cq22-blue:#2c66a8;
+  --cq22-purple:#70449c;
+  --cq22-green:#52805d;
+  --cq22-safe:env(safe-area-inset-bottom,0px);
+}
+
+html[data-cq-visual="v21"] body{
+  background:
+    radial-gradient(ellipse at 50% -7%,rgba(184,132,47,.17),transparent 27%),
+    radial-gradient(circle at 10% 34%,rgba(47,83,68,.07),transparent 24%),
+    radial-gradient(circle at 90% 62%,rgba(84,51,93,.055),transparent 20%),
+    linear-gradient(180deg,#090805 0,#040504 44%,#010202 100%)!important;
+  color:var(--cq22-text)!important;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+}
+
+html[data-cq-visual="v21"] body::after{
+  content:"";
+  position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.34;
+  background:
+    radial-gradient(circle at 50% 20%,transparent 0 24%,rgba(0,0,0,.18) 58%,rgba(0,0,0,.54) 100%),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.011) 0 1px,transparent 1px 4px);
+}
+
+html[data-cq-visual="v21"] #game{max-width:520px!important;margin:0 auto!important;box-shadow:0 0 55px #000!important}
+
+/* =========================
+   PREMIUM FRAME SYSTEM
+   ========================= */
+html[data-cq-visual="v21"] :is(.rpg-frame,.content-card,.activity-card,.dungeon-card-v9,.map-zone,.main-quest,.quest-card,.player-hud,.screen-heading,.summary-card,.skill-card,.talent-branch,.equipment-stage,.advanced-stats,.build-summary,.mastery-hero,.modifier-banner,.spec-identity,.faction-card,.pet-card,.loadout-card,.target-row,.resist-panel,.city-scene,.game-modal){
+  border-color:var(--cq22-line)!important;
+  background:
+    radial-gradient(circle at 88% 6%,rgba(208,158,62,.055),transparent 28%),
+    linear-gradient(180deg,rgba(18,18,15,.99),rgba(6,7,7,.995))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,238,190,.035),
+    inset 0 0 0 1px rgba(0,0,0,.55),
+    inset 0 0 24px rgba(0,0,0,.62),
+    0 8px 25px rgba(0,0,0,.48)!important;
+}
+
+html[data-cq-visual="v21"] :is(.content-card,.activity-card,.dungeon-card-v9,.map-zone,.main-quest,.quest-card,.summary-card,.skill-card,.talent-branch,.equipment-stage,.game-modal)::before{
+  content:"";position:absolute;inset:3px;pointer-events:none;z-index:0;
+  border:1px solid rgba(234,197,115,.055);
+  clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px),0 10px);
+}
+
+html[data-cq-visual="v21"] :is(.screen-heading,.section-title,h1,h2,h3,.identity strong,.home-identity strong,.item-hero h2,.talent-branch h3,.combat-name h2){
+  font-family:Cinzel,Georgia,serif!important;
+  letter-spacing:.035em;
+}
+
+html[data-cq-visual="v21"] .screen{padding:8px 9px 18px!important}
+html[data-cq-visual="v21"] .screen-heading{
+  padding:8px 11px!important;margin:0 0 8px!important;
+  background:linear-gradient(90deg,#060707,#1c150a 50%,#060707)!important;
+  border-color:#6a4e26!important;
+}
+html[data-cq-visual="v21"] .screen-heading h2{font-size:16px!important;color:var(--cq22-gold-hi)!important;text-shadow:0 0 14px rgba(209,161,69,.22)!important}
+html[data-cq-visual="v21"] .screen-heading small{font-size:7px!important;color:#a58a55!important;letter-spacing:.16em!important}
+
+/* gold buttons with physical depth */
+html[data-cq-visual="v21"] :is(.primary,.adventure-cta,.equip-recommended,.sheet-actions button,.activity-card>button,.dungeon-card-v9 button,.quest-card button,.daily-card button,.route-choice button){
+  border:1px solid #9e7636!important;
+  background:
+    linear-gradient(180deg,rgba(255,220,139,.06),transparent 17%),
+    linear-gradient(180deg,#67471c 0,#3b260e 48%,#1b0f06 100%)!important;
+  color:#f8e7b8!important;
+  box-shadow:inset 0 1px rgba(255,239,186,.14),inset 0 -7px 14px #0007,0 5px 14px #0008!important;
+}
+
+/* =========================
+   TOP HUD — closer to master reference
+   ========================= */
+html[data-cq-visual="v21"] :is(.player-hud,.home-profile-hud){
+  padding:7px 8px!important;min-height:66px!important;
+  border-color:#72542b!important;
+  background:
+    radial-gradient(circle at 8% 20%,rgba(205,151,57,.10),transparent 24%),
+    linear-gradient(180deg,#0e0d0a,#050505)!important;
+}
+html[data-cq-visual="v21"] :is(.home-avatar,.avatar){
+  width:54px!important;height:54px!important;border:1px solid #a27a39!important;
+  box-shadow:0 0 0 2px #171006,0 0 18px color-mix(in srgb,var(--class,#9a7433),transparent 72%)!important;
+}
+html[data-cq-visual="v21"] :is(.home-identity strong,.identity strong){font-size:1.02rem!important;color:#f7e8c4!important;letter-spacing:.065em!important}
+html[data-cq-visual="v21"] :is(.home-identity small,.identity small){font-size:.55rem!important;color:#a89168!important}
+html[data-cq-visual="v21"] .home-resource-strip{
+  margin:5px 0 0!important;min-height:43px!important;
+  border:1px solid #4a371d!important;
+  background:linear-gradient(180deg,#0b0a08,#040404)!important;
+}
+html[data-cq-visual="v21"] .home-resource-strip>span{padding:5px 3px!important}
+html[data-cq-visual="v21"] .home-resource-strip b{font-size:.76rem!important;color:#f3dfaa!important;text-shadow:0 0 8px rgba(216,165,68,.18)}
+html[data-cq-visual="v21"] .home-resource-strip small{font-size:.46rem!important}
+
+/* =========================
+   HOME / CHARACTER SHOWCASE
+   ========================= */
+html[data-cq-visual="v21"] .home-screen{display:grid!important;gap:7px!important}
+html[data-cq-visual="v21"] .home-hero-stage{
+  height:310px!important;min-height:310px!important;max-height:310px!important;margin:0!important;
+  border:1px solid #72542a!important;
+  background:
+    radial-gradient(circle at 50% 34%,color-mix(in srgb,var(--class,#8b6937),transparent 68%),transparent 26%),
+    radial-gradient(ellipse at 50% 88%,rgba(214,163,69,.12),transparent 38%),
+    linear-gradient(180deg,#17130d 0,#0a0c0a 64%,#030404 100%)!important;
+  box-shadow:inset 0 -74px 88px rgba(0,0,0,.92),inset 0 0 40px #000,0 10px 26px #000d!important;
+}
+html[data-cq-visual="v21"] .home-hero-stage::before{
+  content:"";position:absolute;inset:6px;border:1px solid rgba(235,198,115,.12);pointer-events:none;z-index:4;
+  clip-path:polygon(13px 0,calc(100% - 13px) 0,100% 13px,100% calc(100% - 13px),calc(100% - 13px) 100%,13px 100%,0 calc(100% - 13px),0 13px);
+}
+html[data-cq-visual="v21"] .home-hero-stage::after{
+  content:"";position:absolute;left:13%;right:13%;bottom:5px;height:30px;border-radius:50%;z-index:1;
+  background:radial-gradient(ellipse,#000 0 34%,rgba(0,0,0,.78) 42%,transparent 72%);filter:blur(4px);
+}
+html[data-cq-visual="v21"] .hero-art-slot{
+  inset:10px 10px 1px!important;transform:none!important;align-items:flex-end!important;z-index:2!important;
+}
+html[data-cq-visual="v21"] .hero-art-slot img{
+  height:294px!important;max-width:94%!important;transform:scale(1.08)!important;
+  filter:drop-shadow(0 18px 14px #000) drop-shadow(0 0 20px color-mix(in srgb,var(--class,#96733c),transparent 73%)) contrast(1.16) brightness(1.09) saturate(.92)!important;
+}
+html[data-cq-visual="v21"] .hero-class-sigil{opacity:.075!important;transform:scale(1.08)!important}
+html[data-cq-visual="v21"] .hero-runes{opacity:.32!important}
+html[data-cq-visual="v21"] .hero-fog{opacity:.72!important}
+html[data-cq-visual="v21"] .hero-power{
+  top:12px!important;right:12px!important;padding:7px 9px!important;
+  border:1px solid #76572b!important;background:rgba(7,7,6,.91)!important;
+  box-shadow:0 6px 18px #000c,inset 2px 0 #a97e39!important;
+}
+html[data-cq-visual="v21"] .hero-power strong{font-size:1.05rem!important;color:#f0d486!important}
+
+html[data-cq-visual="v21"] .home-vitals{
+  padding:9px 10px!important;margin:0!important;gap:7px!important;
+  border:1px solid #514023!important;background:linear-gradient(180deg,#0e0e0c,#070707)!important;
+}
+html[data-cq-visual="v21"] .home-vital{grid-template-columns:30px 74px minmax(0,1fr)!important;font-size:.6rem!important}
+html[data-cq-visual="v21"] .home-bar-track{height:9px!important;border:1px solid #443622!important;box-shadow:inset 0 0 6px #000!important}
+html[data-cq-visual="v21"] .home-bar-track>i{box-shadow:inset 0 1px rgba(255,255,255,.1),0 0 10px currentColor!important}
+
+html[data-cq-visual="v21"] :is(.main-quest,.quest-card){
+  padding:11px 12px!important;margin:0!important;border-left:3px solid #b1843c!important;
+  background:radial-gradient(circle at 91% 10%,rgba(185,129,43,.08),transparent 30%),linear-gradient(180deg,#12100d,#080808)!important;
+}
+html[data-cq-visual="v21"] :is(.main-quest,.quest-card) h3{font-size:1.04rem!important;color:#edd59b!important;margin:3px 0 7px!important}
+html[data-cq-visual="v21"] .quest-progress{height:7px!important}
+html[data-cq-visual="v21"] .adventure-cta{min-height:50px!important;margin:0!important;font:700 .88rem Cinzel,Georgia,serif!important;letter-spacing:.055em!important}
+
+html[data-cq-visual="v21"] :is(.home-quick,.quick-row){gap:5px!important}
+html[data-cq-visual="v21"] :is(.home-quick,.quick-row) button{
+  min-height:65px!important;border:1px solid #4d3a20!important;
+  background:radial-gradient(circle at 50% 13%,rgba(203,153,61,.08),transparent 34%),linear-gradient(180deg,#15120d,#070707)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.025),inset 0 0 15px #0007!important;
+}
+html[data-cq-visual="v21"] :is(.home-quick,.quick-row) button b{color:#d7c59d!important}
+
+/* =========================
+   WORLD / BASTION / MORE
+   ========================= */
+html[data-cq-visual="v21"] .city-scene{
+  min-height:210px!important;
+  background:
+    radial-gradient(circle at 50% 46%,rgba(207,164,72,.11),transparent 20%),
+    radial-gradient(ellipse at 50% 75%,rgba(81,109,84,.08),transparent 34%),
+    linear-gradient(180deg,#11100d,#060707)!important;
+  border-color:#72542a!important;
+}
+html[data-cq-visual="v21"] .npc-strip{gap:6px!important}
+html[data-cq-visual="v21"] .npc-strip button{border:1px solid #4b3a22!important;background:linear-gradient(180deg,#151410,#0a0a09)!important}
+html[data-cq-visual="v21"] .more-grid{gap:6px!important}
+html[data-cq-visual="v21"] :is(.more-grid button,.service-grid button,.endgame-grid button){
+  min-height:104px!important;border:1px solid #4d3d27!important;
+  background:radial-gradient(circle at 18% 20%,rgba(201,155,66,.07),transparent 28%),linear-gradient(145deg,#151612,#080909)!important;
+  box-shadow:inset 0 0 18px #0007!important;
+}
+
+/* =========================
+   INVENTORY / EQUIPMENT
+   ========================= */
+html[data-cq-visual="v21"] .bag-screen .inventory-grid{gap:5px!important;padding:6px!important;background:linear-gradient(180deg,#080806,#040404)!important;border:1px solid #3d301d!important}
+html[data-cq-visual="v21"] .bag-screen .inventory-slot{
+  min-height:88px!important;border:1px solid #3f392f!important;
+  background:radial-gradient(circle at 50% 38%,rgba(190,142,55,.04),transparent 45%),linear-gradient(145deg,#121311,#070807)!important;
+  box-shadow:inset 0 0 14px #0008!important;
+}
+html[data-cq-visual="v21"] .bag-screen .inventory-slot:not(.empty){border-color:color-mix(in srgb,var(--rarity,#7b6e59),#4b3821 44%)!important}
+html[data-cq-visual="v21"] .bag-screen .inventory-slot .item-card-icon{font-size:27px!important;filter:drop-shadow(0 4px 8px #000)!important}
+html[data-cq-visual="v21"] .item-sheet{border-top:1px solid #a47a36!important;background:radial-gradient(circle at 80% 8%,rgba(200,145,50,.07),transparent 28%),linear-gradient(165deg,#15130f,#060606)!important}
+html[data-cq-visual="v21"] .equipment-grid{gap:6px!important}
+html[data-cq-visual="v21"] .equipment-slot{
+  min-height:104px!important;border:1px solid #483b27!important;
+  background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--rarity,#8e7c60),transparent 80%),transparent 43%),linear-gradient(#13120f,#070707)!important;
+}
+
+/* =========================
+   TALENT TREE
+   ========================= */
+html[data-cq-visual="v21"] .talent-forest{gap:6px!important}
+html[data-cq-visual="v21"] .talent-branch{padding:7px 5px!important;background:radial-gradient(circle at 50% 5%,rgba(205,156,61,.05),transparent 25%),#080908!important}
+html[data-cq-visual="v21"] .talent-chain{gap:15px 7px!important}
+html[data-cq-visual="v21"] .talent-node{
+  min-height:82px!important;border:1px solid #57411f!important;
+  background:radial-gradient(circle at 50% 27%,#1d160d,#070707 67%)!important;
+  box-shadow:0 0 0 2px #060504,0 0 13px #000!important;
+}
+html[data-cq-visual="v21"] .talent-node.available{border-color:#c7983e!important;box-shadow:0 0 0 2px #1c1408,0 0 18px rgba(205,158,61,.28)!important}
+html[data-cq-visual="v21"] .talent-node.learned{border-color:#64a578!important;background:radial-gradient(circle at 50% 30%,#173725,#070907 70%)!important;box-shadow:0 0 0 2px #071109,0 0 16px rgba(72,154,97,.23)!important}
+html[data-cq-visual="v21"] .connector.active{box-shadow:0 0 8px rgba(215,164,69,.55)!important}
+
+/* =========================
+   COMBAT — major upgrade
+   ========================= */
+html[data-cq-visual="v21"] .combat-screen{
+  grid-template-rows:35px minmax(300px,1fr) 0 58px 94px minmax(156px,auto)!important;
+  background:
+    radial-gradient(ellipse at 50% 24%,rgba(132,50,31,.25),transparent 31%),
+    radial-gradient(ellipse at 50% 64%,rgba(89,52,25,.13),transparent 34%),
+    linear-gradient(180deg,#0a0504 0,#040404 58%,#020202 100%)!important;
+}
+html[data-cq-visual="v21"] .combat-screen::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:linear-gradient(180deg,transparent 0 49%,rgba(0,0,0,.30) 70%,rgba(0,0,0,.65) 100%),repeating-linear-gradient(115deg,transparent 0 64px,rgba(218,173,79,.018) 65px 66px)!important;
+}
+html[data-cq-visual="v21"] .combat-top{height:35px!important;background:rgba(5,5,4,.94)!important;border-bottom:1px solid #57401f!important;z-index:5!important}
+html[data-cq-visual="v21"] .enemy-zone{padding:10px 16px 0!important;z-index:1!important;background:radial-gradient(circle at 50% 52%,rgba(117,49,31,.18),transparent 34%)!important}
+html[data-cq-visual="v21"] .combat-name{position:relative!important;z-index:6!important}
+html[data-cq-visual="v21"] .combat-name h2{font-size:21px!important;color:#f0d296!important;text-shadow:0 2px 12px #000!important}
+html[data-cq-visual="v21"] .combat-name span{color:#bf9657!important;letter-spacing:.16em!important}
+html[data-cq-visual="v21"] .enemy-intent{
+  z-index:7!important;padding:6px 10px!important;margin:7px auto!important;
+  border-color:#8c3b2e!important;background:linear-gradient(90deg,#210806,#531b12,#210806)!important;
+  box-shadow:0 4px 14px #000a,0 0 14px rgba(165,60,41,.15)!important;
+}
+html[data-cq-visual="v21"] .enemy-aura{
+  width:210px!important;height:210px!important;
+  border-color:rgba(160,76,48,.25)!important;
+  background:radial-gradient(circle,rgba(162,60,40,.18),rgba(96,33,23,.06) 48%,transparent 70%)!important;
+  box-shadow:0 0 58px rgba(127,46,31,.28)!important;
+}
+html[data-cq-visual="v21"] .enemy-figure{
+  top:128px!important;width:min(280px,72vw)!important;height:220px!important;
+  filter:drop-shadow(0 18px 13px #000) brightness(1.18) contrast(1.08)!important;
+}
+html[data-cq-visual="v21"] .enemy-asset{max-height:215px!important;filter:drop-shadow(0 15px 10px #000) brightness(1.22) contrast(1.12)!important}
+html[data-cq-visual="v21"] .enemy-figure:has(.enemy-asset.fallback-icon)::before{
+  width:190px!important;height:175px!important;
+  background:
+    radial-gradient(ellipse at 34% 25%,#9b3e31 0 5%,#2a0c08 6% 10%,transparent 11%),
+    radial-gradient(ellipse at 66% 25%,#9b3e31 0 5%,#2a0c08 6% 10%,transparent 11%),
+    radial-gradient(ellipse at 50% 33%,#363d39 0 24%,transparent 25%),
+    radial-gradient(ellipse at 50% 68%,#1a201d 0 40%,transparent 41%),
+    linear-gradient(70deg,transparent 0 34%,#3b443f 35% 49%,transparent 50%),
+    linear-gradient(-70deg,transparent 0 34%,#3b443f 35% 49%,transparent 50%)!important;
+  box-shadow:0 0 34px rgba(121,45,30,.28)!important;
+}
+html[data-cq-visual="v21"] .combat-player{
+  grid-template-columns:54px minmax(0,1fr)!important;padding:6px 11px!important;gap:8px!important;
+  background:linear-gradient(90deg,#14120e,#070707)!important;border-color:#55401f!important;z-index:5!important;
+}
+html[data-cq-visual="v21"] .combat-player>.mini-avatar{width:50px!important;height:58px!important;background:radial-gradient(circle,color-mix(in srgb,var(--class),transparent 30%),#080808 70%)!important;border-color:#8a6732!important}
+html[data-cq-visual="v21"] .combat-actions{
+  padding:7px 8px calc(6px + var(--cq22-safe))!important;
+  background:linear-gradient(180deg,#0d0c09,#050505)!important;border-top:1px solid #5c4525!important;
+  box-shadow:0 -10px 22px #000d!important;z-index:6!important;
+}
+html[data-cq-visual="v21"] .utility-actions.four{gap:6px!important}
+html[data-cq-visual="v21"] .utility-actions button{
+  height:52px!important;border-color:#66502f!important;border-radius:20px 20px 4px 4px!important;
+  background:radial-gradient(circle at 50% 20%,rgba(215,166,75,.12),transparent 40%),linear-gradient(#18140e,#070707)!important;
+  box-shadow:inset 0 0 13px #0008!important;
+}
+html[data-cq-visual="v21"] .skill-actions{gap:5px!important}
+html[data-cq-visual="v21"] .skill-actions button{
+  height:66px!important;border-color:#644b2a!important;border-radius:22px 22px 4px 4px!important;
+  background:radial-gradient(circle at 50% 21%,rgba(119,68,166,.19),transparent 42%),linear-gradient(#17130f,#070707)!important;
+  box-shadow:inset 0 0 15px #0008!important;
+}
+html[data-cq-visual="v21"] .skill-actions button:not(:disabled){box-shadow:inset 0 0 15px #0008,0 0 10px rgba(126,73,167,.12)!important}
+html[data-cq-visual="v21"] .skill-actions i{font-size:21px!important}
+
+/* =========================
+   NAVIGATION
+   ========================= */
+html[data-cq-visual="v21"] .bottom-nav{
+  min-height:64px!important;padding:3px 2px calc(4px + var(--cq22-safe))!important;
+  background:linear-gradient(180deg,rgba(11,10,8,.996),#020202)!important;
+  border-top:1px solid #76582c!important;
+  box-shadow:0 -10px 26px #000e!important;
+}
+html[data-cq-visual="v21"] .bottom-nav button{min-height:52px!important;color:#908b82!important}
+html[data-cq-visual="v21"] .bottom-nav button svg{width:22px!important;height:22px!important}
+html[data-cq-visual="v21"] .bottom-nav button span{font-size:.5rem!important}
+html[data-cq-visual="v21"] .bottom-nav button.active{color:#e4c06d!important;text-shadow:0 0 10px rgba(198,145,52,.45)!important}
+
+/* =========================
+   RESPONSIVE MOBILE TARGETS
+   ========================= */
+@media(max-width:390px){
+  html[data-cq-visual="v21"] .screen{padding-inline:7px!important}
+  html[data-cq-visual="v21"] .home-hero-stage{height:282px!important;min-height:282px!important;max-height:282px!important}
+  html[data-cq-visual="v21"] .hero-art-slot img{height:268px!important}
+  html[data-cq-visual="v21"] .home-vital{grid-template-columns:27px 66px minmax(0,1fr)!important}
+  html[data-cq-visual="v21"] .combat-screen{grid-template-rows:33px minmax(260px,1fr) 0 53px 88px minmax(152px,auto)!important}
+  html[data-cq-visual="v21"] .enemy-figure{top:116px!important;width:min(255px,72vw)!important;height:195px!important}
+  html[data-cq-visual="v21"] .enemy-asset{max-height:190px!important}
+  html[data-cq-visual="v21"] .skill-actions button{height:62px!important}
+  html[data-cq-visual="v21"] .bottom-nav button span{font-size:.45rem!important}
+}
+
+@media(min-width:391px) and (max-width:430px){
+  html[data-cq-visual="v21"] .home-hero-stage{height:304px!important;min-height:304px!important;max-height:304px!important}
+  html[data-cq-visual="v21"] .hero-art-slot img{height:289px!important}
+}
+
+@media(min-height:880px){
+  html[data-cq-visual="v21"] .combat-screen{grid-template-rows:35px minmax(330px,1fr) 0 58px 96px minmax(158px,auto)!important}
+  html[data-cq-visual="v21"] .enemy-figure{top:138px!important;height:230px!important}
+  html[data-cq-visual="v21"] .enemy-asset{max-height:225px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  html[data-cq-visual="v21"] *,html[data-cq-visual="v21"] *::before,html[data-cq-visual="v21"] *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
