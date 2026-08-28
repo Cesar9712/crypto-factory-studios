@@ -19,27 +19,25 @@ html[data-cq-visual="v21"] body::before{content:"";position:fixed;inset:0;z-inde
 html[data-cq-visual="v21"] #game{position:relative;z-index:1;min-height:100dvh;padding-bottom:calc(67px + var(--cq21-safe))}
 html[data-cq-visual="v21"] .screen{padding-bottom:16px!important}
 
-/* -------- shared material language -------- */
-html[data-cq-visual="v21"] :is(.rpg-frame,.content-card,.activity-card,.dungeon-card-v9,.map-zone,.main-quest,.quest-card,.player-hud,.screen-heading,.summary-card,.skill-card,.talent-branch,.item-sheet,.equipment-stage,.advanced-stats,.build-summary,.mastery-hero,.modifier-banner,.spec-identity,.faction-card,.pet-card,.loadout-card,.target-row,.resist-panel){
- position:relative!important;border:1px solid #55401f!important;border-radius:2px!important;
- background:radial-gradient(circle at 86% 7%,rgba(194,145,54,.055),transparent 29%),linear-gradient(180deg,rgba(19,18,15,.985),rgba(7,8,7,.995))!important;
- box-shadow:inset 0 1px rgba(255,240,196,.025),inset 0 0 24px rgba(0,0,0,.6),0 7px 22px rgba(0,0,0,.45)!important}
-html[data-cq-visual="v21"] :is(.content-card,.activity-card,.dungeon-card-v9,.map-zone,.main-quest,.quest-card,.summary-card,.skill-card,.talent-branch,.equipment-stage)::after{
- content:"";position:absolute;inset:3px;pointer-events:none;border:1px solid rgba(225,188,104,.06);clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px)}
+/* shared material language */
+html[data-cq-visual="v21"] :is(.rpg-frame,.content-card,.activity-card,.dungeon-card-v9,.map-zone,.main-quest,.quest-card,.player-hud,.screen-heading,.summary-card,.skill-card,.talent-branch,.item-sheet,.equipment-stage,.advanced-stats,.build-summary,.mastery-hero,.modifier-banner,.spec-identity,.faction-card,.pet-card,.loadout-card,.target-row,.resist-panel){position:relative!important;border:1px solid #55401f!important;border-radius:2px!important;background:radial-gradient(circle at 86% 7%,rgba(194,145,54,.055),transparent 29%),linear-gradient(180deg,rgba(19,18,15,.985),rgba(7,8,7,.995))!important;box-shadow:inset 0 1px rgba(255,240,196,.025),inset 0 0 24px rgba(0,0,0,.6),0 7px 22px rgba(0,0,0,.45)!important}
+html[data-cq-visual="v21"] :is(.content-card,.activity-card,.dungeon-card-v9,.map-zone,.main-quest,.quest-card,.summary-card,.skill-card,.talent-branch,.equipment-stage)::after{content:"";position:absolute;inset:3px;pointer-events:none;border:1px solid rgba(225,188,104,.06);clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px)}
 html[data-cq-visual="v21"] :is(.screen-heading,.section-title,h1,h2,h3,.identity strong,.home-identity strong,.item-hero h2,.talent-branch h3){font-family:Cinzel,Georgia,serif;letter-spacing:.035em}
 html[data-cq-visual="v21"] .screen-heading{padding:9px 11px!important;margin:4px 0 10px!important;background:linear-gradient(90deg,#070706,#1c150b 50%,#070706)!important;border-color:#654b26!important}
 html[data-cq-visual="v21"] .screen-heading small{font-size:7px!important;color:#a98c54!important;letter-spacing:.14em}
 html[data-cq-visual="v21"] .screen-heading h2{font-size:16px!important;margin:2px 0!important;color:#efd79b!important;text-shadow:0 0 11px rgba(199,151,63,.2)}
 
-/* -------- buttons -------- */
-html[data-cq-visual="v21"] :is(.primary,.adventure-cta,.equip-recommended,.sheet-actions button,.activity-card>button,.dungeon-card-v9 button,.quest-card button,.daily-card button){
- border:1px solid #a87c34!important;border-radius:2px!important;color:#f8e7b8!important;background:linear-gradient(180deg,#68461b,#39240d 50%,#160c05)!important;
- box-shadow:inset 0 1px rgba(255,238,180,.11),inset 0 -5px 12px #0008,0 5px 13px #0007!important;text-shadow:0 1px 2px #000}
+/* buttons */
+html[data-cq-visual="v21"] :is(.primary,.adventure-cta,.equip-recommended,.sheet-actions button,.activity-card>button,.dungeon-card-v9 button,.quest-card button,.daily-card button){border:1px solid #a87c34!important;border-radius:2px!important;color:#f8e7b8!important;background:linear-gradient(180deg,#68461b,#39240d 50%,#160c05)!important;box-shadow:inset 0 1px rgba(255,238,180,.11),inset 0 -5px 12px #0008,0 5px 13px #0007!important;text-shadow:0 1px 2px #000}
 html[data-cq-visual="v21"] button:active:not(:disabled){transform:translateY(1px);filter:brightness(.94)}
 
-/* -------- header / HUD -------- */
-html[data-cq-visual="v21"] :is(.player-hud,.home-profile-hud){min-height:0!important;padding:7px 9px!important;border-color:#684d27!important;background:
- radial-gradient(circle at 10% 20%,rgba(179,132,50,.08),transparent 24%),linear-gradient(180deg,#0d0c09,#050505)!important;box-shadow:inset 0 0 23px #000,0 7px 18px #000b!important}
+/* compact tutorial/toast messages: never cover half a game screen */
+html[data-cq-visual="v21"] #toast-layer{top:auto!important;bottom:calc(72px + var(--cq21-safe))!important;width:min(84vw,310px)!important;gap:4px!important;z-index:4300!important}
+html[data-cq-visual="v21"] .toast{padding:7px 10px!important;border-radius:2px!important;background:rgba(11,12,11,.94)!important;font-size:8px!important;line-height:1.25!important;box-shadow:0 7px 18px #000c,inset 2px 0 #9c7738!important;text-align:left!important}
+html[data-cq-visual="v21"] .toast.success{color:#b9d9bd!important;border-color:#416048!important;box-shadow:0 7px 18px #000c,inset 2px 0 #5e926b!important}
+
+/* header / HUD */
+html[data-cq-visual="v21"] :is(.player-hud,.home-profile-hud){min-height:0!important;padding:7px 9px!important;border-color:#684d27!important;background:radial-gradient(circle at 10% 20%,rgba(179,132,50,.08),transparent 24%),linear-gradient(180deg,#0d0c09,#050505)!important;box-shadow:inset 0 0 23px #000,0 7px 18px #000b!important}
 html[data-cq-visual="v21"] :is(.home-avatar,.avatar){width:52px!important;height:52px!important;border:1px solid #9a7433!important;background:radial-gradient(circle,#211a10,#050505)!important;box-shadow:0 0 0 2px #171006,0 0 14px color-mix(in srgb,var(--class,#9a7433),transparent 75%)!important}
 html[data-cq-visual="v21"] :is(.home-identity strong,.identity strong){font-size:1rem!important;line-height:1.05!important;color:#f6e8c2!important;letter-spacing:.06em!important}
 html[data-cq-visual="v21"] :is(.home-identity small,.identity small){font-size:.55rem!important;color:#a89570!important;letter-spacing:.1em!important}
@@ -48,16 +46,13 @@ html[data-cq-visual="v21"] .home-resource-strip>span{padding:5px 4px!important;m
 html[data-cq-visual="v21"] .home-resource-strip>span:last-child{border-right:0!important}
 html[data-cq-visual="v21"] .home-resource-strip small{font-size:.46rem!important;color:#9e8451!important}.home-resource-strip b{font-size:.72rem!important;color:#f2dca7!important}
 
-/* -------- Home: keep real embedded hero art visible and correctly framed -------- */
-html[data-cq-visual="v21"] .home-hero-stage{height:290px!important;min-height:290px!important;max-height:290px!important;margin:6px 0!important;overflow:hidden!important;border:1px solid #705328!important;background:
- radial-gradient(circle at 50% 28%,color-mix(in srgb,var(--class,#88693d),transparent 72%),transparent 28%),
- radial-gradient(ellipse at 50% 86%,rgba(197,151,63,.12),transparent 42%),
- linear-gradient(180deg,#15120d,#070807 72%,#030303)!important;box-shadow:inset 0 -58px 70px #000,inset 0 0 38px #000,0 8px 23px #000c!important}
+/* Home: existing authorized hero art, framed and re-centered */
+html[data-cq-visual="v21"] .home-hero-stage{height:290px!important;min-height:290px!important;max-height:290px!important;margin:6px 0!important;overflow:hidden!important;border:1px solid #705328!important;background:radial-gradient(circle at 50% 28%,color-mix(in srgb,var(--class,#88693d),transparent 72%),transparent 28%),radial-gradient(ellipse at 50% 86%,rgba(197,151,63,.12),transparent 42%),linear-gradient(180deg,#15120d,#070807 72%,#030303)!important;box-shadow:inset 0 -58px 70px #000,inset 0 0 38px #000,0 8px 23px #000c!important}
 html[data-cq-visual="v21"] .home-hero-stage::before{content:"";position:absolute;inset:5px;pointer-events:none;border:1px solid rgba(229,194,116,.11);clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 12px,100% calc(100% - 12px),calc(100% - 12px) 100%,12px 100%,0 calc(100% - 12px),0 12px)}
 html[data-cq-visual="v21"] .home-hero-stage::after{content:"";position:absolute;left:17%;right:17%;bottom:8px;height:23px;border-radius:50%;background:radial-gradient(ellipse,#000d,transparent 70%);filter:blur(3px);pointer-events:none}
-html[data-cq-visual="v21"] .hero-art-slot{position:absolute!important;inset:14px 18px 4px!important;display:flex!important;justify-content:center!important;align-items:flex-end!important;overflow:visible!important;filter:none!important}
-html[data-cq-visual="v21"] .hero-art-slot img{display:block!important;width:auto!important;height:275px!important;max-width:88%!important;object-fit:contain!important;object-position:center bottom!important;filter:drop-shadow(0 16px 15px #000) drop-shadow(0 0 18px color-mix(in srgb,var(--class,#98723b),transparent 77%)) contrast(1.08) saturate(.88)!important;transform:none!important;opacity:1!important}
-html[data-cq-visual="v21"] .hero-class-sigil{opacity:.12!important;filter:blur(.2px);transform:scale(.92)!important}
+html[data-cq-visual="v21"] .hero-art-slot{position:absolute!important;inset:14px 18px 4px!important;display:flex!important;justify-content:center!important;align-items:flex-end!important;overflow:visible!important;filter:none!important;transform:translateX(8%)!important}
+html[data-cq-visual="v21"] .hero-art-slot img{display:block!important;width:auto!important;height:275px!important;max-width:88%!important;object-fit:contain!important;object-position:center bottom!important;filter:drop-shadow(0 16px 15px #000) drop-shadow(0 0 18px color-mix(in srgb,var(--class,#98723b),transparent 77%)) contrast(1.08) saturate(.88)!important;transform:scale(1.06)!important;transform-origin:center bottom!important;opacity:1!important}
+html[data-cq-visual="v21"] .hero-class-sigil{opacity:.1!important;filter:blur(.2px);transform:scale(.88)!important}
 html[data-cq-visual="v21"] .hero-sky,html[data-cq-visual="v21"] .hero-moon,html[data-cq-visual="v21"] .hero-ruins,html[data-cq-visual="v21"] .hero-fog{opacity:.6!important}
 html[data-cq-visual="v21"] .hero-power{top:10px!important;right:10px!important;padding:6px 8px!important;border:1px solid #705329!important;background:#080705dc!important;box-shadow:0 4px 15px #000b!important}
 html[data-cq-visual="v21"] .hero-power strong{font-size:1rem!important;color:#efd079!important}
@@ -70,26 +65,26 @@ html[data-cq-visual="v21"] .adventure-cta{min-height:53px!important;margin:7px 0
 html[data-cq-visual="v21"] :is(.home-quick,.quick-row){display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important}
 html[data-cq-visual="v21"] :is(.home-quick,.quick-row) button{min-height:66px!important;padding:6px 3px!important;border:1px solid #4b3920!important;border-radius:2px!important;background:linear-gradient(180deg,#14110c,#070707)!important;color:#cdbb8f!important}
 
-/* -------- navigation: single compact game bar -------- */
+/* navigation */
 html[data-cq-visual="v21"] .bottom-nav{position:fixed!important;left:0;right:0;bottom:0;z-index:4200!important;display:grid!important;grid-template-columns:repeat(6,1fr)!important;min-height:62px!important;padding:3px 2px calc(4px + var(--cq21-safe))!important;background:linear-gradient(180deg,rgba(10,9,7,.992),#020202)!important;border-top:1px solid #72552b!important;box-shadow:0 -10px 24px #000d!important}
 html[data-cq-visual="v21"] .bottom-nav button{min-width:0!important;min-height:50px!important;padding:3px 1px!important;border:0!important;background:transparent!important;color:#89847a!important}
 html[data-cq-visual="v21"] .bottom-nav button svg{width:21px!important;height:21px!important}
 html[data-cq-visual="v21"] .bottom-nav button span{display:block!important;font-size:.49rem!important;font-weight:800!important;letter-spacing:.02em!important}
 html[data-cq-visual="v21"] .bottom-nav button.active{color:#e2bd68!important;text-shadow:0 0 8px #a86f2a55!important}
 
-/* -------- Battle Pass: no giant floating crown, only a small home shortcut -------- */
+/* Battle Pass: home-only shortcut */
 #cq-bp-entry{display:none!important}
 html.cq-home-active #cq-bp-entry{display:grid!important;position:fixed!important;z-index:4100!important;right:10px!important;bottom:calc(70px + var(--cq21-safe))!important;width:42px!important;height:42px!important;padding:0!important;border:1px solid #a77a32!important;border-radius:50%!important;background:radial-gradient(circle at 50% 30%,#76501d,#251407 60%,#080503)!important;color:#ffe0a0!important;box-shadow:0 0 0 2px #171006,0 5px 16px #000c!important;font:800 13px Cinzel,serif!important}
 html.cq-home-active #cq-bp-entry::after{content:"PASE"!important;top:42px!important;font-size:5px!important}
 
-/* -------- Inventory: dense RPG grid, not oversized storefront cards -------- */
+/* Inventory: dense RPG grid with engraved empty-field texture */
 html[data-cq-visual="v21"] .bag-tabs{position:sticky!important;top:0!important;z-index:6!important;display:grid!important;grid-template-columns:repeat(3,1fr)!important;margin-bottom:7px!important;border-bottom:1px solid #4f3b21!important;background:#050505f5!important}
 html[data-cq-visual="v21"] .bag-tabs button{min-height:38px!important;border-radius:0!important;border-bottom:2px solid #302616!important;color:#817a6d!important;font-size:7px!important}
 html[data-cq-visual="v21"] .bag-tabs button.active{color:#e0bd6c!important;border-color:#b88a3b!important}
 html[data-cq-visual="v21"] .loot-tools{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important;margin:5px 0!important}
 html[data-cq-visual="v21"] .loot-tools label{grid-column:1/-1!important;min-height:34px!important}
 html[data-cq-visual="v21"] :is(.loot-tools select,.loot-tools label,.inventory-tools input,.inventory-tools select,.content-tools input,.content-tools select){min-height:38px!important;border:1px solid #45361f!important;border-radius:2px!important;background:#090a09!important;color:#cfc5b3!important;font-size:8px!important}
-html[data-cq-visual="v21"] .bag-screen .inventory-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important}
+html[data-cq-visual="v21"] .bag-screen .inventory-grid{position:relative!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important;min-height:315px!important;padding:0 0 8px!important;background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 4px),rgba(101,76,37,.045) calc(25% - 4px) calc(25% - 3px)),repeating-linear-gradient(0deg,transparent 0 118px,rgba(101,76,37,.04) 118px 119px)!important}
 html[data-cq-visual="v21"] .bag-screen .inventory-slot{aspect-ratio:.82!important;min-height:0!important;padding:5px 3px!important;gap:3px!important;overflow:hidden!important;border:1px solid var(--rarity,#544225)!important;border-radius:2px!important;background:radial-gradient(circle at 50% 38%,color-mix(in srgb,var(--rarity,#8b7c62),transparent 84%),transparent 45%),linear-gradient(#12110e,#070707)!important;box-shadow:inset 0 0 13px #0009!important}
 html[data-cq-visual="v21"] .bag-screen .inventory-slot .item-card-name{font-size:7.4px!important;line-height:1.05!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
 html[data-cq-visual="v21"] .bag-screen .inventory-slot .item-card-icon{min-height:38px!important;font-size:25px!important;display:grid!important;place-items:center!important}
@@ -97,13 +92,13 @@ html[data-cq-visual="v21"] .bag-screen .inventory-slot small,html[data-cq-visual
 html[data-cq-visual="v21"] .equip-recommended{min-height:42px!important;margin:7px 0!important}
 html[data-cq-visual="v21"] .item-sheet{border-radius:12px 12px 0 0!important;background:linear-gradient(165deg,#15130f,#060606)!important;border-top:1px solid #a57b37!important;box-shadow:0 -18px 45px #000!important}
 
-/* -------- Hero/equipment -------- */
+/* Hero/equipment */
 html[data-cq-visual="v21"] .summary-avatar{width:100px!important;height:122px!important;border-radius:48px 48px 8px 8px!important;background:radial-gradient(circle at 50% 27%,color-mix(in srgb,var(--class,#80623b),transparent 66%),transparent 45%),linear-gradient(#15120e,#060606)!important;box-shadow:0 0 0 2px #171107,0 9px 24px #000!important}
 html[data-cq-visual="v21"] .equipment-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
 html[data-cq-visual="v21"] .equipment-slot{min-height:98px!important;padding:6px 4px!important;border-radius:2px!important;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--rarity,#8e7c60),transparent 84%),transparent 45%),linear-gradient(#12110e,#070707)!important}
 html[data-cq-visual="v21"] .equipment-slot i{font-size:25px!important;margin:5px!important}
 
-/* -------- Map: continuous path instead of card list -------- */
+/* Map */
 html[data-cq-visual="v21"] .map-zone{padding:9px!important;margin-bottom:12px!important;overflow:hidden!important;background:radial-gradient(circle at 22% 30%,rgba(47,78,62,.13),transparent 30%),radial-gradient(circle at 78% 62%,rgba(70,52,96,.09),transparent 28%),linear-gradient(160deg,#11100c,#050505 76%)!important}
 html[data-cq-visual="v21"] .map-banner{height:58px!important;border:0!important;border-bottom:1px solid #49381f!important;border-radius:0!important;background:linear-gradient(90deg,rgba(45,36,20,.34),transparent)!important}
 html[data-cq-visual="v21"] .path-step{width:94%!important;margin:6px 0 6px auto!important;padding-left:18px!important}
@@ -111,7 +106,7 @@ html[data-cq-visual="v21"] .path-step::before{content:"";position:absolute;left:
 html[data-cq-visual="v21"] .path-step button{height:62px!important;min-height:62px!important;border-radius:2px!important;border:1px solid #514021!important;background:linear-gradient(90deg,#080808,#15110c 52%,#080808)!important}
 html[data-cq-visual="v21"] .path-step.boss button{border-color:#843a2c!important;background:radial-gradient(circle at 84% 50%,rgba(153,47,31,.19),transparent 31%),linear-gradient(90deg,#110706,#1b0c08)!important}
 
-/* -------- Talents: compact node graph -------- */
+/* Talents */
 html[data-cq-visual="v21"] .talent-forest{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
 html[data-cq-visual="v21"] .talent-branch{padding:6px 4px!important;background:#090a09!important}
 html[data-cq-visual="v21"] .talent-chain{gap:13px!important}
@@ -119,30 +114,22 @@ html[data-cq-visual="v21"] .talent-node{min-height:78px!important;padding:5px 2p
 html[data-cq-visual="v21"] .talent-node.available{border-color:#c4963b!important;box-shadow:0 0 0 2px #1c1408,0 0 15px rgba(202,155,62,.25)!important}
 html[data-cq-visual="v21"] .talent-node.learned{border-color:#5f9c71!important;background:radial-gradient(circle,#14301f,#070907 70%)!important}
 
-/* -------- Skills -------- */
+/* Skills */
 html[data-cq-visual="v21"] .skill-list{gap:6px!important}
 html[data-cq-visual="v21"] .skill-card{grid-template-columns:44px minmax(0,1fr) 30px!important;min-height:82px!important;padding:7px!important;border-radius:2px!important}
 html[data-cq-visual="v21"] .skill-icon{width:42px!important;height:52px!important;border-radius:21px 21px 4px 4px!important;background:radial-gradient(circle at 50% 30%,rgba(113,64,163,.17),#080808 68%)!important}
 
-/* -------- Combat: no giant blank canvas, no emoji enemy as final art -------- */
+/* Combat */
 html[data-cq-visual="v21"] .combat-shell{padding-bottom:0!important;background:#030303!important}
-html[data-cq-visual="v21"] .combat-screen{position:fixed!important;inset:0!important;display:grid!important;grid-template-rows:34px minmax(230px,1fr) 0 54px 92px minmax(158px,auto)!important;overflow:hidden!important;background:
- radial-gradient(ellipse at 50% 25%,rgba(103,41,27,.19),transparent 36%),
- radial-gradient(ellipse at 50% 82%,rgba(80,55,24,.09),transparent 37%),linear-gradient(#070504,#020202)!important}
+html[data-cq-visual="v21"] .combat-screen{position:fixed!important;inset:0!important;display:grid!important;grid-template-rows:34px minmax(230px,1fr) 0 54px 92px minmax(158px,auto)!important;overflow:hidden!important;background:radial-gradient(ellipse at 50% 25%,rgba(103,41,27,.19),transparent 36%),radial-gradient(ellipse at 50% 82%,rgba(80,55,24,.09),transparent 37%),linear-gradient(#070504,#020202)!important}
 html[data-cq-visual="v21"] .combat-top{border-bottom:1px solid #4c361d!important;background:#070604e8!important}
 html[data-cq-visual="v21"] .enemy-zone{padding:8px 18px 0!important;overflow:hidden!important;background:radial-gradient(circle at 50% 48%,rgba(109,46,32,.11),transparent 38%)!important}
 html[data-cq-visual="v21"] .combat-name h2{font-size:20px!important;color:#f2d79d!important;margin:3px 0 4px!important}
 html[data-cq-visual="v21"] .combat-name span{font-size:7px!important;color:#bb9150!important}
-html[data-cq-visual="v21"] .enemy-figure{position:absolute!important;left:50%!important;bottom:4px!important;transform:translateX(-50%)!important;width:min(230px,62vw)!important;height:170px!important;display:grid!important;place-items:end center!important;font-size:0!important;filter:drop-shadow(0 13px 8px #000)!important}
-html[data-cq-visual="v21"] .enemy-asset{display:block!important;max-width:100%!important;max-height:165px!important;object-fit:contain!important;object-position:center bottom!important;font-size:0!important;filter:drop-shadow(0 11px 8px #000)!important}
+html[data-cq-visual="v21"] .enemy-figure{position:absolute!important;left:50%!important;top:116px!important;bottom:auto!important;transform:translateX(-50%)!important;width:min(230px,62vw)!important;height:180px!important;display:grid!important;place-items:end center!important;font-size:0!important;filter:drop-shadow(0 13px 8px #000)!important}
+html[data-cq-visual="v21"] .enemy-asset{display:block!important;max-width:100%!important;max-height:175px!important;object-fit:contain!important;object-position:center bottom!important;font-size:0!important;filter:drop-shadow(0 11px 8px #000)!important}
 html[data-cq-visual="v21"] .enemy-asset.fallback-icon{display:none!important}
-html[data-cq-visual="v21"] .enemy-figure:has(.enemy-asset.fallback-icon)::before{content:"";position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:150px;height:132px;background:
- radial-gradient(ellipse at 34% 26%,#4d5150 0 9%,transparent 10%),
- radial-gradient(ellipse at 66% 26%,#4d5150 0 9%,transparent 10%),
- radial-gradient(ellipse at 50% 34%,#171918 0 24%,transparent 25%),
- radial-gradient(ellipse at 50% 68%,#101211 0 39%,transparent 40%),
- linear-gradient(70deg,transparent 0 35%,#252927 36% 48%,transparent 49%),
- linear-gradient(-70deg,transparent 0 35%,#252927 36% 48%,transparent 49%);filter:drop-shadow(0 12px 8px #000);clip-path:polygon(19% 0,38% 17%,50% 9%,62% 17%,81% 0,74% 25%,92% 54%,79% 63%,70% 100%,53% 77%,47% 77%,30% 100%,21% 63%,8% 54%,26% 25%)}
+html[data-cq-visual="v21"] .enemy-figure:has(.enemy-asset.fallback-icon)::before{content:"";position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:158px;height:142px;background:radial-gradient(ellipse at 34% 26%,#4d5150 0 9%,transparent 10%),radial-gradient(ellipse at 66% 26%,#4d5150 0 9%,transparent 10%),radial-gradient(ellipse at 50% 34%,#171918 0 24%,transparent 25%),radial-gradient(ellipse at 50% 68%,#101211 0 39%,transparent 40%),linear-gradient(70deg,transparent 0 35%,#252927 36% 48%,transparent 49%),linear-gradient(-70deg,transparent 0 35%,#252927 36% 48%,transparent 49%);filter:drop-shadow(0 12px 8px #000);clip-path:polygon(19% 0,38% 17%,50% 9%,62% 17%,81% 0,74% 25%,92% 54%,79% 63%,70% 100%,53% 77%,47% 77%,30% 100%,21% 63%,8% 54%,26% 25%)}
 html[data-cq-visual="v21"] .enemy-aura{width:155px!important;height:155px!important;border-color:#8c553c30!important;background:radial-gradient(circle,rgba(120,44,30,.12),transparent 68%)!important;box-shadow:0 0 40px rgba(109,45,30,.16)!important}
 html[data-cq-visual="v21"] .enemy-intent{position:relative!important;z-index:4!important;display:inline-flex!important;gap:6px!important;align-items:center!important;margin:5px auto!important;padding:5px 8px!important;border:1px solid #7b352a!important;background:linear-gradient(90deg,#220906,#45150e,#220906)!important;color:#e98e78!important;font-size:7px!important}
 html[data-cq-visual="v21"] .ally-strip{display:none!important}
@@ -158,15 +145,6 @@ html[data-cq-visual="v21"] .skill-actions{grid-template-columns:repeat(5,minmax(
 html[data-cq-visual="v21"] .skill-actions button{height:62px!important;min-width:0!important;padding:3px 1px!important;border:1px solid #594326!important;border-radius:24px 24px 4px 4px!important;background:radial-gradient(circle at 50% 22%,rgba(114,64,164,.14),transparent 42%),linear-gradient(#15120e,#070707)!important;overflow:hidden!important}
 html[data-cq-visual="v21"] .skill-actions i{font-size:19px!important}.skill-actions b{font-size:6px!important}.skill-actions small{font-size:5px!important}
 
-/* -------- responsive -------- */
-@media(max-width:390px){
- html[data-cq-visual="v21"] .home-hero-stage{height:262px!important;min-height:262px!important;max-height:262px!important}
- html[data-cq-visual="v21"] .hero-art-slot img{height:248px!important}
- html[data-cq-visual="v21"] .bag-screen .inventory-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important}
- html[data-cq-visual="v21"] .bag-screen .inventory-slot{padding:4px 2px!important}
- html[data-cq-visual="v21"] .bottom-nav button span{font-size:.45rem!important}
- html[data-cq-visual="v21"] .combat-screen{grid-template-rows:32px minmax(205px,1fr) 0 50px 86px minmax(154px,auto)!important}
- html[data-cq-visual="v21"] .enemy-figure{height:150px!important}
-}
+@media(max-width:390px){html[data-cq-visual="v21"] .home-hero-stage{height:262px!important;min-height:262px!important;max-height:262px!important}html[data-cq-visual="v21"] .hero-art-slot img{height:248px!important}html[data-cq-visual="v21"] .bag-screen .inventory-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important}html[data-cq-visual="v21"] .bag-screen .inventory-slot{padding:4px 2px!important}html[data-cq-visual="v21"] .bottom-nav button span{font-size:.45rem!important}html[data-cq-visual="v21"] .combat-screen{grid-template-rows:32px minmax(205px,1fr) 0 50px 86px minmax(154px,auto)!important}html[data-cq-visual="v21"] .enemy-figure{top:104px!important;height:160px!important}}
 @media(min-width:520px){html[data-cq-visual="v21"] #game{max-width:500px;margin:auto}.bag-screen .inventory-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
 @media(prefers-reduced-motion:reduce){html[data-cq-visual="v21"] *,html[data-cq-visual="v21"] *::before,html[data-cq-visual="v21"] *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
