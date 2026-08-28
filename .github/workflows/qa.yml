@@ -29,6 +29,7 @@ jobs:
       - name: Validate frontend JavaScript
         run: |
           node --check frontend/app.js
+          node --check frontend/analytics.js
           node --check frontend/creator.js
           node --check frontend/billing.js
           node --check frontend/game.js
