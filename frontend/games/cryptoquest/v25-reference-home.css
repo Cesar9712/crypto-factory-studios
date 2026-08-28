@@ -1,0 +1,82 @@
+/* CryptoQuest V25 — home rebuilt from the approved premium reference image.
+   No generated art is embedded: this uses the live game's existing DOM/assets. */
+@media (max-width: 560px){
+html[data-cq-visual="v24"] body{background:#020202!important}
+html[data-cq-visual="v24"] #game{width:100%!important;max-width:520px!important;min-height:100dvh!important;background:linear-gradient(180deg,#050505 0,#020202 72%,#050403 100%)!important}
+html[data-cq-visual="v24"] .screen{padding:6px 6px calc(80px + env(safe-area-inset-bottom,0px))!important}
+html[data-cq-visual="v24"] .home-screen{gap:8px!important}
+html[data-cq-visual="v24"] .cq24-dashboard{gap:8px!important}
+
+/* Remove the broken empty header/oversized gap from V24. */
+html[data-cq-visual="v24"] .home-hero-stage{height:auto!important;min-height:0!important;overflow:visible!important;display:grid!important;grid-template-rows:auto auto 390px!important;border:1px solid #6b4d24!important;background:linear-gradient(180deg,#070706,#040504)!important;box-shadow:inset 0 0 0 1px #000,0 8px 24px #000c!important}
+html[data-cq-visual="v24"] .home-hero-stage:before{inset:4px!important;z-index:50!important}
+
+/* Premium identity row like the approved reference: avatar/name left, resources right. */
+html[data-cq-visual="v24"] .home-profile-hud[data-cq24-integrated="1"]{position:relative!important;inset:auto!important;display:grid!important;grid-template-columns:minmax(0,1.1fr) minmax(0,1.7fr)!important;align-items:stretch!important;gap:7px!important;padding:8px!important;pointer-events:auto!important;background:linear-gradient(180deg,#090806,#030303)!important;border-bottom:1px solid #3f2d18!important;z-index:30!important}
+html[data-cq-visual="v24"] .cq24-hero-identity{grid-column:1!important;grid-row:1!important;display:grid!important;grid-template-columns:64px minmax(0,1fr)!important;grid-template-rows:auto auto!important;gap:4px 8px!important;align-items:center!important;padding:3px!important;border:0!important;background:none!important;box-shadow:none!important;min-width:0!important}
+html[data-cq-visual="v24"] .home-avatar{grid-row:1/3!important;width:60px!important;height:60px!important;align-self:center!important;border:2px solid #9f7335!important;box-shadow:0 0 0 3px #0c0905,0 0 18px #8f652533!important}
+html[data-cq-visual="v24"] .home-avatar svg{width:31px!important;height:31px!important}
+html[data-cq-visual="v24"] .home-avatar-level{min-width:22px!important;height:22px!important;right:-4px!important;bottom:-4px!important;font-size:.62rem!important}
+html[data-cq-visual="v24"] .home-identity{align-self:end!important;min-width:0!important}
+html[data-cq-visual="v24"] .home-identity strong{display:block!important;max-width:100%!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:1.05rem!important;line-height:1.05!important;letter-spacing:.04em!important;color:#f0dfae!important}
+html[data-cq-visual="v24"] .home-identity span{display:block!important;max-width:100%!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:.56rem!important;line-height:1.2!important;color:#b39261!important}
+html[data-cq-visual="v24"] .home-settings{grid-column:2!important;grid-row:2!important;justify-self:end!important;align-self:start!important;width:28px!important;height:28px!important;margin-top:2px!important;display:none!important}
+
+html[data-cq-visual="v24"] .cq24-resource-rail{grid-column:2!important;grid-row:1!important;margin:0!important;align-self:center!important;justify-content:stretch!important;min-width:0!important}
+html[data-cq-visual="v24"] .home-resource-strip{width:100%!important;min-height:68px!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;border:1px solid #5e4525!important;background:linear-gradient(180deg,#100e0a,#050505)!important;box-shadow:inset 0 0 18px #000b,0 4px 10px #0008!important}
+html[data-cq-visual="v24"] .home-resource-strip>span{grid-template-columns:1fr!important;grid-template-rows:22px auto auto!important;place-items:center!important;gap:0!important;padding:5px 3px!important;text-align:center!important;min-width:0!important;border-right:1px solid #3a2a18!important}
+html[data-cq-visual="v24"] .home-resource-strip svg{width:20px!important;height:20px!important;margin:0!important}
+html[data-cq-visual="v24"] .home-resource-strip small{font:700 .42rem Cinzel,Georgia,serif!important;letter-spacing:.08em!important;line-height:1!important;color:#b9965f!important}
+html[data-cq-visual="v24"] .home-resource-strip b{font:700 .83rem Cinzel,Georgia,serif!important;line-height:1!important;color:#f4dfaa!important}
+
+/* Vitals become a dedicated full-width status panel, never behind hero art. */
+html[data-cq-visual="v24"] .home-vitals[data-cq24-integrated="1"]{position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;grid-row:2!important;z-index:28!important;margin:0 8px 7px!important;padding:9px 10px!important;display:grid!important;gap:7px!important;border:1px solid #594326!important;background:linear-gradient(180deg,#0c0d0d,#060606)!important;box-shadow:inset 0 0 18px #0009!important}
+html[data-cq-visual="v24"] .home-vital{grid-template-columns:26px 76px minmax(0,1fr)!important;gap:7px!important;min-height:20px!important}
+html[data-cq-visual="v24"] .home-vital>span{font-size:.59rem!important;white-space:nowrap!important}
+html[data-cq-visual="v24"] .home-bar-track{height:9px!important;border:1px solid #4f4637!important;box-shadow:inset 0 1px 3px #000!important}
+
+/* Character becomes a cinematic lower stage, matching the reference hierarchy. */
+html[data-cq-visual="v24"] .hero-art-slot{position:relative!important;inset:auto!important;grid-row:3!important;height:390px!important;min-height:390px!important;display:flex!important;align-items:flex-end!important;justify-content:center!important;overflow:hidden!important;background:radial-gradient(circle at 50% 35%,rgba(72,67,52,.28),transparent 28%),radial-gradient(ellipse at 50% 86%,rgba(177,120,42,.18),transparent 32%),linear-gradient(180deg,#080a09,#030404 80%)!important}
+html[data-cq-visual="v24"] .hero-art-slot:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0 58%,rgba(0,0,0,.42) 78%,#020202 100%);pointer-events:none;z-index:3}
+html[data-cq-visual="v24"] .hero-art-slot img{height:360px!important;max-height:360px!important;max-width:94%!important;object-fit:contain!important;object-position:center bottom!important;filter:drop-shadow(0 18px 14px #000) contrast(1.16) brightness(.92) saturate(.9)!important;z-index:2!important}
+html[data-cq-visual="v24"] .hero-class-mark{left:14px!important;bottom:12px!important;z-index:6!important;padding:6px 10px!important;font-size:.52rem!important;background:rgba(4,5,5,.9)!important}
+
+/* Mission + CTA: strong premium card with a full-width primary action beneath it. */
+html[data-cq-visual="v24"] .cq24-mission-deck{display:grid!important;grid-template-columns:1fr!important;gap:7px!important}
+html[data-cq-visual="v24"] .main-quest{min-height:0!important;padding:12px!important;border:1px solid #674923!important;border-left:3px solid #ad7731!important;background:radial-gradient(circle at 86% 12%,rgba(184,103,31,.1),transparent 36%),linear-gradient(180deg,#151109,#080706)!important}
+html[data-cq-visual="v24"] .main-quest h3{font-size:1.2rem!important;line-height:1.05!important;color:#efd9a4!important}
+html[data-cq-visual="v24"] .quest-body{grid-template-columns:minmax(0,1fr) auto!important;align-items:end!important}
+html[data-cq-visual="v24"] .quest-body p{font-size:.65rem!important}
+html[data-cq-visual="v24"] .adventure-cta{min-height:68px!important;width:100%!important;display:grid!important;grid-template-columns:48px 1fr 24px!important;place-items:center!important;gap:7px!important;padding:8px 14px!important;background:radial-gradient(circle at 50% 0,rgba(255,198,85,.19),transparent 42%),linear-gradient(180deg,#6d3d10,#271405)!important;border:1px solid #b87c2f!important;box-shadow:inset 0 1px rgba(255,255,255,.11),0 7px 16px #000c!important;text-align:center!important}
+html[data-cq-visual="v24"] .adventure-cta span{font-size:1.9rem!important;color:#e7c176!important}
+html[data-cq-visual="v24"] .adventure-cta b{font:700 .75rem Cinzel,Georgia,serif!important;letter-spacing:.06em!important;color:#fff0c4!important}
+html[data-cq-visual="v24"] .adventure-cta i{display:block!important;font-style:normal!important;font-size:1.6rem!important;color:#d5a248!important}
+
+/* Quick-access tiles inspired by the reference, but responsive for real phone widths. */
+html[data-cq-visual="v24"] .home-quick{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important;padding:0!important}
+html[data-cq-visual="v24"] .home-quick button{min-height:92px!important;padding:9px 4px!important;border:1px solid #514022!important;background:linear-gradient(180deg,#11100c,#050505)!important;box-shadow:inset 0 0 14px #000b!important}
+html[data-cq-visual="v24"] .home-quick button svg{width:27px!important;height:27px!important;color:#c69a4c!important;filter:drop-shadow(0 0 5px #c99a4944)!important}
+html[data-cq-visual="v24"] .home-quick b{font:700 .48rem Cinzel,Georgia,serif!important;line-height:1.1!important;color:#d8be85!important}
+html[data-cq-visual="v24"] .home-quick small{font-size:.38rem!important;line-height:1.12!important;color:#9b927f!important}
+
+/* Floating pass never covers useful controls. */
+html[data-cq-visual="v24"] .battle-pass-fab,html[data-cq-visual="v24"] .pass-fab,html[data-cq-visual="v24"] [class*="pass-fab"]{right:10px!important;bottom:calc(82px + env(safe-area-inset-bottom,0px))!important;width:54px!important;height:54px!important;z-index:55!important}
+
+/* Bottom navigation compact and premium. */
+html[data-cq-visual="v24"] .bottom-nav{height:72px!important;min-height:72px!important;padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px))!important;background:linear-gradient(180deg,#080706,#020202)!important;border-top:1px solid #5f4524!important;box-shadow:0 -8px 24px #000c!important}
+html[data-cq-visual="v24"] .bottom-nav button{min-width:0!important;padding:4px 2px!important;gap:2px!important}
+html[data-cq-visual="v24"] .bottom-nav svg{width:24px!important;height:24px!important}
+html[data-cq-visual="v24"] .bottom-nav span{font-size:.48rem!important;letter-spacing:.04em!important;white-space:nowrap!important}
+}
+
+@media (max-width:390px){
+html[data-cq-visual="v24"] .home-profile-hud[data-cq24-integrated="1"]{grid-template-columns:minmax(0,1fr)!important;gap:6px!important}
+html[data-cq-visual="v24"] .cq24-hero-identity{grid-column:1!important;grid-row:1!important;grid-template-columns:58px 1fr!important;padding:2px 3px!important}
+html[data-cq-visual="v24"] .home-avatar{width:54px!important;height:54px!important}
+html[data-cq-visual="v24"] .home-identity strong{font-size:1rem!important}
+html[data-cq-visual="v24"] .cq24-resource-rail{grid-column:1!important;grid-row:2!important;width:100%!important}
+html[data-cq-visual="v24"] .home-resource-strip{min-height:58px!important}
+html[data-cq-visual="v24"] .hero-art-slot{height:350px!important;min-height:350px!important}
+html[data-cq-visual="v24"] .hero-art-slot img{height:330px!important;max-height:330px!important}
+html[data-cq-visual="v24"] .home-quick button{min-height:84px!important}
+}
