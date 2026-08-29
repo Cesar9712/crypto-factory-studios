@@ -1,8 +1,10 @@
 {
-  "schema": 1,
-  "generatedFrom": "data/p00.txt..p11.txt",
+  "schema": 2,
   "runtime": "runtime.html",
   "externalizedStyles": 2,
   "externalizedScripts": 1,
-  "architecture": "5.0.0-canonical"
+  "architecture": "5.0.0-canonical",
+  "legacyPackedSource": "data/p00.txt..p11.txt",
+  "legacyPackedSourceRetired": true,
+  "fallbackEnabled": false
 }

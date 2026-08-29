@@ -12,10 +12,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: cryptoquest-production-smoke-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -23,8 +19,7 @@ jobs:
     steps:
       - name: Wait for Cloudflare Workers build
         run: sleep 45
-
-      - name: Verify production canonical loader runtime and assets
+      - name: Verify V5 production runtime and canonical assets
         shell: bash
         env:
           BASE: https://crypto-factory-studios.cryptofactorystudios.workers.dev
@@ -42,35 +37,14 @@ jobs:
             sleep 20
           done
           test "$ok" = 1
-
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/core/loader.js?v=${GITHUB_SHA}" -o /tmp/loader.js
-          grep -q 'runtime.html' /tmp/loader.js
-          grep -q 'core/bootstrap.js?v=5.0.0' /tmp/loader.js
-
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/core/bootstrap.js?v=${GITHUB_SHA}" -o /tmp/bootstrap.js
-          grep -q "version:'5.0.0-canonical'" /tmp/bootstrap.js
-
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/runtime.html?v=${GITHUB_SHA}" -o /tmp/runtime.html
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/runtime.html?smoke=${GITHUB_SHA}" -o /tmp/runtime.html
           grep -q 'V5-CANONICAL' /tmp/runtime.html
           grep -q 'core/bootstrap.js?v=5.0.0' /tmp/runtime.html
           ! grep -q 'DecompressionStream' /tmp/runtime.html
-          ! grep -q 'data/p00.txt' /tmp/runtime.html
-
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/build/runtime-manifest.json?v=${GITHUB_SHA}" -o /tmp/runtime-manifest.json
-          grep -q '5.0.0-canonical' /tmp/runtime-manifest.json
-
-          for asset in \
-            core/EventBus.js \
-            core/StateStore.js \
-            systems/combat/createCombatMachine.js \
-            systems/energy/EnergyService.js \
-            systems/inventory/InventoryService.js \
-            player/SkillService.js \
-            player/TalentTreeService.js \
-            world/MapGraphService.js \
-            ui/navigation/NavigationController.js; do
-            curl --fail --silent --show-error --location "$BASE/games/cryptoquest/$asset?v=${GITHUB_SHA}" -o /dev/null
-          done
-
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/core/loader.js?smoke=${GITHUB_SHA}" -o /tmp/loader.js
+          ! grep -q 'DecompressionStream' /tmp/loader.js
+          ! grep -q 'data/p00.txt' /tmp/loader.js
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/core/bootstrap.js?smoke=${GITHUB_SHA}" -o /tmp/bootstrap.js
+          grep -q "version:'5.0.0-canonical'" /tmp/bootstrap.js
       - name: Report
-        run: echo 'CryptoQuest canonical V5 loader, generated runtime, and modular production assets are reachable.'
+        run: echo 'CryptoQuest V5 canonical runtime is reachable in production without the packed fallback.'

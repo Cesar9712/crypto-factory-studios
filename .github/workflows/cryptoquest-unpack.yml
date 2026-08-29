@@ -1,40 +1,28 @@
-name: CryptoQuest Unpack
+name: CryptoQuest Runtime Retirement Gate
 
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - '.github/workflows/cryptoquest-unpack.yml'
+      - 'frontend/games/cryptoquest/core/loader.js'
+      - 'frontend/games/cryptoquest/runtime.html'
+      - 'frontend/games/cryptoquest/build/runtime-manifest.json'
       - 'frontend/games/cryptoquest/data/**'
-      - 'frontend/games/cryptoquest/build/normalize-runtime.mjs'
 
 permissions:
-  contents: write
-
-concurrency:
-  group: cryptoquest-runtime-generation
-  cancel-in-progress: true
+  contents: read
 
 jobs:
-  unpack:
+  runtime-retirement-gate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Decode packed historical source
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat frontend/games/cryptoquest/data/p*.txt | base64 -d | gzip -d > frontend/games/cryptoquest/game.source.html
-          test -s frontend/games/cryptoquest/game.source.html
-          grep -qi 'cryptoquest' frontend/games/cryptoquest/game.source.html
-      - name: Generate canonical runtime artifacts
-        run: node frontend/games/cryptoquest/build/normalize-runtime.mjs
-      - name: Validate generated runtime
+      - name: Verify canonical runtime is self-contained
         shell: bash
         run: |
           set -euo pipefail
@@ -42,29 +30,13 @@ jobs:
           test -s frontend/games/cryptoquest/build/runtime-manifest.json
           grep -F 'V5-CANONICAL' frontend/games/cryptoquest/runtime.html
           grep -F 'core/bootstrap.js?v=5.0.0' frontend/games/cryptoquest/runtime.html
-          ! grep -F 'DecompressionStream' frontend/games/cryptoquest/runtime.html
-          ! grep -F 'data/p00.txt' frontend/games/cryptoquest/runtime.html
-          find frontend/games/cryptoquest/scripts/runtime -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check
-      - name: Commit generated runtime when changed
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -f frontend/games/cryptoquest/game.source.html
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A frontend/games/cryptoquest/runtime.html frontend/games/cryptoquest/graphics/runtime frontend/games/cryptoquest/scripts/runtime frontend/games/cryptoquest/build/runtime-manifest.json
-          if git diff --cached --quiet; then
-            exit 0
+          grep -F '"legacyPackedSourceRetired": true' frontend/games/cryptoquest/build/runtime-manifest.json
+          grep -F '"fallbackEnabled": false' frontend/games/cryptoquest/build/runtime-manifest.json
+          ! grep -F 'DecompressionStream' frontend/games/cryptoquest/core/loader.js
+          ! grep -F 'data/p00.txt' frontend/games/cryptoquest/core/loader.js
+          if find frontend/games/cryptoquest/data -maxdepth 1 -type f -name 'p*.txt' 2>/dev/null | grep -q .; then
+            echo 'Packed legacy chunks are still present.' >&2
+            exit 1
           fi
-          git commit -m 'build(cryptoquest): generate modular runtime artifacts'
-          for attempt in 1 2 3 4 5; do
-            if git push origin HEAD:main; then
-              exit 0
-            fi
-            echo "Push raced with main; rebasing generated commit (attempt ${attempt}/5)..."
-            git fetch origin main
-            git rebase origin/main
-            sleep $((attempt * 2))
-          done
-          echo 'Unable to publish generated runtime after 5 retries.' >&2
-          exit 1
+          node --check frontend/games/cryptoquest/core/loader.js
+          find frontend/games/cryptoquest/scripts/runtime -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check

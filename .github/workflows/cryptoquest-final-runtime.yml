@@ -1,0 +1,81 @@
+name: CryptoQuest V5 Final Runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/games/cryptoquest/**'
+      - '.github/workflows/cryptoquest-final-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  final-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Structural final gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s frontend/games/cryptoquest/runtime.html
+          grep -F 'V5-CANONICAL' frontend/games/cryptoquest/runtime.html
+          grep -F 'core/bootstrap.js?v=5.0.0' frontend/games/cryptoquest/runtime.html
+          ! grep -F 'DecompressionStream' frontend/games/cryptoquest/core/loader.js
+          ! grep -F 'data/p00.txt' frontend/games/cryptoquest/core/loader.js
+          if find frontend/games/cryptoquest/data -maxdepth 1 -type f -name 'p*.txt' 2>/dev/null | grep -q .; then exit 1; fi
+          find frontend/games/cryptoquest/core frontend/games/cryptoquest/systems frontend/games/cryptoquest/player frontend/games/cryptoquest/world frontend/games/cryptoquest/ui frontend/games/cryptoquest/scripts frontend/games/cryptoquest/src -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Start frontend
+        run: |
+          python3 -m http.server 4173 --directory frontend >/tmp/cq-http.log 2>&1 &
+          sleep 2
+      - name: Verify mobile boot, creation and persistence
+        shell: bash
+        run: |
+          cat > final-probe.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915}];
+          let failed=false;
+          async function clickText(page,re){const list=page.locator('button:visible');for(let i=0,n=await list.count();i<n;i++){const b=list.nth(i);const t=(await b.innerText()).replace(/\s+/g,' ').trim();if(re.test(t)){await b.click();return true;}}return false;}
+          for(const size of sizes){
+            const context=await browser.newContext({viewport:size,isMobile:true,hasTouch:true});
+            const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(String(e.message||e)));
+            const response=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?final=${size.width}`,{waitUntil:'load',timeout:30000});
+            await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000}).catch(()=>{});
+            await page.waitForTimeout(800);
+            const start=await page.evaluate(()=>({version:window.CQArchitecture?.version||'',err:document.getElementById('err')?.textContent||'',overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),text:(document.body?.innerText||'').replace(/\s+/g,' ').slice(0,1000)}));
+            if(response?.status()!==200||errors.length||start.version!=='5.0.0-canonical'||start.err||start.overflow>4||!/CryptoQuest|Elige tu destino/i.test(start.text)){console.error('BOOT_FAIL',size,start,errors);failed=true;await context.close();continue;}
+            const input=page.locator('input:visible').first();
+            if(await input.count()){
+              await input.fill(`FinalHero${size.width}`);
+              if(!await clickText(page,/continuar|siguiente|aceptar/i)){failed=true;await context.close();continue;}
+              await page.waitForTimeout(200);
+              if(!await clickText(page,/guerrero/i)){failed=true;await context.close();continue;}
+              await page.waitForTimeout(150);
+              if(!await clickText(page,/comenzar aventura|crear héroe|entrar al juego/i)){failed=true;await context.close();continue;}
+              await page.waitForTimeout(700);
+            }
+            const keys=await page.evaluate(()=>Object.keys(localStorage));
+            if(!keys.some(k=>/cryptoquest/i.test(k))){console.error('SAVE_MISSING',size,keys);failed=true;await context.close();continue;}
+            await page.reload({waitUntil:'load'});
+            await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000}).catch(()=>{});
+            await page.waitForTimeout(500);
+            const after=await page.evaluate(()=>({err:document.getElementById('err')?.textContent||'',overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),text:(document.body?.innerText||'').replace(/\s+/g,' ').slice(0,1200)}));
+            if(after.err||after.overflow>4||!/FinalHero|INICIO|AVENTURA|HÉROE/i.test(after.text)){console.error('RELOAD_FAIL',size,after);failed=true;}
+            await context.close();
+          }
+          await browser.close(); if(failed)process.exit(1);
+          JS
+          timeout 150s node final-probe.mjs
