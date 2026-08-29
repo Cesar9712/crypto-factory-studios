@@ -11,6 +11,10 @@ on:
       - 'wrangler.toml'
       - '.github/workflows/cloudflare-explicit-deploy.yml'
 
+concurrency:
+  group: cloudflare-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -31,3 +35,27 @@ jobs:
             exit 2
           fi
           npx --yes wrangler@4 deploy
+
+      - name: Verify production analytics routing
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
+          for path in / /billing.html /creator.html; do
+            body="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+              -H 'Cache-Control: no-cache' "${base}${path}?deploy_sha=${GITHUB_SHA}")"
+            if ! grep -Fq '/analytics.js' <<<"${body}"; then
+              echo "Analytics injection missing after deploy: ${path}" >&2
+              exit 1
+            fi
+          done
+
+          analytics="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+            -H 'Cache-Control: no-cache' "${base}/analytics.js?deploy_sha=${GITHUB_SHA}")"
+          for marker in window.cfsAnalytics game_play_clicked billing_view_clicked billing_plan_selected billing_network_selected billing_order_attempted billing_verification_attempted; do
+            if ! grep -Fq "${marker}" <<<"${analytics}"; then
+              echo "Analytics runtime marker missing after deploy: ${marker}" >&2
+              exit 1
+            fi
+          done
+          echo 'CFS_CLOUDFLARE_PRODUCTION_ANALYTICS_OK'
