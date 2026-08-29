@@ -6,11 +6,15 @@ on:
     paths:
       - '.github/workflows/cryptoquest-unpack.yml'
       - 'frontend/games/cryptoquest/data/**'
+      - 'frontend/games/cryptoquest/build/normalize-runtime.mjs'
 
 permissions:
   contents: write
 
-# Canonical architecture migration: expose the packed legacy source for controlled extraction.
+concurrency:
+  group: cryptoquest-runtime-generation
+  cancel-in-progress: true
+
 jobs:
   unpack:
     runs-on: ubuntu-latest
@@ -18,22 +22,39 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Unpack compressed CryptoQuest HTML
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Decode packed historical source
         shell: bash
         run: |
           set -euo pipefail
-          cat frontend/games/cryptoquest/data/p*.txt | base64 -d | gzip -d > frontend/games/cryptoquest/game.html
-          test -s frontend/games/cryptoquest/game.html
-          grep -qi 'cryptoquest' frontend/games/cryptoquest/game.html
-      - name: Commit unpacked source when changed
+          cat frontend/games/cryptoquest/data/p*.txt | base64 -d | gzip -d > frontend/games/cryptoquest/game.source.html
+          test -s frontend/games/cryptoquest/game.source.html
+          grep -qi 'cryptoquest' frontend/games/cryptoquest/game.source.html
+      - name: Generate canonical runtime artifacts
+        run: node frontend/games/cryptoquest/build/normalize-runtime.mjs
+      - name: Validate generated runtime
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- frontend/games/cryptoquest/game.html && git ls-files --error-unmatch frontend/games/cryptoquest/game.html >/dev/null 2>&1; then
-            exit 0
-          fi
+          test -s frontend/games/cryptoquest/runtime.html
+          test -s frontend/games/cryptoquest/build/runtime-manifest.json
+          grep -F 'V5-CANONICAL' frontend/games/cryptoquest/runtime.html
+          grep -F 'core/bootstrap.js?v=5.0.0' frontend/games/cryptoquest/runtime.html
+          ! grep -F 'DecompressionStream' frontend/games/cryptoquest/runtime.html
+          ! grep -F 'data/p00.txt' frontend/games/cryptoquest/runtime.html
+          find frontend/games/cryptoquest/scripts/runtime -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check
+      - name: Commit generated runtime when changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f frontend/games/cryptoquest/game.source.html
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add frontend/games/cryptoquest/game.html
-          git commit -m 'build: expose CryptoQuest runtime HTML'
+          git add -A frontend/games/cryptoquest/runtime.html frontend/games/cryptoquest/graphics/runtime frontend/games/cryptoquest/scripts/runtime frontend/games/cryptoquest/build/runtime-manifest.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'build(cryptoquest): generate modular runtime artifacts'
           git push
