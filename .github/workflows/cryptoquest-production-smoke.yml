@@ -12,15 +12,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: cryptoquest-production-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - name: Wait for Cloudflare Workers build
         run: sleep 45
 
-      - name: Verify production loader and assets
+      - name: Verify production canonical loader runtime and assets
         shell: bash
         env:
           BASE: https://crypto-factory-studios.cryptofactorystudios.workers.dev
@@ -29,10 +33,8 @@ jobs:
           tmp="$(mktemp)"
           ok=0
           for attempt in 1 2 3 4 5 6 7 8; do
-            if curl --fail --silent --show-error --location --max-time 20 \
-              -H 'Cache-Control: no-cache' \
-              "$BASE/games/cryptoquest/?smoke=${GITHUB_SHA}-${attempt}" -o "$tmp"; then
-              if grep -q 'Cargando CryptoQuest' "$tmp" && grep -q 'bootstrap.js?v=4.0.0' "$tmp" && grep -q 'V4-MODULAR' "$tmp"; then
+            if curl --fail --silent --show-error --location --max-time 20 -H 'Cache-Control: no-cache' "$BASE/games/cryptoquest/?smoke=${GITHUB_SHA}-${attempt}" -o "$tmp"; then
+              if grep -q 'Cargando CryptoQuest' "$tmp" && grep -q 'core/loader.js?v=5.0.0' "$tmp"; then
                 ok=1
                 break
               fi
@@ -40,16 +42,35 @@ jobs:
             sleep 20
           done
           test "$ok" = 1
-          grep -q 'v31-bootguard.js' "$tmp"
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/src/app/bootstrap.js?v=smoke" -o /tmp/bootstrap.js
-          grep -q "version:'4.0.0-migration'" /tmp/bootstrap.js
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/src/domain/equipment/EquipmentService.js?v=smoke" -o /dev/null
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/src/domain/economy/EconomyService.js?v=smoke" -o /dev/null
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/src/domain/skills/SkillService.js?v=smoke" -o /dev/null
-          for i in $(seq -w 0 11); do
-            curl --fail --silent --show-error --location "$BASE/games/cryptoquest/data/p${i}.txt?smoke=${GITHUB_SHA}" -o "/tmp/p${i}.txt"
-            test -s "/tmp/p${i}.txt"
+
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/core/loader.js?v=${GITHUB_SHA}" -o /tmp/loader.js
+          grep -q 'runtime.html' /tmp/loader.js
+          grep -q 'core/bootstrap.js?v=5.0.0' /tmp/loader.js
+
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/core/bootstrap.js?v=${GITHUB_SHA}" -o /tmp/bootstrap.js
+          grep -q "version:'5.0.0-canonical'" /tmp/bootstrap.js
+
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/runtime.html?v=${GITHUB_SHA}" -o /tmp/runtime.html
+          grep -q 'V5-CANONICAL' /tmp/runtime.html
+          grep -q 'core/bootstrap.js?v=5.0.0' /tmp/runtime.html
+          ! grep -q 'DecompressionStream' /tmp/runtime.html
+          ! grep -q 'data/p00.txt' /tmp/runtime.html
+
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/build/runtime-manifest.json?v=${GITHUB_SHA}" -o /tmp/runtime-manifest.json
+          grep -q '5.0.0-canonical' /tmp/runtime-manifest.json
+
+          for asset in \
+            core/EventBus.js \
+            core/StateStore.js \
+            systems/combat/createCombatMachine.js \
+            systems/energy/EnergyService.js \
+            systems/inventory/InventoryService.js \
+            player/SkillService.js \
+            player/TalentTreeService.js \
+            world/MapGraphService.js \
+            ui/navigation/NavigationController.js; do
+            curl --fail --silent --show-error --location "$BASE/games/cryptoquest/$asset?v=${GITHUB_SHA}" -o /dev/null
           done
 
       - name: Report
-        run: echo 'CryptoQuest V4 loader, modular runtime, and required production assets are reachable.'
+        run: echo 'CryptoQuest canonical V5 loader, generated runtime, and modular production assets are reachable.'
