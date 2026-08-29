@@ -12,10 +12,18 @@ on:
       - 'frontend/games/cryptoquest/scripts/**'
       - 'frontend/games/cryptoquest/config/**'
       - 'frontend/games/cryptoquest/levels/**'
+      - 'frontend/games/cryptoquest/graphics/**'
+      - 'frontend/games/cryptoquest/audio/**'
+      - 'frontend/games/cryptoquest/assets/**'
+      - 'frontend/games/cryptoquest/build/**'
       - 'frontend/games/cryptoquest/src/**'
       - 'frontend/games/cryptoquest/index.html'
       - '.github/workflows/cryptoquest-architecture.yml'
   workflow_dispatch:
+
+concurrency:
+  group: cryptoquest-architecture-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   architecture-smoke:
@@ -27,6 +35,7 @@ jobs:
           node-version: '22'
       - name: Verify canonical modules
         run: |
+          test -f frontend/games/cryptoquest/core/loader.js
           test -f frontend/games/cryptoquest/core/bootstrap.js
           test -f frontend/games/cryptoquest/core/EventBus.js
           test -f frontend/games/cryptoquest/core/StateStore.js
@@ -47,15 +56,21 @@ jobs:
           test -f frontend/games/cryptoquest/ui/navigation/NavigationController.js
           test -f frontend/games/cryptoquest/ui/RenderCoordinator.js
           test -f frontend/games/cryptoquest/scripts/compatibility/LegacyRuntimeAdapter.js
+          test -f frontend/games/cryptoquest/build/normalize-runtime.mjs
+          test -f frontend/games/cryptoquest/graphics/README.md
+          test -f frontend/games/cryptoquest/audio/README.md
+          test -f frontend/games/cryptoquest/assets/README.md
+          test -f frontend/games/cryptoquest/build/README.md
       - name: Verify legacy src paths are adapters only
         run: |
           ! grep -R "export class\|export function" frontend/games/cryptoquest/src/core frontend/games/cryptoquest/src/domain frontend/games/cryptoquest/src/ui frontend/games/cryptoquest/src/infrastructure
           grep -R "^export .* from\|^import .*core/bootstrap" frontend/games/cryptoquest/src >/dev/null
       - name: Syntax check canonical and adapters
         run: |
-          find frontend/games/cryptoquest/core frontend/games/cryptoquest/systems frontend/games/cryptoquest/player frontend/games/cryptoquest/world frontend/games/cryptoquest/ui frontend/games/cryptoquest/scripts frontend/games/cryptoquest/src -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Verify canonical V5 boot link
+          find frontend/games/cryptoquest/core frontend/games/cryptoquest/systems frontend/games/cryptoquest/player frontend/games/cryptoquest/world frontend/games/cryptoquest/ui frontend/games/cryptoquest/scripts frontend/games/cryptoquest/src frontend/games/cryptoquest/build -name '*.js' -o -name '*.mjs' | xargs -n1 node --check
+      - name: Verify canonical V5 boot path
         run: |
-          grep -F 'core/bootstrap.js?v=5.0.0' frontend/games/cryptoquest/index.html
-          grep -F 'cryptoquest-architecture" content="V5-CANONICAL' frontend/games/cryptoquest/index.html
+          grep -F 'core/loader.js?v=5.0.0' frontend/games/cryptoquest/index.html
+          grep -F 'runtime.html' frontend/games/cryptoquest/core/loader.js
+          grep -F 'core/bootstrap.js?v=5.0.0' frontend/games/cryptoquest/core/loader.js
           grep -F "version:'5.0.0-canonical'" frontend/games/cryptoquest/core/bootstrap.js
