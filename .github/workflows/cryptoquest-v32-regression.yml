@@ -38,26 +38,14 @@ jobs:
           const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915}];
           let failed=false;
           const log=(...v)=>console.log(...v);
-          async function clickText(page,re){
-            const list=page.locator('button:visible');
-            for(let i=0,n=await list.count();i<n;i++){
-              const b=list.nth(i),t=(await b.innerText()).replace(/\s+/g,' ').trim();
-              re.lastIndex=0;
-              if(re.test(t)){await b.click();return t;}
-            }
-            return null;
-          }
-          const live=page=>page.evaluate(()=>{
-            const g=window.CryptoQuestCore?.getGame?.() ?? window.game ?? null;
-            return g?{level:g.player?.level,points:g.player?.talentPoints,talents:[...(g.player?.talents||[])],spec:g.player?.specialization??null,energy:g.energy?.current,maxEnergy:g.energy?.max}:null;
-          });
+          async function clickText(page,re){const list=page.locator('button:visible');for(let i=0,n=await list.count();i<n;i++){const b=list.nth(i),t=(await b.innerText()).replace(/\s+/g,' ').trim();re.lastIndex=0;if(re.test(t)){await b.click();return t;}}return null;}
+          async function saveKey(page){return page.evaluate(()=>Object.keys(localStorage).find(k=>{try{const v=JSON.parse(localStorage.getItem(k));return Boolean(v?.player&&v?.energy&&v?.saveVersion);}catch{return false;}})||null);}
+          async function saved(page,key){return page.evaluate(k=>{const g=JSON.parse(localStorage.getItem(k));return {level:g.player?.level,points:g.player?.talentPoints,talents:[...(g.player?.talents||[])],spec:g.player?.specialization??null,energy:g.energy?.current,maxEnergy:g.energy?.max};},key);}
           for(const size of sizes){
             const context=await browser.newContext({viewport:size,isMobile:true,hasTouch:true});
-            const page=await context.newPage();
-            const errors=[]; page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
+            const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
             const res=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?v32qa=${size.width}`,{waitUntil:'load',timeout:30000});
-            await page.waitForFunction(()=>window.CQArchitecture?.version==='4.0.0-migration',{timeout:12000});
-            await page.waitForTimeout(900);
+            await page.waitForFunction(()=>window.CQArchitecture?.version==='4.0.0-migration',{timeout:12000});await page.waitForTimeout(900);
             if(res?.status()!==200||errors.length){log('START_FAIL',size,errors);failed=true;await context.close();continue;}
             const input=page.locator('input:visible').first();
             if(await input.count()){
@@ -72,30 +60,27 @@ jobs:
             const home=await page.evaluate(()=>{const s=document.querySelector('.home-hero-stage'),a=document.querySelector('.hero-art-slot');return{stage:s?.getBoundingClientRect().height||0,artVisible:Boolean(a&&a.offsetParent!==null),overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),marker:document.querySelector('meta[name="cryptoquest-gameplay"]')?.content||''};});
             log('HOME',size,home);
             if(home.marker!=='V32-TALENT-ENERGY-HOME'||home.stage<190||home.stage>300||home.artVisible||home.overflow>4){failed=true;await context.close();continue;}
-            const prepared=await page.evaluate(()=>{const g=window.CryptoQuestCore?.getGame?.() ?? window.game;if(!g)return false;g.player.level=7;g.player.talentPoints=3;g.player.talents=[];g.player.specialization=null;g.energy.current=60;g.energy.max=60;g.energy.lastUpdate=Date.now();return true;});
-            if(!prepared){log('NO_LIVE_GAME',size);failed=true;await context.close();continue;}
+            const key=await saveKey(page);if(!key){log('NO_SAVE_KEY',size,await page.evaluate(()=>Object.keys(localStorage)));failed=true;await context.close();continue;}
+            await page.evaluate(k=>{const g=JSON.parse(localStorage.getItem(k));g.player.level=7;g.player.talentPoints=3;g.player.talents=[];g.player.specialization=null;g.energy.current=60;g.energy.max=60;g.energy.lastUpdate=Date.now();localStorage.setItem(k,JSON.stringify(g));},key);
+            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='4.0.0-migration',{timeout:12000});await page.waitForTimeout(700);
             if(!await clickText(page,/(^|\s)talentos(\s|$)/i)){log('NO_TALENTS_NAV',size);failed=true;await context.close();continue;}
             await page.waitForTimeout(300);
-            const available=page.locator('button[data-talent]:not([disabled])');
-            const count=await available.count(); log('TALENT_AVAILABLE',size,count,await live(page));
+            const available=page.locator('button[data-talent]:not([disabled])');const count=await available.count();log('TALENT_AVAILABLE',size,count,await saved(page,key));
             if(count<1){failed=true;await context.close();continue;}
-            await available.first().click(); await page.waitForTimeout(300);
-            const afterTalent=await live(page); log('TALENT_AFTER',size,afterTalent);
-            if(afterTalent?.points!==2||afterTalent?.talents?.length!==1){failed=true;await context.close();continue;}
+            await available.first().click();await page.waitForTimeout(300);
+            const afterTalent=await saved(page,key);log('TALENT_AFTER',size,afterTalent);
+            if(afterTalent.points!==2||afterTalent.talents.length!==1){failed=true;await context.close();continue;}
             if(!await clickText(page,/(^|\s)aventura(\s|$)/i)){log('NO_ADVENTURE_NAV',size);failed=true;await context.close();continue;}
-            await page.waitForTimeout(300);
-            await page.evaluate(()=>{Math.random=()=>0.99;});
-            const beforeEnergy=(await live(page))?.energy;
-            const fight=page.locator('button[data-fight]:not([disabled])').first();
+            await page.waitForTimeout(300);await page.evaluate(()=>{Math.random=()=>0.99;});
+            const beforeEnergy=(await saved(page,key)).energy;const fight=page.locator('button[data-fight]:not([disabled])').first();
             if(!await fight.count()){log('NO_FIGHT',size);failed=true;await context.close();continue;}
-            await fight.click(); await page.waitForTimeout(350);
-            const afterEnergy=(await live(page))?.energy; log('ENERGY',size,beforeEnergy,afterEnergy);
+            await fight.click();await page.waitForTimeout(450);
+            const afterEnergy=(await saved(page,key)).energy;log('ENERGY',size,beforeEnergy,afterEnergy);
             if(afterEnergy!==beforeEnergy-1){failed=true;await context.close();continue;}
             if(errors.length){log('PAGE_ERRORS',size,errors);failed=true;}
             await context.close();
           }
-          await browser.close();
-          if(failed)process.exit(1);
+          await browser.close();if(failed)process.exit(1);
           JS
           set +e
           node v32-probe.mjs 2>&1 | tee v32-regression.log
