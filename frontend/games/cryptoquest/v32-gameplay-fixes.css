@@ -50,12 +50,21 @@
 /* Keep content clear of the fixed dock on Android browser viewports. */
 .home-screen,.talent-screen{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important}
 
-/* MOBILE ITEM DETAIL: keep the entire sheet organized, scrollable and above the global dock. */
+/* MOBILE ITEM DETAIL: keep the entire sheet organized, scrollable and centered above the global dock. */
 body:has(.item-sheet){overflow:hidden!important;overscroll-behavior:none!important}
 .sheet-backdrop{position:fixed!important;inset:0!important;background:rgba(0,0,0,.80)!important;backdrop-filter:blur(3px)!important;z-index:900!important}
 .item-sheet{
-  position:fixed!important;left:8px!important;right:8px!important;top:max(8px,env(safe-area-inset-top,0px))!important;bottom:max(8px,env(safe-area-inset-bottom,0px))!important;
-  width:auto!important;max-width:520px!important;height:auto!important;max-height:none!important;margin:0 auto!important;
+  position:fixed!important;
+  inset:auto!important;
+  left:50%!important;right:auto!important;
+  top:max(8px,env(safe-area-inset-top,0px))!important;
+  bottom:max(8px,env(safe-area-inset-bottom,0px))!important;
+  transform:translateX(-50%)!important;
+  box-sizing:border-box!important;
+  width:calc(100vw - 16px)!important;
+  max-width:520px!important;
+  min-width:0!important;
+  height:auto!important;max-height:none!important;margin:0!important;
   padding:14px 14px 18px!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important;
   z-index:1000!important;border:1px solid color-mix(in srgb,var(--rarity,#aaa) 68%,#4d3820)!important;border-radius:12px!important;
   background:linear-gradient(180deg,#11100d 0,#080806 34%,#050505 100%)!important;box-shadow:0 18px 60px #000,0 0 0 1px #000 inset!important;
@@ -86,7 +95,7 @@ body:has(.item-sheet) .bottom-nav{visibility:hidden!important;pointer-events:non
   .home-screen.v13-home .hero-class-sigil{width:104px!important;height:104px!important}
   .home-screen.v13-home .hero-class-sigil svg{width:50px!important;height:50px!important}
   .home-screen.v13-home .hero-power strong{font-size:30px!important}
-  .item-sheet{left:4px!important;right:4px!important;padding:10px 10px 14px!important;border-radius:8px!important}
+  .item-sheet{width:calc(100vw - 8px)!important;padding:10px 10px 14px!important;border-radius:8px!important}
   .item-hero{grid-template-columns:48px minmax(0,1fr)!important;padding-left:5px!important}.item-hero>i{width:46px!important;height:46px!important;font-size:1.7rem!important}
   .item-stats{gap:5px!important}.item-stats span{padding:6px!important;font-size:.7rem!important}
   .comparison>div{grid-template-columns:minmax(0,1fr) 70px 42px!important;gap:5px!important;font-size:.68rem!important}
