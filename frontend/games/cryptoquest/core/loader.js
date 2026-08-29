@@ -2,7 +2,7 @@ async function loadCanonicalRuntime() {
   const response = await fetch('/games/cryptoquest/runtime.html', { cache: 'no-store' });
   if (!response.ok) throw new Error(`runtime.html: ${response.status}`);
   let html = await response.text();
-  html = html.replace('/games/cryptoquest/v32-gameplay-fixes.css?v=32.0.1','/games/cryptoquest/v32-gameplay-fixes.css?v=32.0.2');
+  html = html.replace('/games/cryptoquest/v32-gameplay-fixes.css?v=32.0.1','/games/cryptoquest/v32-gameplay-fixes.css?v=32.0.3');
   if (!html.includes('V5-CANONICAL') || !html.includes('core/bootstrap.js?v=5.0.0')) {
     throw new Error('CryptoQuest canonical runtime markers are missing');
   }
