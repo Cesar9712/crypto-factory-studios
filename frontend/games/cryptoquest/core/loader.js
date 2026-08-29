@@ -9,8 +9,8 @@ async function loadCanonicalRuntime() {
   html = html.replace(/<script[^>]+src="\/games\/cryptoquest\/v(?:34|35|36|37)[^"]*"[^>]*><\/script>/gi, '');
   html = html.replace(/<meta[^>]+name="cryptoquest-(?:visual|cinematic|premium-layout|risk-rebuild|hero-hub)"[^>]*>/gi, '');
 
-  html = html.replace('</head>', '<link rel="stylesheet" href="/games/cryptoquest/v38-total-rebuild.css?v=38.0.0"><meta name="cryptoquest-interface" content="V38-TOTAL-REBUILD"></head>');
-  html = html.replace('</body>', '<script src="/games/cryptoquest/v38-total-rebuild.js?v=38.0.0" defer></script></body>');
+  html = html.replace('</head>', '<link rel="stylesheet" href="/games/cryptoquest/v38-total-rebuild.css?v=38.0.1"><link rel="stylesheet" href="/games/cryptoquest/v38-total-rebuild-hotfix.css?v=38.0.1"><meta name="cryptoquest-interface" content="V38-TOTAL-REBUILD"></head>');
+  html = html.replace('</body>', '<script src="/games/cryptoquest/v38-total-rebuild.js?v=38.0.1" defer></script></body>');
 
   if (!html.includes('V5-CANONICAL') || !html.includes('core/bootstrap.js?v=5.0.0')) {
     throw new Error('CryptoQuest canonical runtime markers are missing');
