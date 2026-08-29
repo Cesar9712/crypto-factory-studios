@@ -15,10 +15,10 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
     steps:
       - name: Wait for Cloudflare Workers build
-        run: sleep 35
+        run: sleep 45
 
       - name: Verify production loader and assets
         shell: bash
@@ -28,11 +28,11 @@ jobs:
           set -euo pipefail
           tmp="$(mktemp)"
           ok=0
-          for attempt in 1 2 3 4 5 6; do
+          for attempt in 1 2 3 4 5 6 7 8; do
             if curl --fail --silent --show-error --location --max-time 20 \
               -H 'Cache-Control: no-cache' \
               "$BASE/games/cryptoquest/?smoke=${GITHUB_SHA}-${attempt}" -o "$tmp"; then
-              if grep -q 'Cargando preview V31' "$tmp" && grep -q 'v31-bootguard.js' "$tmp"; then
+              if grep -q 'Cargando CryptoQuest' "$tmp" && grep -q 'bootstrap.js?v=4.0.0' "$tmp" && grep -q 'V4-MODULAR' "$tmp"; then
                 ok=1
                 break
               fi
@@ -40,13 +40,16 @@ jobs:
             sleep 20
           done
           test "$ok" = 1
-          ! grep -q 'document.write(html);document.close()}catch' "$tmp" || grep -q '<script>(async' "$tmp"
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/v30-forged-obsidian.css?v=smoke" -o /dev/null
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/v31-bootguard.js?v=smoke" -o /dev/null
+          grep -q 'v31-bootguard.js' "$tmp"
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/src/app/bootstrap.js?v=smoke" -o /tmp/bootstrap.js
+          grep -q "version:'4.0.0-migration'" /tmp/bootstrap.js
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/src/domain/equipment/EquipmentService.js?v=smoke" -o /dev/null
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/src/domain/economy/EconomyService.js?v=smoke" -o /dev/null
+          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/src/domain/skills/SkillService.js?v=smoke" -o /dev/null
           for i in $(seq -w 0 11); do
             curl --fail --silent --show-error --location "$BASE/games/cryptoquest/data/p${i}.txt?smoke=${GITHUB_SHA}" -o "/tmp/p${i}.txt"
             test -s "/tmp/p${i}.txt"
           done
 
       - name: Report
-        run: echo 'CryptoQuest production loader and required assets are reachable.'
+        run: echo 'CryptoQuest V4 loader, modular runtime, and required production assets are reachable.'
