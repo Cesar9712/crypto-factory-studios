@@ -20,6 +20,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Inspect legacy talent persistence
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,re,pathlib
+          root=pathlib.Path('frontend/games/cryptoquest/data')
+          raw=''.join((root/f'p{i:02d}.txt').read_text() for i in range(12))
+          html=gzip.decompress(base64.b64decode(raw)).decode('utf-8')
+          patterns=['talentPoints','saveVersion','localStorage','function save','function load','talents=','talents:']
+          out=[]
+          for pat in patterns:
+            for m in re.finditer(re.escape(pat),html,re.I):
+              a=max(0,m.start()-420);b=min(len(html),m.end()+700)
+              out.append(f'\n--- {pat} @ {m.start()} ---\n'+html[a:b])
+          pathlib.Path('talent-persistence-snippets.txt').write_text('\n'.join(out))
+          PY
+      - name: Upload persistence diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: talent-persistence-snippets
+          path: talent-persistence-snippets.txt
+          retention-days: 1
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null 2>&1
