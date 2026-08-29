@@ -1,4 +1,4 @@
-name: CryptoQuest V32/V33 Regression
+name: CryptoQuest V34 Cinematic Regression
 
 on:
   push:
@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: cryptoquest-v32-v33-regression-${{ github.ref }}
+  group: cryptoquest-v34-regression-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  v32-v33-regression:
+  v34-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,10 +33,11 @@ jobs:
         run: |
           python3 -m http.server 4173 --directory frontend >/tmp/cq-http.log 2>&1 &
           sleep 2
-      - name: Test gameplay and V33 mobile visual contract
+      - name: Test V34 gameplay, cinematic art and mobile layout
         shell: bash
         run: |
-          cat > v33-probe.mjs <<'JS'
+          mkdir -p v34-shots
+          cat > v34-probe.mjs <<'JS'
           import { chromium } from 'playwright';
           const browser=await chromium.launch({headless:true});
           const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915},{width:430,height:932}];
@@ -44,70 +45,53 @@ jobs:
           const log=(...v)=>console.log(...v);
           async function clickText(page,re){const list=page.locator('button:visible');for(let i=0,n=await list.count();i<n;i++){const b=list.nth(i),t=(await b.innerText()).replace(/\s+/g,' ').trim();re.lastIndex=0;if(re.test(t)){await b.click();return t;}}return null;}
           async function saveKey(page){return page.evaluate(()=>Object.keys(localStorage).find(k=>{try{const v=JSON.parse(localStorage.getItem(k));return Boolean(v?.player&&v?.energy&&v?.saveVersion);}catch{return false;}})||null);}
-          async function saved(page,key){return page.evaluate(k=>{const g=JSON.parse(localStorage.getItem(k));return {level:g.player?.level,points:g.player?.talentPoints,talents:[...(g.player?.talents||[])],spec:g.player?.specialization??null,energy:g.energy?.current,maxEnergy:g.energy?.max};},key);}
+          async function saved(page,key){return page.evaluate(k=>{const g=JSON.parse(localStorage.getItem(k));return {level:g.player?.level,points:g.player?.talentPoints,talents:[...(g.player?.talents||[])],energy:g.energy?.current};},key);}
           for(const size of sizes){
             const context=await browser.newContext({viewport:size,isMobile:true,hasTouch:true});
             const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
-            const res=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?v33qa=${size.width}`,{waitUntil:'load',timeout:30000});
-            await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});await page.waitForTimeout(900);
+            const res=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?v34qa=${size.width}`,{waitUntil:'load',timeout:30000});
+            await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});
+            await page.waitForFunction(()=>window.CQVisual?.version==='34.0.0-cinematic-anime',{timeout:12000});await page.waitForTimeout(500);
             if(res?.status()!==200||errors.length){log('START_FAIL',size,errors);failed=true;await context.close();continue;}
-            const visual=await page.evaluate(()=>({
-              marker:document.querySelector('meta[name="cryptoquest-visual"]')?.content||'',
-              css:[...document.styleSheets].some(s=>(s.href||'').includes('v33-anime-premium.css')),
-              overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth)
-            }));
-            log('V33_VISUAL',size,visual);
-            if(visual.marker!=='V33-ANIME-PREMIUM'||!visual.css||visual.overflow>4){failed=true;await context.close();continue;}
+            const visual=await page.evaluate(()=>({marker:document.querySelector('meta[name="cryptoquest-cinematic"]')?.content||'',css:[...document.styleSheets].some(s=>(s.href||'').includes('v34-cinematic-anime.css')),runtime:window.CQVisual?.version||'',overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth)}));
+            log('V34',size,visual);if(visual.marker!=='V34-CINEMATIC-ANIME'||!visual.css||visual.runtime!=='34.0.0-cinematic-anime'||visual.overflow>4){failed=true;await context.close();continue;}
             const input=page.locator('input:visible').first();
             if(await input.count()){
-              await input.fill(`V33Hero${size.width}`);
-              if(!await clickText(page,/continuar|siguiente|aceptar/i)){log('NO_NAME_CONTINUE',size);failed=true;await context.close();continue;}
-              await page.waitForTimeout(300);
-              if(!await clickText(page,/guerrero/i)){log('NO_GUERRERO',size);failed=true;await context.close();continue;}
-              await page.waitForTimeout(200);
-              if(!await clickText(page,/comenzar aventura|crear héroe|entrar al juego/i)){log('NO_BEGIN',size);failed=true;await context.close();continue;}
-              await page.waitForTimeout(700);
+              await input.fill(`V34Hero${size.width}`);
+              if(!await clickText(page,/continuar|siguiente|aceptar/i)||!await page.waitForTimeout(150)){failed=true;await context.close();continue;}
+              if(!await clickText(page,/guerrero/i)){log('NO_GUERRERO',size);failed=true;await context.close();continue;}await page.waitForTimeout(120);
+              if(!await clickText(page,/comenzar aventura|crear héroe|entrar al juego/i)){log('NO_BEGIN',size);failed=true;await context.close();continue;}await page.waitForTimeout(550);
             }
-            const home=await page.evaluate(()=>{const s=document.querySelector('.home-hero-stage'),a=document.querySelector('.hero-art-slot');return{stage:s?.getBoundingClientRect().height||0,artVisible:Boolean(a&&a.offsetParent!==null),overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),marker:document.querySelector('meta[name="cryptoquest-gameplay"]')?.content||'',architecture:window.CQArchitecture?.version||''};});
-            log('HOME',size,home);
-            if(home.architecture!=='5.0.0-canonical'||home.marker!=='V32-TALENT-ENERGY-HOME'||home.stage<190||home.stage>320||home.artVisible||home.overflow>4){failed=true;await context.close();continue;}
-            const key=await saveKey(page);if(!key){log('NO_SAVE_KEY',size,await page.evaluate(()=>Object.keys(localStorage)));failed=true;await context.close();continue;}
+            const home=await page.evaluate(()=>{const s=document.querySelector('.home-hero-stage'),hero=document.querySelector('.cq34-hero-art'),scene=document.querySelector('.cq34-scene-art'),v=document.querySelector('.home-vitals');return{stage:s?.getBoundingClientRect().height||0,hero:hero?.getBoundingClientRect().height||0,heroSrc:hero?.getAttribute('src')||'',scene:Boolean(scene&&scene.offsetParent!==null),vitalsInside:Boolean(s&&v&&s.contains(v)),overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth)};});
+            log('HOME',size,home);if(home.stage<400||home.stage>620||home.hero<250||!home.heroSrc.includes('v34-hero-warrior.svg')||!home.scene||!home.vitalsInside||home.overflow>4){failed=true;await context.close();continue;}
+            await page.screenshot({path:`v34-shots/home-${size.width}.png`,fullPage:true});
+            const key=await saveKey(page);if(!key){log('NO_SAVE',size);failed=true;await context.close();continue;}
             await page.evaluate(k=>{const g=JSON.parse(localStorage.getItem(k));g.player.level=7;g.player.talentPoints=3;g.player.talents=[];g.player.specialization=null;g.energy.current=60;g.energy.max=60;g.energy.lastUpdate=Date.now();localStorage.setItem(k,JSON.stringify(g));},key);
-            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});await page.waitForTimeout(700);
-            if(!await clickText(page,/(^|\s)talentos(\s|$)/i)){log('NO_TALENTS_NAV',size);failed=true;await context.close();continue;}
-            await page.waitForTimeout(300);
-            const available=page.locator('button[data-talent]:not([disabled])');const count=await available.count();log('TALENT_AVAILABLE',size,count,await saved(page,key));
-            if(count<1){failed=true;await context.close();continue;}
-            const beforeTalent=await saved(page,key);
-            await available.first().click();await page.waitForTimeout(300);
-            const afterTalent=await saved(page,key);log('TALENT_AFTER',size,afterTalent);
-            if(afterTalent.points!==beforeTalent.points-1||afterTalent.talents.length!==beforeTalent.talents.length+1){failed=true;await context.close();continue;}
-            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});await page.waitForTimeout(700);
-            const afterTalentReload=await saved(page,key);log('TALENT_AFTER_RELOAD',size,afterTalentReload);
-            if(afterTalentReload.points!==afterTalent.points||afterTalentReload.talents.length!==afterTalent.talents.length){failed=true;await context.close();continue;}
-            if(!await clickText(page,/(^|\s)aventura(\s|$)/i)){log('NO_ADVENTURE_NAV',size);failed=true;await context.close();continue;}
-            await page.waitForTimeout(300);await page.evaluate(()=>{Math.random=()=>0.99;});
-            const beforeEnergy=(await saved(page,key)).energy;const fight=page.locator('button[data-fight]:not([disabled])').first();
-            if(!await fight.count()){log('NO_FIGHT',size);failed=true;await context.close();continue;}
-            await fight.click();await page.waitForTimeout(450);
-            const afterEnergy=(await saved(page,key)).energy;log('ENERGY',size,beforeEnergy,afterEnergy);
-            if(afterEnergy!==beforeEnergy-1){failed=true;await context.close();continue;}
-            const overflow=await page.evaluate(()=>Math.max(0,document.documentElement.scrollWidth-innerWidth));
-            if(overflow>4){log('COMBAT_OVERFLOW',size,overflow);failed=true;}
-            if(errors.length){log('PAGE_ERRORS',size,errors);failed=true;}
-            await context.close();
+            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQVisual?.version==='34.0.0-cinematic-anime',{timeout:12000});await page.waitForTimeout(450);
+            if(!await clickText(page,/(^|\s)talentos(\s|$)/i)){log('NO_TALENTS_NAV',size);failed=true;await context.close();continue;}await page.waitForTimeout(250);
+            const available=page.locator('button[data-talent]:not([disabled])');const count=await available.count();if(count<1){log('NO_TALENT_NODE',size);failed=true;await context.close();continue;}
+            const before=await saved(page,key);await available.first().click();await page.waitForTimeout(220);const after=await saved(page,key);if(after.points!==before.points-1||after.talents.length!==before.talents.length+1){log('TALENT_FAIL',size,before,after);failed=true;await context.close();continue;}
+            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQVisual?.version==='34.0.0-cinematic-anime',{timeout:12000});await page.waitForTimeout(400);const persisted=await saved(page,key);if(persisted.points!==after.points||persisted.talents.length!==after.talents.length){log('PERSIST_FAIL',size);failed=true;await context.close();continue;}
+            if(!await clickText(page,/(^|\s)aventura(\s|$)/i)){log('NO_ADVENTURE',size);failed=true;await context.close();continue;}await page.waitForTimeout(350);
+            const map=await page.evaluate(()=>({art:Boolean(document.querySelector('.cq34-world-art')),nodes:document.querySelectorAll('.cq34-map-node').length,overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth)}));log('MAP',size,map);if(!map.art||map.nodes<1||map.overflow>4){failed=true;await context.close();continue;}
+            await page.screenshot({path:`v34-shots/map-${size.width}.png`,fullPage:true});await page.evaluate(()=>{Math.random=()=>0.99;});
+            const beforeEnergy=(await saved(page,key)).energy;const fight=page.locator('button[data-fight]:not([disabled])').first();if(!await fight.count()){log('NO_FIGHT',size);failed=true;await context.close();continue;}await fight.click();await page.waitForTimeout(500);
+            const afterEnergy=(await saved(page,key)).energy;const combat=await page.evaluate(()=>({art:Boolean(document.querySelector('.cq34-combat-art')),hero:Boolean(document.querySelector('.cq34-combat-hero')),enemy:Boolean(document.querySelector('.cq34-combat-enemy')),overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth)}));log('COMBAT',size,beforeEnergy,afterEnergy,combat);if(afterEnergy!==beforeEnergy-1||!combat.art||!combat.hero||!combat.enemy||combat.overflow>4){failed=true;await context.close();continue;}
+            await page.screenshot({path:`v34-shots/combat-${size.width}.png`,fullPage:true});if(errors.length){log('PAGE_ERRORS',size,errors);failed=true;}await context.close();
           }
           await browser.close();if(failed)process.exit(1);
           JS
           set +e
-          node v33-probe.mjs 2>&1 | tee v33-regression.log
+          node v34-probe.mjs 2>&1 | tee v34-regression.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
-      - name: Upload diagnostics
+      - name: Upload V34 visual diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v33-regression-log
-          path: v33-regression.log
-          retention-days: 1
+          name: v34-cinematic-qa
+          path: |
+            v34-regression.log
+            v34-shots/
+          retention-days: 2
