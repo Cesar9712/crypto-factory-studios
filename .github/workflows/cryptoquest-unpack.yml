@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
 
+# Canonical architecture migration: expose the packed legacy source for controlled extraction.
 jobs:
   unpack:
     runs-on: ubuntu-latest
