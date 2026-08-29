@@ -1,1 +1,1 @@
-export { MapGraphService } from '../src/domain/map/MapGraphService.js';
+export { MapGraphService } from './MapGraphService.js';
