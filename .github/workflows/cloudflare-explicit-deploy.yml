@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           base='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
           for path in / /billing.html /creator.html; do
-            body="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+            body="$(curl --location --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
               -H 'Cache-Control: no-cache' "${base}${path}?deploy_sha=${GITHUB_SHA}")"
             if ! grep -Fq '/analytics.js' <<<"${body}"; then
               echo "Analytics injection missing after deploy: ${path}" >&2
@@ -50,7 +50,7 @@ jobs:
             fi
           done
 
-          analytics="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+          analytics="$(curl --location --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
             -H 'Cache-Control: no-cache' "${base}/analytics.js?deploy_sha=${GITHUB_SHA}")"
           for marker in window.cfsAnalytics game_play_clicked billing_view_clicked billing_plan_selected billing_network_selected billing_order_attempted billing_verification_attempted; do
             if ! grep -Fq "${marker}" <<<"${analytics}"; then
