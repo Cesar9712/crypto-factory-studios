@@ -1,1 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 900"><defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#39324d"/><stop offset=".5" stop-color="#0d0d16"/><stop offset="1" stop-color="#35113e"/></linearGradient><radialGradient id="v"><stop stop-color="#d45cff"/><stop offset="1" stop-color="#5d1684"/></radialGradient><filter id="g"><feGaussianBlur stdDeviation="10"/></filter></defs><ellipse cx="310" cy="840" rx="190" ry="34" fill="#000" opacity=".6"/><path d="M203 267q107-73 214 0l33 136-57 105 32 331h-90l-25-220-27 220h-93l39-330-57-106z" fill="url(#a)" stroke="#6e6383" stroke-width="7"/><path d="m208 331-118 74 52 91 105-76m171-89 116 74-48 92-107-77" fill="#171724" stroke="#75678c" stroke-width="8"/><path d="M210 155q100-91 200 0l-20 148-80 51-83-50z" fill="#171722" stroke="#827593" stroke-width="8"/><path d="m215 173 42-113 53 60 55-60 41 113-48-30-48 43-48-43z" fill="#262334" stroke="#8d7c9d" stroke-width="6"/><path d="m250 238 47 10-35 18zm120 0-48 10 37 18z" fill="#e065ff"/><circle cx="310" cy="411" r="42" fill="#8a2cb6" opacity=".34" filter="url(#g)"/><path d="m310 367 34 43-34 46-35-46z" fill="url(#v)"/><path d="M203 514h215l-12 74H215z" fill="#08080e" stroke="#78518d" stroke-width="6"/><path d="m141 490-53 183 51-27 56-132zm345 2 50 181-48-26-57-132z" fill="#252233" stroke="#756986" stroke-width="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 900" role="img" aria-label="Caballero corrupto anime"><defs><linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b8b7c5"/><stop offset=".18" stop-color="#5f5b70"/><stop offset=".5" stop-color="#1b1926"/><stop offset=".75" stop-color="#4c465c"/><stop offset="1" stop-color="#0a0910"/></linearGradient><linearGradient id="black" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#22202d"/><stop offset=".6" stop-color="#08080d"/><stop offset="1" stop-color="#020204"/></linearGradient><linearGradient id="purple" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f58aff"/><stop offset=".35" stop-color="#b934da"/><stop offset=".7" stop-color="#5a126e"/><stop offset="1" stop-color="#21052c"/></linearGradient><radialGradient id="core"><stop stop-color="#fff0ff"/><stop offset=".18" stop-color="#ec6cff"/><stop offset=".5" stop-color="#8e26b9"/><stop offset="1" stop-color="#26052d"/></radialGradient><filter id="blur"><feGaussianBlur stdDeviation="12"/></filter><filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="315" cy="844" rx="205" ry="34" fill="#000" opacity=".72" filter="url(#blur)"/>
+<!-- corrupted aura -->
+<ellipse cx="326" cy="453" rx="214" ry="282" fill="#9c35c8" opacity=".075" filter="url(#blur)"/>
+<!-- tattered cape -->
+<path d="M187 296C114 382 82 568 116 780l91 58 44-168 28-304z" fill="#120816" stroke="#4c2255" stroke-width="5"/><path d="M430 300c78 101 100 273 70 472l-89 69-45-174-25-304z" fill="#120816" stroke="#4c2255" stroke-width="5"/>
+<!-- legs -->
+<path d="m236 574-40 264h93l24-228z" fill="url(#black)" stroke="#514d60" stroke-width="6"/><path d="m332 574 28 264h94l-74-267z" fill="url(#black)" stroke="#514d60" stroke-width="6"/>
+<path d="M187 828h112l-17 44H164zM348 828h115l24 44H361z" fill="#07070b" stroke="#777184" stroke-width="5"/>
+<!-- torso -->
+<path d="M220 288 267 248h91l48 42 42 248-56 91H226l-52-91z" fill="url(#black)" stroke="#625a70" stroke-width="6"/>
+<path d="m250 280 63 42 60-42 38 123-98 67-100-67z" fill="url(#steel)" stroke="#82778f" stroke-width="6"/>
+<path d="m312 333 44 53-44 74-45-74z" fill="url(#core)" stroke="#d05be3" stroke-width="3" filter="url(#glow)"/>
+<path d="M223 466h180l21 96-42 46H243l-44-46z" fill="#0c0b12" stroke="#494353" stroke-width="5"/>
+<path d="M220 520h188l-12 63H232z" fill="#050508" stroke="#6a3d75" stroke-width="6"/>
+<!-- shoulders -->
+<path d="m229 309-113 58 24 105 107-51 23-85z" fill="url(#steel)" stroke="#766b83" stroke-width="6"/><path d="m391 309 112 58-22 105-108-51-22-85z" fill="url(#steel)" stroke="#766b83" stroke-width="6"/>
+<path d="m130 435-58 174 59 24 80-165z" fill="#171520" stroke="#665d73" stroke-width="6"/><path d="m491 435 56 176-59 23-80-166z" fill="#171520" stroke="#665d73" stroke-width="6"/>
+<path d="m79 599 50-7 39 69-57 25-43-46zM541 599l-49-8-40 70 58 24 42-46z" fill="url(#steel)" stroke="#80768c" stroke-width="5"/>
+<!-- helm -->
+<path d="M214 135c25-84 161-92 195 0l-18 159-79 53-82-53z" fill="url(#steel)" stroke="#81768f" stroke-width="7"/>
+<path d="m223 154 33-116 57 57 58-57 35 116-49-31-44 43-45-43z" fill="#2a2734" stroke="#8b7d96" stroke-width="6"/>
+<path d="M229 181h166l-19 95-64 41-66-41z" fill="#14131b" stroke="#625a70" stroke-width="5"/>
+<path d="m252 221 52 12-40 22zm121 0-52 12 40 22z" fill="#d953ed" filter="url(#glow)"/>
+<path d="M282 276h61l-31 24z" fill="#07070a"/>
+<!-- horns/crown shards -->
+<path d="m247 92-51-61 22 101zm126 0 52-61-24 103z" fill="#16141e" stroke="#62566b" stroke-width="4"/>
+<!-- corrupted crystal fractures -->
+<path d="m313 350-22 39 22 49 23-49z" fill="url(#purple)"/><path d="m294 377-44 18 37 13m49-31 45 18-37 13" fill="none" stroke="#a83fce" stroke-width="4" opacity=".75"/>
+<g stroke="#a84ac8" stroke-width="3" opacity=".48"><path d="m231 404 42 22-25 33"/><path d="m394 404-42 22 26 33"/><path d="m251 518 35 26-23 28"/><path d="m371 518-35 26 23 28"/></g>
+<!-- spectral sparks -->
+<g fill="#c65fe5" filter="url(#glow)"><circle cx="176" cy="363" r="5"/><circle cx="452" cy="384" r="6"/><circle cx="135" cy="545" r="4"/><circle cx="494" cy="552" r="4"/><circle cx="312" cy="386" r="8"/></g>
+</svg>
