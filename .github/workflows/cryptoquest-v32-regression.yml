@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: cryptoquest-v32-regression-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   v32-regression:
     runs-on: ubuntu-latest
@@ -20,27 +24,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Inspect legacy talent persistence
-        run: |
-          python3 - <<'PY'
-          import base64,gzip,re,pathlib
-          root=pathlib.Path('frontend/games/cryptoquest/data')
-          raw=''.join((root/f'p{i:02d}.txt').read_text() for i in range(12))
-          html=gzip.decompress(base64.b64decode(raw)).decode('utf-8')
-          patterns=['talentPoints','saveVersion','localStorage','function save','function load','talents=','talents:']
-          out=[]
-          for pat in patterns:
-            for m in re.finditer(re.escape(pat),html,re.I):
-              a=max(0,m.start()-420);b=min(len(html),m.end()+700)
-              out.append(f'\n--- {pat} @ {m.start()} ---\n'+html[a:b])
-          pathlib.Path('talent-persistence-snippets.txt').write_text('\n'.join(out))
-          PY
-      - name: Upload persistence diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          name: talent-persistence-snippets
-          path: talent-persistence-snippets.txt
-          retention-days: 1
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null 2>&1
@@ -66,7 +49,7 @@ jobs:
             const context=await browser.newContext({viewport:size,isMobile:true,hasTouch:true});
             const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
             const res=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?v32qa=${size.width}`,{waitUntil:'load',timeout:30000});
-            await page.waitForFunction(()=>window.CQArchitecture?.version==='4.0.0-migration',{timeout:12000});await page.waitForTimeout(900);
+            await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});await page.waitForTimeout(900);
             if(res?.status()!==200||errors.length){log('START_FAIL',size,errors);failed=true;await context.close();continue;}
             const input=page.locator('input:visible').first();
             if(await input.count()){
@@ -78,12 +61,12 @@ jobs:
               if(!await clickText(page,/comenzar aventura|crear héroe|entrar al juego/i)){log('NO_BEGIN',size);failed=true;await context.close();continue;}
               await page.waitForTimeout(700);
             }
-            const home=await page.evaluate(()=>{const s=document.querySelector('.home-hero-stage'),a=document.querySelector('.hero-art-slot');return{stage:s?.getBoundingClientRect().height||0,artVisible:Boolean(a&&a.offsetParent!==null),overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),marker:document.querySelector('meta[name="cryptoquest-gameplay"]')?.content||''};});
+            const home=await page.evaluate(()=>{const s=document.querySelector('.home-hero-stage'),a=document.querySelector('.hero-art-slot');return{stage:s?.getBoundingClientRect().height||0,artVisible:Boolean(a&&a.offsetParent!==null),overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),marker:document.querySelector('meta[name="cryptoquest-gameplay"]')?.content||'',architecture:window.CQArchitecture?.version||''};});
             log('HOME',size,home);
-            if(home.marker!=='V32-TALENT-ENERGY-HOME'||home.stage<190||home.stage>300||home.artVisible||home.overflow>4){failed=true;await context.close();continue;}
+            if(home.architecture!=='5.0.0-canonical'||home.marker!=='V32-TALENT-ENERGY-HOME'||home.stage<190||home.stage>300||home.artVisible||home.overflow>4){failed=true;await context.close();continue;}
             const key=await saveKey(page);if(!key){log('NO_SAVE_KEY',size,await page.evaluate(()=>Object.keys(localStorage)));failed=true;await context.close();continue;}
             await page.evaluate(k=>{const g=JSON.parse(localStorage.getItem(k));g.player.level=7;g.player.talentPoints=3;g.player.talents=[];g.player.specialization=null;g.energy.current=60;g.energy.max=60;g.energy.lastUpdate=Date.now();localStorage.setItem(k,JSON.stringify(g));},key);
-            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='4.0.0-migration',{timeout:12000});await page.waitForTimeout(700);
+            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});await page.waitForTimeout(700);
             if(!await clickText(page,/(^|\s)talentos(\s|$)/i)){log('NO_TALENTS_NAV',size);failed=true;await context.close();continue;}
             await page.waitForTimeout(300);
             const available=page.locator('button[data-talent]:not([disabled])');const count=await available.count();log('TALENT_AVAILABLE',size,count,await saved(page,key));
@@ -92,7 +75,7 @@ jobs:
             await available.first().click();await page.waitForTimeout(300);
             const afterTalent=await saved(page,key);log('TALENT_AFTER',size,afterTalent);
             if(afterTalent.points!==beforeTalent.points-1||afterTalent.talents.length!==beforeTalent.talents.length+1){failed=true;await context.close();continue;}
-            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='4.0.0-migration',{timeout:12000});await page.waitForTimeout(700);
+            await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});await page.waitForTimeout(700);
             const afterTalentReload=await saved(page,key);log('TALENT_AFTER_RELOAD',size,afterTalentReload);
             if(afterTalentReload.points!==afterTalent.points||afterTalentReload.talents.length!==afterTalent.talents.length){failed=true;await context.close();continue;}
             if(!await clickText(page,/(^|\s)aventura(\s|$)/i)){log('NO_ADVENTURE_NAV',size);failed=true;await context.close();continue;}
