@@ -1,0 +1,4 @@
+/* V34 structural override: V32 intentionally capped the empty legacy stage. V34 now owns a real cinematic character scene. */
+.cq34-home .home-hero-stage{max-height:none!important;min-height:430px!important}
+@media(max-width:390px){.cq34-home .home-hero-stage{max-height:none!important;min-height:440px!important}}
+@media(max-width:360px){.cq34-home .home-hero-stage{max-height:none!important;min-height:420px!important}}
