@@ -1,25 +1,15 @@
-import { EventBus } from '../core/EventBus.js';
-import { StateStore } from '../core/StateStore.js';
-import { PersistenceAdapter } from '../core/PersistenceAdapter.js';
-import { ApiClient } from '../core/ApiClient.js';
-import { Scheduler } from '../core/Scheduler.js';
-import { createCombatMachine } from '../domain/combat/createCombatMachine.js';
-import { NavigationController } from '../domain/navigation/NavigationController.js';
-import { EnergyService } from '../domain/energy/EnergyService.js';
-import { InventoryService } from '../domain/inventory/InventoryService.js';
-import { EquipmentService } from '../domain/equipment/EquipmentService.js';
-import { EconomyService } from '../domain/economy/EconomyService.js';
-import { SkillService } from '../domain/skills/SkillService.js';
-import { QuestService } from '../domain/quests/QuestService.js';
-import { TalentTreeService } from '../domain/talents/TalentTreeService.js';
-import { MapGraphService } from '../domain/map/MapGraphService.js';
-import { PlayerProgressService } from '../domain/player/PlayerProgressService.js';
-import { LegacyRuntimeAdapter } from '../infrastructure/compatibility/LegacyRuntimeAdapter.js';
-import { RenderCoordinator } from '../ui/RenderCoordinator.js';
+import { EventBus, StateStore, PersistenceAdapter, ApiClient, Scheduler } from '../../core/index.js';
+import { createCombatMachine, EnergyService, InventoryService, EquipmentService, EconomyService, QuestService } from '../../systems/index.js';
+import { PlayerProgressService, SkillService, TalentTreeService } from '../../player/index.js';
+import { MapGraphService } from '../../world/index.js';
+import { NavigationController, RenderCoordinator } from '../../ui/index.js';
+import { LegacyRuntimeAdapter } from '../../scripts/index.js';
+import { LevelRegistry } from '../../levels/LevelRegistry.js';
+import { GAME_CONFIG } from '../../config/game.config.js';
 
 const bus=new EventBus();
 const scheduler=new Scheduler();
-const persistence=new PersistenceAdapter({key:'cryptoquest:architecture:v4',schemaVersion:4});
+const persistence=new PersistenceAdapter(GAME_CONFIG.persistence);
 const api=new ApiClient({baseUrl:''});
 const initialState=persistence.load({
  player:null,
@@ -29,7 +19,7 @@ const initialState=persistence.load({
  talents:{trees:{},unlocked:{},points:0},
  skills:{definitions:{},unlocked:{},levels:{},cooldowns:{}},
  world:{graphs:{},currentGraphId:null,currentNodeId:null,unlockedNodes:{}},
- meta:{bootedAt:Date.now(),architectureVersion:4}
+ meta:{bootedAt:Date.now(),architectureVersion:GAME_CONFIG.architectureVersion}
 });
 const store=new StateStore(initialState,bus);
 const combat=createCombatMachine(bus);
@@ -43,14 +33,15 @@ const quests=new QuestService({store,bus});
 const talents=new TalentTreeService({store,bus});
 const worldMap=new MapGraphService({store,bus});
 const player=new PlayerProgressService({store,bus});
+const levels=new LevelRegistry();
 const renderer=new RenderCoordinator({store,bus,scheduler});
 const legacy=new LegacyRuntimeAdapter({store,bus,scheduler});
 const services=Object.freeze({navigation,energy,inventory,equipment,economy,skills,quests,talents,worldMap,player});
-const architecture=Object.freeze({version:'4.0.0-migration',bus,store,persistence,api,scheduler,renderer,compatibility:Object.freeze({legacy}),services,machines:Object.freeze({combat})});
+const architecture=Object.freeze({version:'4.0.0-migration',layoutVersion:GAME_CONFIG.architectureVersion,bus,store,persistence,api,scheduler,renderer,levels,compatibility:Object.freeze({legacy}),services,machines:Object.freeze({combat})});
 Object.defineProperty(window,'CQArchitecture',{configurable:false,enumerable:false,writable:false,value:architecture});
 let persistScheduled=false;
-bus.on('state:changed',()=>{if(persistScheduled)return;persistScheduled=true;scheduler.debounce('architecture-persist',()=>{persistScheduled=false;persistence.save(store.getState());},120);});
+bus.on('state:changed',()=>{if(persistScheduled)return;persistScheduled=true;scheduler.debounce('architecture-persist',()=>{persistScheduled=false;persistence.save(store.getState());},GAME_CONFIG.persistence.debounceMs);});
 legacy.start();
 window.addEventListener('pagehide',()=>persistence.save(store.getState()));
 window.addEventListener('beforeunload',()=>{legacy.dispose();renderer.dispose();scheduler.dispose();},{once:true});
-bus.emit('architecture:ready',{version:architecture.version});
+bus.emit('architecture:ready',{version:architecture.version,layoutVersion:architecture.layoutVersion});
