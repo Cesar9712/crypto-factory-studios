@@ -6,10 +6,20 @@ export class LegacyRuntimeAdapter {
     this.document = documentRef;
     this.window = windowRef;
     this.observer = null;
+    this.lastPlayerFingerprint = '';
   }
 
   legacyGame() {
     try { return this.window.CryptoQuestCore?.getGame?.() ?? this.window.game ?? null; } catch { return null; }
+  }
+
+  normalizeEquipped(raw = {}) {
+    const result = {};
+    for (const [slot, value] of Object.entries(raw || {})) {
+      if (value == null) continue;
+      result[slot] = typeof value === 'string' ? value : (value.uid ?? value.id ?? null);
+    }
+    return result;
   }
 
   normalizePlayer(game) {
@@ -17,6 +27,9 @@ export class LegacyRuntimeAdapter {
     if (!p) return null;
     const currentEnergy = Number(p.energy?.current ?? p.energy ?? game?.energy ?? 0);
     const maxEnergy = Number(p.energy?.max ?? p.maxEnergy ?? game?.maxEnergy ?? currentEnergy);
+    const rawItems = p.inventory?.items ?? game?.inventory ?? [];
+    const items = Array.isArray(rawItems) ? structuredClone(rawItems) : [];
+    const rawEquipped = p.inventory?.equipped ?? p.equipment ?? game?.equipment ?? {};
     return {
       id: p.id ?? null,
       name: p.name ?? p.username ?? '',
@@ -29,10 +42,25 @@ export class LegacyRuntimeAdapter {
       },
       energy: { current: currentEnergy, max: maxEnergy, updatedAt: Date.now() },
       inventory: {
-        items: structuredClone(p.inventory?.items ?? game?.inventory ?? []),
-        equipped: structuredClone(p.inventory?.equipped ?? p.equipment ?? game?.equipment ?? {}),
+        items,
+        equipped: this.normalizeEquipped(rawEquipped),
       },
     };
+  }
+
+  playerFingerprint(player) {
+    if (!player) return '';
+    return JSON.stringify({
+      id: player.id,
+      name: player.name,
+      classId: player.classId,
+      level: player.level,
+      xp: player.xp,
+      currencies: player.currencies,
+      energy: { current: player.energy?.current, max: player.energy?.max },
+      itemUids: (player.inventory?.items ?? []).map(item => item?.uid ?? item?.id ?? null),
+      equipped: player.inventory?.equipped ?? {},
+    });
   }
 
   currentScreen() {
@@ -44,13 +72,14 @@ export class LegacyRuntimeAdapter {
   sync() {
     const game = this.legacyGame();
     const player = this.normalizePlayer(game);
+    const fingerprint = this.playerFingerprint(player);
     const screen = this.currentScreen() ?? this.store.select(state => state.ui?.screen ?? 'boot');
     const previousScreen = this.store.select(state => state.ui?.screen);
     const legacyDetected = Boolean(game);
     const previousLegacy = Boolean(this.store.select(state => state.runtime?.legacyDetected));
-    const hasPlayer = Boolean(this.store.select(state => state.player));
+    const playerChanged = fingerprint !== this.lastPlayerFingerprint;
 
-    if (screen === previousScreen && legacyDetected === previousLegacy && (!player || hasPlayer)) return;
+    if (screen === previousScreen && legacyDetected === previousLegacy && !playerChanged) return;
 
     this.store.update(state => {
       state.ui ??= {};
@@ -60,10 +89,13 @@ export class LegacyRuntimeAdapter {
         state.ui.screen = screen;
       }
       state.runtime.legacyDetected = legacyDetected;
-      if (player && !state.player) state.player = player;
+      state.runtime.lastLegacySyncAt = Date.now();
+      if (playerChanged && player) state.player = player;
     }, { source: 'legacy-runtime-adapter' });
 
+    this.lastPlayerFingerprint = fingerprint;
     if (screen !== previousScreen) this.bus?.emit('navigation:changed', { screen, source: 'legacy-runtime-adapter' });
+    if (playerChanged && player) this.bus?.emit('legacy:player-synced', { playerId: player.id, level: player.level });
   }
 
   scheduleSync = () => this.scheduler.frame('legacy-sync', () => this.sync());
@@ -75,6 +107,7 @@ export class LegacyRuntimeAdapter {
     this.window.addEventListener('load', this.scheduleSync, { once: true });
     this.observer = new MutationObserver(this.scheduleSync);
     this.observer.observe(this.document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    this.scheduler.debounce('legacy-initial-sync', this.scheduleSync, 250);
   }
 
   dispose() {
