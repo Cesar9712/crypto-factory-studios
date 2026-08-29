@@ -1,0 +1,111 @@
+name: CryptoQuest V32 Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/games/cryptoquest/**'
+      - '.github/workflows/cryptoquest-v32-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v32-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Start frontend
+        run: |
+          python3 -m http.server 4173 --directory frontend >/tmp/cq-http.log 2>&1 &
+          sleep 2
+      - name: Test V32 gameplay regressions
+        shell: bash
+        run: |
+          cat > /tmp/v32-probe.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915}];
+          let failed=false;
+          const log=(...v)=>console.log(...v);
+          async function clickText(page,re){
+            const list=page.locator('button:visible');
+            for(let i=0,n=await list.count();i<n;i++){
+              const b=list.nth(i),t=(await b.innerText()).replace(/\s+/g,' ').trim();
+              re.lastIndex=0;
+              if(re.test(t)){await b.click();return t;}
+            }
+            return null;
+          }
+          const live=page=>page.evaluate(()=>{
+            const g=window.CryptoQuestCore?.getGame?.() ?? window.game ?? null;
+            return g?{level:g.player?.level,points:g.player?.talentPoints,talents:[...(g.player?.talents||[])],spec:g.player?.specialization??null,energy:g.energy?.current,maxEnergy:g.energy?.max}:null;
+          });
+          for(const size of sizes){
+            const context=await browser.newContext({viewport:size,isMobile:true,hasTouch:true});
+            const page=await context.newPage();
+            const errors=[]; page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
+            const res=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?v32qa=${size.width}`,{waitUntil:'load',timeout:30000});
+            await page.waitForFunction(()=>window.CQArchitecture?.version==='4.0.0-migration',{timeout:12000});
+            await page.waitForTimeout(900);
+            if(res?.status()!==200||errors.length){log('START_FAIL',size,errors);failed=true;await context.close();continue;}
+            const input=page.locator('input:visible').first();
+            if(await input.count()){
+              await input.fill(`V32Hero${size.width}`);
+              if(!await clickText(page,/continuar|siguiente|aceptar/i)){log('NO_NAME_CONTINUE',size);failed=true;await context.close();continue;}
+              await page.waitForTimeout(300);
+              if(!await clickText(page,/guerrero/i)){log('NO_GUERRERO',size);failed=true;await context.close();continue;}
+              await page.waitForTimeout(200);
+              if(!await clickText(page,/comenzar aventura|crear héroe|entrar al juego/i)){log('NO_BEGIN',size);failed=true;await context.close();continue;}
+              await page.waitForTimeout(700);
+            }
+            const home=await page.evaluate(()=>{const s=document.querySelector('.home-hero-stage'),a=document.querySelector('.hero-art-slot');return{stage:s?.getBoundingClientRect().height||0,artVisible:Boolean(a&&a.offsetParent!==null),overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),marker:document.querySelector('meta[name="cryptoquest-gameplay"]')?.content||''};});
+            log('HOME',size,home);
+            if(home.marker!=='V32-TALENT-ENERGY-HOME'||home.stage<190||home.stage>300||home.artVisible||home.overflow>4){failed=true;await context.close();continue;}
+            const prepared=await page.evaluate(()=>{const g=window.CryptoQuestCore?.getGame?.() ?? window.game;if(!g)return false;g.player.level=7;g.player.talentPoints=3;g.player.talents=[];g.player.specialization=null;g.energy.current=60;g.energy.max=60;g.energy.lastUpdate=Date.now();return true;});
+            if(!prepared){log('NO_LIVE_GAME',size);failed=true;await context.close();continue;}
+            if(!await clickText(page,/(^|\s)talentos(\s|$)/i)){log('NO_TALENTS_NAV',size);failed=true;await context.close();continue;}
+            await page.waitForTimeout(300);
+            const available=page.locator('button[data-talent]:not([disabled])');
+            const count=await available.count(); log('TALENT_AVAILABLE',size,count,await live(page));
+            if(count<1){failed=true;await context.close();continue;}
+            await available.first().click(); await page.waitForTimeout(300);
+            const afterTalent=await live(page); log('TALENT_AFTER',size,afterTalent);
+            if(afterTalent?.points!==2||afterTalent?.talents?.length!==1){failed=true;await context.close();continue;}
+            if(!await clickText(page,/(^|\s)aventura(\s|$)/i)){log('NO_ADVENTURE_NAV',size);failed=true;await context.close();continue;}
+            await page.waitForTimeout(300);
+            await page.evaluate(()=>{Math.random=()=>0.99;});
+            const beforeEnergy=(await live(page))?.energy;
+            const fight=page.locator('button[data-fight]:not([disabled])').first();
+            if(!await fight.count()){log('NO_FIGHT',size);failed=true;await context.close();continue;}
+            await fight.click(); await page.waitForTimeout(350);
+            const afterEnergy=(await live(page))?.energy; log('ENERGY',size,beforeEnergy,afterEnergy);
+            if(afterEnergy!==beforeEnergy-1){failed=true;await context.close();continue;}
+            if(errors.length){log('PAGE_ERRORS',size,errors);failed=true;}
+            await context.close();
+          }
+          await browser.close();
+          if(failed)process.exit(1);
+          JS
+          set +e
+          node /tmp/v32-probe.mjs 2>&1 | tee v32-regression.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v32-regression-log
+          path: v32-regression.log
+          retention-days: 1
