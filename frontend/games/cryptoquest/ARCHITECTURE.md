@@ -1,58 +1,71 @@
-# CryptoQuest RPG — Modular Architecture
+# CryptoQuest RPG — Canonical Architecture V5
 
-This document defines the canonical module boundaries for the game. During migration, the historical packed runtime remains behind the compatibility adapter so saved games and existing gameplay are not broken.
+CryptoQuest uses a modular browser-game architecture with explicit boundaries. New gameplay code must be added to the canonical folders below. `src/` is compatibility-only and must not contain implementations.
 
 ## Canonical layout
 
-- `core/` — shared runtime primitives: events, state, persistence, scheduling, API boundary and state machines.
-- `systems/` — gameplay systems: combat, energy, inventory, equipment, economy and quests.
-- `player/` — player progression, skills and talent tree.
-- `world/` — world graph and travel/map state.
-- `levels/` — independent level definitions and registry. Future level data should live in JSON/modules here rather than in UI code.
-- `ui/` — navigation and render coordination. Screen-specific renderers should be added here.
-- `graphics/` — shaders, visual effects, materials and render assets only; no gameplay rules.
-- `audio/` — music, SFX and voice definitions only; no gameplay rules.
-- `scripts/` — scripted events, cinematics and the isolated legacy compatibility boundary.
-- `config/` — runtime, controls, graphics, audio and locale configuration.
-- `assets/` — source game assets grouped by type.
-- `build/` — build/export/compression tooling and manifests.
-- `net/` — HTTP/network boundary and future synchronization clients.
+```text
+frontend/games/cryptoquest/
+├── core/       # composition root, events, state, FSM, API, persistence, scheduling, loader
+├── systems/    # combat, energy, inventory, equipment, economy, quests
+├── player/     # progression, skills, talents and player-owned state behavior
+├── world/      # map graph and world-domain behavior
+├── levels/     # level registry and future level data modules
+├── ui/         # render coordination, navigation and screen-level UI controllers
+├── graphics/   # boot/runtime CSS, shaders, textures, materials and VFX boundary
+├── audio/      # music, SFX and voice boundary
+├── scripts/    # scripted events and legacy runtime compatibility boundary
+├── config/     # game/runtime configuration
+├── assets/     # stable asset catalog boundary
+├── build/      # runtime generation, compression/export/deployment preparation
+├── net/        # future network/client synchronization boundary
+└── src/        # temporary backwards-compatible re-export adapters only
+```
 
-## Runtime composition
+## Runtime ownership
 
-`src/app/bootstrap.js` is the composition root. It imports only canonical module boundaries, creates the event bus/store/services, exposes the read-only `window.CQArchitecture` integration handle, starts compatibility synchronization, and owns shutdown/persistence lifecycle.
+`core/bootstrap.js` is the composition root. It constructs the EventBus, StateStore, Scheduler, persistence, API client, combat FSM and domain services, then exposes the frozen `window.CQArchitecture` integration boundary.
+
+`core/loader.js` is the only entry loader used by `index.html`. It prefers the generated `runtime.html`. A packed-source fallback exists only while the generated runtime migration is being validated; it must be removed once production has passed with generated runtime artifacts.
+
+## Historical runtime extraction
+
+The historical HTML source is still archived as gzip/base64 chunks under `data/p00.txt` through `data/p11.txt`. These chunks are build inputs, not the target production architecture.
+
+`.github/workflows/cryptoquest-unpack.yml` decodes the archive to a temporary `game.source.html`, runs `build/normalize-runtime.mjs`, and generates:
+
+- `runtime.html`
+- `graphics/runtime/legacy-XX.css`
+- `scripts/runtime/legacy-XX.js`
+- `build/runtime-manifest.json`
+
+The normalizer applies the currently required compatibility corrections before externalizing executable inline scripts and style blocks. The temporary decoded source is never committed.
+
+## Compatibility policy
+
+Files under `src/core`, `src/domain`, `src/ui`, `src/infrastructure` and `src/app` are adapters only. They exist so old imports keep working while the canonical paths become authoritative. They must contain imports/re-exports, not game implementations.
+
+`LegacyRuntimeAdapter` is isolated under `scripts/compatibility`. It is the only architecture module allowed to read legacy global game state and translate it into canonical state. New systems must not access legacy globals directly.
 
 ## Dependency rules
 
-1. UI may call systems/player/world services, but gameplay services must not import UI.
-2. Systems communicate through the central EventBus and StateStore rather than direct DOM access.
-3. Network access goes through `ApiClient`/`net` only.
-4. Legacy globals and DOM inspection are restricted to `LegacyRuntimeAdapter` while migration is active.
-5. Level, item, skill and talent definitions should be data-first and externalized from render code.
-6. Save schema changes require migration and must never silently discard player progression.
+- `core` has no gameplay dependency.
+- `systems` may depend on `core`, never on DOM/UI implementations.
+- `player` may depend on core contracts/state, not screen markup.
+- `world` may depend on core contracts/state, not UI.
+- `ui` consumes state/services/events; gameplay rules belong in systems/player/world.
+- `graphics` and `audio` react to UI/events; they do not own gameplay state.
+- `net` must communicate through explicit service interfaces and events.
+- Cross-module communication should use injected services, StateStore or EventBus rather than new globals.
 
-## Existing modules
+## Persistence
 
-- Combat: finite-state machine (`idle -> playerTurn -> resolving -> enemyTurn -> finished`).
-- Energy: spend/restore/snapshot service.
-- Inventory and equipment: item/equipment state services.
-- Economy: currency credit/debit boundary.
-- Skills: unlock, levels and cooldowns.
-- Talents: tree definitions/unlocks/points.
-- Quests: active/completed/tracked state.
-- World: graph-based nodes/routes.
-- Player: level/XP/progression.
-- Persistence: versioned local storage envelope plus legacy save compatibility.
-- Rendering: requestAnimationFrame-coordinated render scheduling.
+The architecture shadow store uses the stable `cryptoquest:architecture:v5` key. The historical gameplay save remains untouched during migration so existing player progression is preserved. Changes to persistence require explicit schema handling and regression tests for reload/backup recovery.
 
-## Migration policy
+## Mobile and QA contract
 
-The packed historical runtime is not removed until each behavior it owns has an equivalent canonical module and regression coverage. Old paths under `src/domain` currently remain compatibility implementation details; canonical imports are now routed through the top-level module boundaries. Once each system is fully extracted, the compatibility path can be deleted without changing public imports.
+Critical mobile viewports are 360×800, 390×844 and 412×915. Required automated checks cover startup, character creation, navigation, talent selection/persistence, campaign energy consumption, secondary screens, combat entry, horizontal overflow and JavaScript errors.
 
-## Future expansion
+## Future extension
 
-- 4K/8K assets: add through `graphics/` and `assets/` with mobile variants and lazy loading.
-- Advanced AI: create `systems/ai/` behind events/state, never inside UI renderers.
-- Multiplayer: extend `net/` with protocol/session/sync modules and authoritative server validation.
-- Web3: keep wallet/payment ownership outside deterministic gameplay services; expose only validated application commands.
-- Mobile export/PWA: build profiles belong in `build/`, with responsive UI retained in `ui/`.
+Advanced AI belongs behind `systems` interfaces. Multiplayer/server synchronization belongs under `net`. Web3/payment integrations remain backend/API responsibilities and must not be embedded in UI. 4K/8K source assets can live under graphics/assets, while mobile builds should use compressed variants selected at build/runtime configuration boundaries.
