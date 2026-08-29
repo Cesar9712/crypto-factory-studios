@@ -65,11 +65,11 @@ jobs:
             await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='4.0.0-migration',{timeout:12000});await page.waitForTimeout(700);
             if(!await clickText(page,/(^|\s)talentos(\s|$)/i)){log('NO_TALENTS_NAV',size);failed=true;await context.close();continue;}
             await page.waitForTimeout(300);
-            const available=page.locator('button[data-talent]:not([disabled])');const count=await available.count();log('TALENT_AVAILABLE',size,count,await saved(page,key));
-            if(count<1){failed=true;await context.close();continue;}
+            const available=page.locator('button[data-talent]:not([disabled])');const count=await available.count();const beforeTalent=await saved(page,key);log('TALENT_AVAILABLE',size,count,beforeTalent);
+            if(count<1||beforeTalent.points<1){failed=true;await context.close();continue;}
             await available.first().click();await page.waitForTimeout(300);
             const afterTalent=await saved(page,key);log('TALENT_AFTER',size,afterTalent);
-            if(afterTalent.points!==2||afterTalent.talents.length!==1){failed=true;await context.close();continue;}
+            if(afterTalent.points!==beforeTalent.points-1||afterTalent.talents.length!==beforeTalent.talents.length+1){failed=true;await context.close();continue;}
             if(!await clickText(page,/(^|\s)aventura(\s|$)/i)){log('NO_ADVENTURE_NAV',size);failed=true;await context.close();continue;}
             await page.waitForTimeout(300);await page.evaluate(()=>{Math.random=()=>0.99;});
             const beforeEnergy=(await saved(page,key)).energy;const fight=page.locator('button[data-fight]:not([disabled])').first();
