@@ -32,7 +32,7 @@ jobs:
       - name: Test V32 gameplay regressions
         shell: bash
         run: |
-          cat > /tmp/v32-probe.mjs <<'JS'
+          cat > v32-probe.mjs <<'JS'
           import { chromium } from 'playwright';
           const browser=await chromium.launch({headless:true});
           const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915}];
@@ -98,7 +98,7 @@ jobs:
           if(failed)process.exit(1);
           JS
           set +e
-          node /tmp/v32-probe.mjs 2>&1 | tee v32-regression.log
+          node v32-probe.mjs 2>&1 | tee v32-regression.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
