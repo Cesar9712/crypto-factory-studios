@@ -58,7 +58,7 @@ jobs:
             const input=page.locator('input:visible').first();
             if(await input.count()){
               await input.fill(`V34Hero${size.width}`);
-              if(!await clickText(page,/continuar|siguiente|aceptar/i)||!await page.waitForTimeout(150)){failed=true;await context.close();continue;}
+              if(!await clickText(page,/continuar|siguiente|aceptar/i)){log('NO_NAME_CONTINUE',size);failed=true;await context.close();continue;}await page.waitForTimeout(150);
               if(!await clickText(page,/guerrero/i)){log('NO_GUERRERO',size);failed=true;await context.close();continue;}await page.waitForTimeout(120);
               if(!await clickText(page,/comenzar aventura|crear héroe|entrar al juego/i)){log('NO_BEGIN',size);failed=true;await context.close();continue;}await page.waitForTimeout(550);
             }
