@@ -1,11 +1,6 @@
 name: CryptoQuest Mobile Production
 
 on:
-  push:
-    paths:
-      - 'frontend/games/cryptoquest/**'
-      - 'worker/index.js'
-      - '.github/workflows/cryptoquest-v20-production.yml'
   workflow_run:
     workflows: ['Cloudflare Explicit Deploy']
     types: [completed]
@@ -24,18 +19,18 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Verify current mobile rendering and cinematic invariants
+      - name: Verify deployed mobile rendering and cinematic invariants
         run: |
           cat > verify.mjs <<'JS'
           import { chromium } from 'playwright';
-          const base='https://crypto-factory-studios.cryptofactorystudios.workers.dev';
+          const base='https://os.cryptofactorystudios.workers.dev';
           const browser=await chromium.launch({headless:true});
           async function verifyViewport(width,height){
             const ctx=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});
             const page=await ctx.newPage();
             const errors=[]; page.on('pageerror',e=>errors.push(e.message));
             const r=await page.goto(base+'/games/cryptoquest/?qa=mobile-'+width+'-'+Date.now(),{waitUntil:'load',timeout:30000});
-            await page.waitForTimeout(900);
+            await page.waitForTimeout(1200);
             if(r?.status()!==200) throw new Error('HTTP '+r?.status());
             const entry=await page.evaluate(()=>({title:document.title,text:(document.body.innerText||'').slice(0,1200),scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,input:!!document.querySelector('input:not([type="hidden"])')}));
             if(!entry.title.includes('CryptoQuest RPG')||!entry.text.includes('Elige tu destino')||!entry.input) throw new Error('Entry UI invalid '+JSON.stringify(entry));
@@ -50,7 +45,7 @@ jobs:
               const start=page.getByRole('button',{name:/COMENZAR AVENTURA/i}).last();
               if(!(await start.count())) throw new Error('Start adventure missing');
               await start.click();
-              await page.waitForTimeout(900);
+              await page.waitForTimeout(1100);
             }
             const metrics=await page.evaluate(()=>{
               const visible=[...document.querySelectorAll('button,a,[role="button"]')].filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0});
@@ -60,15 +55,17 @@ jobs:
               const cta=[...document.querySelectorAll('button,a,[role="button"]')].find(el=>/CONTINUAR AVENTURA/i.test(el.textContent||''));
               const ctaStyle=cta?getComputedStyle(cta):null,ctaRect=cta?.getBoundingClientRect();
               const stage=document.querySelector('.home-hero-stage'),stageRect=stage?.getBoundingClientRect();
-              return {scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,visible:visible.length,navCount:navButtons.length,duplicateIcons,cta:ctaRect?{w:ctaRect.width,h:ctaRect.height,writingMode:ctaStyle.writingMode}:null,stage:stageRect?{w:stageRect.width,h:stageRect.height}:null,visual:window.CQVisual?.version||null};
+              const duplicatedQuest=[...document.querySelectorAll('.main-quest')].some(el=>getComputedStyle(el,'::before').content && !['none','normal','""'].includes(getComputedStyle(el,'::before').content));
+              return {scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,visible:visible.length,navCount:navButtons.length,duplicateIcons,duplicatedQuest,cta:ctaRect?{w:ctaRect.width,h:ctaRect.height,writingMode:ctaStyle.writingMode}:null,stage:stageRect?{w:stageRect.width,h:stageRect.height}:null,visual:window.CQVisual?.version||null};
             });
             console.log('MOBILE',width,metrics);
             if(metrics.scroll>metrics.client+2||metrics.visible<1) throw new Error('Mobile layout invalid '+width+' '+JSON.stringify(metrics));
             if(metrics.navCount!==5) throw new Error('Bottom nav must render exactly five destinations '+JSON.stringify(metrics));
             if(metrics.duplicateIcons) throw new Error('Duplicate navigation icons '+JSON.stringify(metrics));
+            if(metrics.duplicatedQuest) throw new Error('Duplicated quest heading regression '+JSON.stringify(metrics));
             if(!metrics.cta||metrics.cta.w<Math.min(300,width-40)||metrics.cta.h<44||metrics.cta.writingMode!=='horizontal-tb') throw new Error('Continue CTA regression '+JSON.stringify(metrics));
             if(!metrics.stage||metrics.stage.w<width-45||metrics.stage.h<400) throw new Error('Cinematic stage regression '+JSON.stringify(metrics));
-            if(!String(metrics.visual||'').startsWith('34.2')) throw new Error('V34 visual runtime missing '+JSON.stringify(metrics));
+            if(metrics.visual!=='34.2.2-cinematic-anime') throw new Error('V34.2.2 visual runtime missing '+JSON.stringify(metrics));
             if(errors.length) throw new Error('Browser errors '+errors.join(' | '));
             await page.screenshot({path:`cryptoquest-${width}.png`,fullPage:true});
             await ctx.close();
