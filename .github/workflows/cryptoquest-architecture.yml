@@ -30,6 +30,9 @@ jobs:
           test -f frontend/games/cryptoquest/src/domain/navigation/NavigationController.js
           test -f frontend/games/cryptoquest/src/domain/energy/EnergyService.js
           test -f frontend/games/cryptoquest/src/domain/inventory/InventoryService.js
+          test -f frontend/games/cryptoquest/src/domain/equipment/EquipmentService.js
+          test -f frontend/games/cryptoquest/src/domain/economy/EconomyService.js
+          test -f frontend/games/cryptoquest/src/domain/skills/SkillService.js
           test -f frontend/games/cryptoquest/src/domain/quests/QuestService.js
           test -f frontend/games/cryptoquest/src/domain/talents/TalentTreeService.js
           test -f frontend/games/cryptoquest/src/domain/map/MapGraphService.js
@@ -38,5 +41,7 @@ jobs:
           test -f frontend/games/cryptoquest/src/ui/RenderCoordinator.js
       - name: Syntax check modules
         run: find frontend/games/cryptoquest/src -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Verify V3.1 boot link
-        run: grep -F 'src/app/bootstrap.js?v=3.1.0' frontend/games/cryptoquest/index.html
+      - name: Verify V4 boot link
+        run: |
+          grep -F 'src/app/bootstrap.js?v=4.0.0' frontend/games/cryptoquest/index.html
+          grep -F 'cryptoquest-architecture" content="V4-MODULAR' frontend/games/cryptoquest/index.html
