@@ -37,7 +37,7 @@ const levels=new LevelRegistry();
 const renderer=new RenderCoordinator({store,bus,scheduler});
 const legacy=new LegacyRuntimeAdapter({store,bus,scheduler});
 const services=Object.freeze({navigation,energy,inventory,equipment,economy,skills,quests,talents,worldMap,player});
-const architecture=Object.freeze({version:'4.0.0-migration',layoutVersion:GAME_CONFIG.architectureVersion,bus,store,persistence,api,scheduler,renderer,levels,compatibility:Object.freeze({legacy}),services,machines:Object.freeze({combat})});
+const architecture=Object.freeze({version:'5.0.0-canonical',layoutVersion:GAME_CONFIG.architectureVersion,bus,store,persistence,api,scheduler,renderer,levels,compatibility:Object.freeze({legacy}),services,machines:Object.freeze({combat})});
 Object.defineProperty(window,'CQArchitecture',{configurable:false,enumerable:false,writable:false,value:architecture});
 let persistScheduled=false;
 bus.on('state:changed',()=>{if(persistScheduled)return;persistScheduled=true;scheduler.debounce('architecture-persist',()=>{persistScheduled=false;persistence.save(store.getState());},GAME_CONFIG.persistence.debounceMs);});
