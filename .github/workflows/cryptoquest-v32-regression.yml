@@ -1,4 +1,4 @@
-name: CryptoQuest V32 Regression
+name: CryptoQuest V32/V33 Regression
 
 on:
   push:
@@ -12,11 +12,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: cryptoquest-v32-regression-${{ github.ref }}
+  group: cryptoquest-v32-v33-regression-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  v32-regression:
+  v32-v33-regression:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -33,13 +33,13 @@ jobs:
         run: |
           python3 -m http.server 4173 --directory frontend >/tmp/cq-http.log 2>&1 &
           sleep 2
-      - name: Test V32 gameplay regressions
+      - name: Test gameplay and V33 mobile visual contract
         shell: bash
         run: |
-          cat > v32-probe.mjs <<'JS'
+          cat > v33-probe.mjs <<'JS'
           import { chromium } from 'playwright';
           const browser=await chromium.launch({headless:true});
-          const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915}];
+          const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915},{width:430,height:932}];
           let failed=false;
           const log=(...v)=>console.log(...v);
           async function clickText(page,re){const list=page.locator('button:visible');for(let i=0,n=await list.count();i<n;i++){const b=list.nth(i),t=(await b.innerText()).replace(/\s+/g,' ').trim();re.lastIndex=0;if(re.test(t)){await b.click();return t;}}return null;}
@@ -48,12 +48,19 @@ jobs:
           for(const size of sizes){
             const context=await browser.newContext({viewport:size,isMobile:true,hasTouch:true});
             const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
-            const res=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?v32qa=${size.width}`,{waitUntil:'load',timeout:30000});
+            const res=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?v33qa=${size.width}`,{waitUntil:'load',timeout:30000});
             await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});await page.waitForTimeout(900);
             if(res?.status()!==200||errors.length){log('START_FAIL',size,errors);failed=true;await context.close();continue;}
+            const visual=await page.evaluate(()=>({
+              marker:document.querySelector('meta[name="cryptoquest-visual"]')?.content||'',
+              css:[...document.styleSheets].some(s=>(s.href||'').includes('v33-anime-premium.css')),
+              overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth)
+            }));
+            log('V33_VISUAL',size,visual);
+            if(visual.marker!=='V33-ANIME-PREMIUM'||!visual.css||visual.overflow>4){failed=true;await context.close();continue;}
             const input=page.locator('input:visible').first();
             if(await input.count()){
-              await input.fill(`V32Hero${size.width}`);
+              await input.fill(`V33Hero${size.width}`);
               if(!await clickText(page,/continuar|siguiente|aceptar/i)){log('NO_NAME_CONTINUE',size);failed=true;await context.close();continue;}
               await page.waitForTimeout(300);
               if(!await clickText(page,/guerrero/i)){log('NO_GUERRERO',size);failed=true;await context.close();continue;}
@@ -63,7 +70,7 @@ jobs:
             }
             const home=await page.evaluate(()=>{const s=document.querySelector('.home-hero-stage'),a=document.querySelector('.hero-art-slot');return{stage:s?.getBoundingClientRect().height||0,artVisible:Boolean(a&&a.offsetParent!==null),overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),marker:document.querySelector('meta[name="cryptoquest-gameplay"]')?.content||'',architecture:window.CQArchitecture?.version||''};});
             log('HOME',size,home);
-            if(home.architecture!=='5.0.0-canonical'||home.marker!=='V32-TALENT-ENERGY-HOME'||home.stage<190||home.stage>300||home.artVisible||home.overflow>4){failed=true;await context.close();continue;}
+            if(home.architecture!=='5.0.0-canonical'||home.marker!=='V32-TALENT-ENERGY-HOME'||home.stage<190||home.stage>320||home.artVisible||home.overflow>4){failed=true;await context.close();continue;}
             const key=await saveKey(page);if(!key){log('NO_SAVE_KEY',size,await page.evaluate(()=>Object.keys(localStorage)));failed=true;await context.close();continue;}
             await page.evaluate(k=>{const g=JSON.parse(localStorage.getItem(k));g.player.level=7;g.player.talentPoints=3;g.player.talents=[];g.player.specialization=null;g.energy.current=60;g.energy.max=60;g.energy.lastUpdate=Date.now();localStorage.setItem(k,JSON.stringify(g));},key);
             await page.reload({waitUntil:'load'});await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000});await page.waitForTimeout(700);
@@ -85,13 +92,15 @@ jobs:
             await fight.click();await page.waitForTimeout(450);
             const afterEnergy=(await saved(page,key)).energy;log('ENERGY',size,beforeEnergy,afterEnergy);
             if(afterEnergy!==beforeEnergy-1){failed=true;await context.close();continue;}
+            const overflow=await page.evaluate(()=>Math.max(0,document.documentElement.scrollWidth-innerWidth));
+            if(overflow>4){log('COMBAT_OVERFLOW',size,overflow);failed=true;}
             if(errors.length){log('PAGE_ERRORS',size,errors);failed=true;}
             await context.close();
           }
           await browser.close();if(failed)process.exit(1);
           JS
           set +e
-          node v32-probe.mjs 2>&1 | tee v32-regression.log
+          node v33-probe.mjs 2>&1 | tee v33-regression.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
@@ -99,6 +108,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v32-regression-log
-          path: v32-regression.log
+          name: v33-regression-log
+          path: v33-regression.log
           retention-days: 1
