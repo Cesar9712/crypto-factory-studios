@@ -5,7 +5,7 @@ const SECURITY_HEADERS = {
 
 const CRYPTOQUEST_CSP = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 const LEGACY_PUBLIC_ORIGIN = 'https://crypto-factory-studios.cesargp9712.workers.dev';
-const ANALYTICS_SCRIPT = '<script src="/analytics.js?v=20260827" defer></script>';
+const ANALYTICS_SCRIPT = '<script src="/analytics.js?v=20260828-2" defer></script>';
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {status, headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...SECURITY_HEADERS,...extraHeaders}});
