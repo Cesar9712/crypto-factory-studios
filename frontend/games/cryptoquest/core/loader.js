@@ -7,10 +7,10 @@ async function loadCanonicalRuntime() {
     html = html.replace('</head>', '<link rel="stylesheet" href="/games/cryptoquest/v33-anime-premium.css?v=33.0.0"><meta name="cryptoquest-visual" content="V33-ANIME-PREMIUM"></head>');
   }
   if (!html.includes('/games/cryptoquest/v34-cinematic-anime.css?v=34.0.0')) {
-    html = html.replace('</head>', '<link rel="stylesheet" href="/games/cryptoquest/v34-cinematic-anime.css?v=34.0.0"><link rel="stylesheet" href="/games/cryptoquest/v34-cinematic-hotfix.css?v=34.0.1"><meta name="cryptoquest-cinematic" content="V34-CINEMATIC-ANIME"></head>');
+    html = html.replace('</head>', '<link rel="stylesheet" href="/games/cryptoquest/v34-cinematic-anime.css?v=34.0.0"><link rel="stylesheet" href="/games/cryptoquest/v34-cinematic-hotfix.css?v=34.2.0"><meta name="cryptoquest-cinematic" content="V34-CINEMATIC-ANIME"></head>');
   }
-  if (!html.includes('/games/cryptoquest/v34-cinematic-runtime.js?v=34.0.0')) {
-    html = html.replace('</body>', '<script src="/games/cryptoquest/v34-cinematic-runtime.js?v=34.0.0" defer></script></body>');
+  if (!html.includes('/games/cryptoquest/v34-cinematic-runtime.js?v=34.2.0')) {
+    html = html.replace('</body>', '<script src="/games/cryptoquest/v34-cinematic-runtime.js?v=34.2.0" defer></script></body>');
   }
   if (!html.includes('V5-CANONICAL') || !html.includes('core/bootstrap.js?v=5.0.0')) {
     throw new Error('CryptoQuest canonical runtime markers are missing');
