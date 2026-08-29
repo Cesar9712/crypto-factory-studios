@@ -1,0 +1,40 @@
+name: CryptoQuest Architecture
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/games/cryptoquest/src/**'
+      - 'frontend/games/cryptoquest/index.html'
+      - '.github/workflows/cryptoquest-architecture.yml'
+  workflow_dispatch:
+
+jobs:
+  architecture-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify architecture files
+        run: |
+          test -f frontend/games/cryptoquest/src/app/bootstrap.js
+          test -f frontend/games/cryptoquest/src/core/EventBus.js
+          test -f frontend/games/cryptoquest/src/core/StateStore.js
+          test -f frontend/games/cryptoquest/src/core/StateMachine.js
+          test -f frontend/games/cryptoquest/src/core/PersistenceAdapter.js
+          test -f frontend/games/cryptoquest/src/core/ApiClient.js
+          test -f frontend/games/cryptoquest/src/core/Scheduler.js
+          test -f frontend/games/cryptoquest/src/domain/combat/createCombatMachine.js
+          test -f frontend/games/cryptoquest/src/domain/navigation/NavigationController.js
+          test -f frontend/games/cryptoquest/src/domain/energy/EnergyService.js
+          test -f frontend/games/cryptoquest/src/domain/inventory/InventoryService.js
+          test -f frontend/games/cryptoquest/src/domain/quests/QuestService.js
+          test -f frontend/games/cryptoquest/src/domain/talents/TalentTreeService.js
+          test -f frontend/games/cryptoquest/src/domain/map/MapGraphService.js
+          test -f frontend/games/cryptoquest/src/ui/RenderCoordinator.js
+      - name: Syntax check modules
+        run: find frontend/games/cryptoquest/src -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Verify V3 boot link
+        run: grep -F 'src/app/bootstrap.js?v=3.0.0' frontend/games/cryptoquest/index.html
