@@ -1,0 +1,58 @@
+/* CryptoQuest V32 — gameplay/UI corrections requested from mobile production screenshots. */
+:root{--cq32-gold:#c69a48;--cq32-bronze:#6c4b27;--cq32-panel:#090a09;--cq32-line:#4a3923}
+
+/* HOME: remove the oversized/broken illustration void and keep the stage readable on phones. */
+.home-screen.v13-home .home-hero-stage{
+  height:clamp(220px,31dvh,286px)!important;
+  min-height:220px!important;
+  margin-top:8px!important;
+  overflow:hidden!important;
+  border-color:#6a5029!important;
+  background:
+    radial-gradient(circle at 50% 42%,rgba(155,103,45,.18),transparent 28%),
+    radial-gradient(ellipse at 50% 100%,rgba(123,45,28,.22),transparent 38%),
+    linear-gradient(180deg,#0c0d0c 0%,#070807 62%,#030403 100%)!important;
+}
+.home-screen.v13-home .hero-art-slot{display:none!important}
+.home-screen.v13-home .hero-ruins{opacity:.18!important;filter:grayscale(1) sepia(.4)!important}
+.home-screen.v13-home .hero-runes{opacity:.16!important}
+.home-screen.v13-home .hero-moon{width:138px!important;height:138px!important;top:25px!important;left:50%!important;transform:translateX(-50%)!important;opacity:.44!important}
+.home-screen.v13-home .hero-class-sigil{
+  display:grid!important;place-items:center!important;
+  left:50%!important;top:50%!important;transform:translate(-50%,-53%)!important;
+  width:118px!important;height:118px!important;border:1px solid rgba(198,154,72,.48)!important;border-radius:50%!important;
+  background:radial-gradient(circle,rgba(126,79,34,.16),rgba(5,6,5,.82) 65%)!important;
+  box-shadow:0 0 0 10px rgba(111,77,38,.07),0 0 34px rgba(198,154,72,.12),inset 0 0 28px #000!important;
+  opacity:1!important;
+}
+.home-screen.v13-home .hero-class-sigil svg{width:58px!important;height:58px!important;opacity:.84!important;color:#d8b568!important}
+.home-screen.v13-home .hero-ground{bottom:18px!important;opacity:.62!important}
+.home-screen.v13-home .hero-class-mark{left:18px!important;bottom:16px!important;max-width:46%!important}
+.home-screen.v13-home .hero-power{right:18px!important;bottom:16px!important;top:auto!important}
+.home-screen.v13-home .hero-power strong{font-size:34px!important;line-height:1!important}
+.home-screen.v13-home .home-vitals{margin-top:10px!important}
+.home-screen.v13-home .main-quest{margin-top:12px!important}
+.home-screen.v13-home .adventure-cta{min-height:62px!important;margin-top:12px!important}
+
+/* TALENTS: interactive nodes must visibly look interactive; locked nodes stay inert. */
+.talent-screen .talent-branch:not(.foreign){opacity:1!important}
+.talent-screen .talent-node.available{
+  pointer-events:auto!important;cursor:pointer!important;opacity:1!important;filter:none!important;
+  border-color:#b98b3f!important;
+  background:radial-gradient(circle at 50% 22%,#2a2113,#0b0b09 66%)!important;
+  box-shadow:inset 0 0 24px rgba(192,143,56,.13),0 0 10px rgba(192,143,56,.12)!important;
+}
+.talent-screen .talent-node.available b{border-color:#a17a39!important;color:#e1bd6d!important}
+.talent-screen .talent-node.available:active{transform:scale(.97)!important}
+.talent-screen .talent-node.learned{opacity:1!important;filter:none!important}
+.talent-screen .talent-node:disabled{pointer-events:none!important}
+
+/* Keep content clear of the fixed dock on Android browser viewports. */
+.home-screen,.talent-screen{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important}
+
+@media (max-width:390px){
+  .home-screen.v13-home .home-hero-stage{height:228px!important}
+  .home-screen.v13-home .hero-class-sigil{width:104px!important;height:104px!important}
+  .home-screen.v13-home .hero-class-sigil svg{width:50px!important;height:50px!important}
+  .home-screen.v13-home .hero-power strong{font-size:30px!important}
+}
