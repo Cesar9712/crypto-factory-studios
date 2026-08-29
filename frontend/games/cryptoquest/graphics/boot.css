@@ -1,0 +1,1 @@
+html,body{margin:0;height:100%;background:#050608;color:#e7d39a;font-family:system-ui}body{display:grid;place-items:center}.boot{display:grid;gap:12px;text-align:center}.sigil{width:70px;height:70px;margin:auto;border:1px solid #8d7138;border-radius:50%;display:grid;place-items:center;font-weight:900;box-shadow:0 0 24px #d0a94a33}.err{max-width:320px;color:#ffb3b3}
