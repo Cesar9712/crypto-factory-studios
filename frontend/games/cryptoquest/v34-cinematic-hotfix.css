@@ -1,4 +1,66 @@
-/* V34 structural override: V32 intentionally capped the empty legacy stage. V34 now owns a real cinematic character scene. */
-.cq34-home .home-hero-stage{max-height:none!important;min-height:430px!important}
-@media(max-width:390px){.cq34-home .home-hero-stage{max-height:none!important;min-height:440px!important}}
-@media(max-width:360px){.cq34-home .home-hero-stage{max-height:none!important;min-height:420px!important}}
+/* CryptoQuest V34.2 — mobile cinematic QA corrections.
+   Loaded after all legacy/V27-V34 visual layers so structural fixes win without touching gameplay state. */
+:root{--cq34-safe-top:env(safe-area-inset-top,0px);--cq34-safe-bottom:env(safe-area-inset-bottom,0px)}
+
+/* GLOBAL MOBILE SHELL */
+html.cq34-active,body.cq34-active{width:100%!important;max-width:100%!important;overflow-x:hidden!important;background:#030409!important}
+body.cq34-active{margin:0!important}
+.cq34-game{box-sizing:border-box!important;width:min(100%,500px)!important;max-width:500px!important;margin:0 auto!important;overflow-x:clip!important;padding-bottom:calc(84px + var(--cq34-safe-bottom))!important}
+.cq34-game *{box-sizing:border-box}
+.cq34-game img{max-width:100%}
+.cq34-game button,.cq34-game [role="button"]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* HOME — the device recording exposed inherited max-height and narrow-grid CTA rules. */
+.cq34-home{width:100%!important;max-width:100%!important;overflow-x:hidden!important;padding-inline:8px!important}
+.cq34-home .home-profile-hud,.cq34-home .home-resource-strip,.cq34-home .home-hero-stage,.cq34-home .main-quest{width:100%!important;max-width:100%!important;min-width:0!important}
+.cq34-home .home-hero-stage{height:clamp(460px,62dvh,610px)!important;max-height:none!important;min-height:460px!important;isolation:isolate!important}
+.cq34-home .cq34-scene-art{inset:0!important;width:100%!important;height:100%!important;transform:none!important;object-fit:cover!important}
+.cq34-home .cq34-hero-art{left:50%!important;right:auto!important;bottom:66px!important;width:min(88%,390px)!important;height:82%!important;max-width:390px!important;transform:translateX(-50%)!important;object-fit:contain!important;object-position:center bottom!important}
+.cq34-home .home-vitals{left:8px!important;right:8px!important;bottom:8px!important;width:auto!important;max-width:none!important}
+.cq34-home .main-quest{display:block!important;grid-template-columns:none!important;grid-template-areas:none!important;position:relative!important;min-height:0!important;overflow:hidden!important}
+.cq34-home .main-quest>*{max-width:100%!important;min-width:0!important}
+.cq34-home .cq34-continue-fix,.cq34-home button[data-continue],.cq34-home .continue-adventure,.cq34-home .primary-cta{position:relative!important;inset:auto!important;float:none!important;display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;max-width:100%!important;min-width:0!important;height:auto!important;min-height:58px!important;margin:10px 0 0!important;padding:12px 16px!important;writing-mode:horizontal-tb!important;text-orientation:mixed!important;white-space:normal!important;word-break:normal!important;overflow-wrap:normal!important;line-height:1.15!important;text-align:center!important;transform:none!important;letter-spacing:.07em!important}
+.cq34-home .cq34-continue-fix .cq34-ui-icon{margin:0 8px 0 0!important;flex:0 0 22px!important}
+.cq34-home .quick-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%!important}
+.cq34-home .quick-action{min-width:0!important;width:100%!important;padding:8px 4px!important;overflow:hidden!important}
+.cq34-home .quick-action span,.cq34-home .quick-action small{max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;text-align:center!important}
+
+/* WORLD — keep region cards inside the viewport and restore a deliberate path rhythm. */
+.cq34-map-screen{width:100%!important;max-width:100%!important;overflow-x:hidden!important;padding-inline:8px!important}
+.cq34-map-node{box-sizing:border-box!important;max-width:94%!important;min-width:0!important;overflow:hidden!important}
+.cq34-map-node[data-cq34-side="left"]{width:92%!important;margin-left:0!important;margin-right:8%!important}
+.cq34-map-node[data-cq34-side="right"]{width:88%!important;margin-left:12%!important;margin-right:0!important}
+.cq34-map-node summary,.cq34-map-node button{max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important}
+
+/* COMBAT — reserve a stable arena and stop legacy panels from covering fighters/actions. */
+.cq34-combat-screen{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
+.cq34-combat-screen .combat-arena,.cq34-combat-screen .battle-arena,.cq34-combat-screen .arena{min-height:520px!important;max-width:100%!important;overflow:hidden!important}
+.cq34-combat-hero,.cq34-combat-enemy{bottom:92px!important;height:58%!important;width:48%!important}
+.cq34-combat-screen .combat-controls,.cq34-combat-screen .skills-row,.cq34-combat-screen .skill-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;width:100%!important;max-width:100%!important}
+.cq34-combat-screen .skill-btn,.cq34-combat-screen .skill-button,.cq34-combat-screen .combat-skill{min-width:0!important;width:100%!important;white-space:normal!important;overflow:hidden!important}
+
+/* INVENTORY / TALENTS / SECONDARY SCREENS */
+.cq34-inventory-screen,.cq34-talents-screen,.cq34-premium-screen{width:100%!important;max-width:100%!important;overflow-x:hidden!important;padding-inline:8px!important}
+.cq34-inventory-screen .inventory-grid,.cq34-inventory-screen .item-grid,.cq34-inventory-screen [class*="inventory-grid"]{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;width:100%!important}
+.cq34-inventory-screen .item-card,.cq34-inventory-screen .item-slot,.cq34-inventory-screen .equipment-slot{min-width:0!important;max-width:100%!important;overflow:hidden!important}
+.cq34-inventory-screen .item-card img,.cq34-inventory-screen .item-slot img{object-fit:contain!important}
+.cq34-talents-screen .talent-tree,.cq34-talents-screen [class*="talent-tree"]{max-width:100%!important;overflow-x:auto!important;overscroll-behavior-x:contain!important;padding-bottom:12px!important}
+
+/* ITEM SHEETS / MODALS — never hide actions behind the mobile dock. */
+.cq34-active .item-sheet,.cq34-active .modal,.cq34-active [role="dialog"]{box-sizing:border-box!important;max-width:calc(100vw - 12px)!important;max-height:calc(100dvh - 24px - var(--cq34-safe-bottom))!important}
+.cq34-active .item-sheet{left:50%!important;right:auto!important;bottom:calc(8px + var(--cq34-safe-bottom))!important;width:min(520px,calc(100vw - 12px))!important;min-width:0!important;margin:0!important;transform:translateX(-50%)!important;overflow-y:auto!important;overscroll-behavior:contain!important}
+
+/* ONE bottom navigation dock. Extra legacy destinations remain reachable from the home/more screens. */
+.cq34-active .bottom-nav.cq34-primary-nav{position:fixed!important;z-index:999!important;left:50%!important;right:auto!important;bottom:0!important;transform:translateX(-50%)!important;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:0!important;width:min(100%,500px)!important;min-height:72px!important;height:auto!important;margin:0!important;padding:6px 5px calc(6px + var(--cq34-safe-bottom))!important;border-top:1px solid rgba(226,186,102,.45)!important;background:linear-gradient(180deg,rgba(12,13,20,.98),rgba(3,4,8,.995))!important;box-shadow:0 -12px 30px #000c!important;overflow:hidden!important}
+.cq34-active .bottom-nav.cq34-primary-nav>button,.cq34-active .bottom-nav.cq34-primary-nav>[role="button"]{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;min-width:0!important;width:100%!important;min-height:56px!important;margin:0!important;padding:5px 2px!important;border:0!important;background:transparent!important;box-shadow:none!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:.63rem!important;line-height:1.05!important}
+.cq34-active .bottom-nav.cq34-primary-nav .cq34-ui-icon{width:23px!important;height:23px!important;margin:0 auto 4px!important}
+.cq34-active .bottom-nav.cq34-secondary-nav{display:none!important}
+.cq34-active .bottom-nav.cq34-primary-nav .cq34-nav-hidden{display:none!important}
+
+/* Premium anime polish without continuous expensive animation. */
+.cq34-home .home-hero-stage:after{content:""!important;display:block!important;position:absolute!important;inset:0!important;z-index:7!important;pointer-events:none!important;background:radial-gradient(circle at 50% 40%,transparent 0 28%,rgba(8,3,18,.08) 52%,rgba(0,0,0,.62) 100%),linear-gradient(180deg,rgba(118,70,177,.08),transparent 28%,transparent 66%,rgba(0,0,0,.42))!important;mix-blend-mode:normal!important}
+.cq34-home .home-profile-hud,.cq34-home .home-resource-strip,.cq34-home .main-quest,.cq34-map-node,.cq34-inventory-screen .item-card{backdrop-filter:blur(8px)!important;-webkit-backdrop-filter:blur(8px)!important}
+@media(prefers-reduced-motion:no-preference){.cq34-game button:not(:disabled){transition:transform .12s ease,filter .12s ease,border-color .12s ease}.cq34-game button:not(:disabled):active{transform:scale(.975)}}
+
+@media(max-width:390px){.cq34-home .home-hero-stage{height:clamp(450px,60dvh,560px)!important;min-height:450px!important}.cq34-home .cq34-hero-art{width:92%!important;height:80%!important}.cq34-home .quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}.cq34-combat-screen .combat-arena,.cq34-combat-screen .battle-arena,.cq34-combat-screen .arena{min-height:500px!important}}
+@media(max-width:360px){.cq34-home .home-hero-stage{height:440px!important;min-height:440px!important}.cq34-home .home-vital{grid-template-columns:58px 1fr!important}.cq34-active .bottom-nav.cq34-primary-nav>button,.cq34-active .bottom-nav.cq34-primary-nav>[role="button"]{font-size:.58rem!important}.cq34-combat-screen .combat-controls,.cq34-combat-screen .skills-row,.cq34-combat-screen .skill-grid{grid-template-columns:1fr!important}}
