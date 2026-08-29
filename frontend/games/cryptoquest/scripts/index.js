@@ -1,1 +1,1 @@
-export { LegacyRuntimeAdapter } from '../src/infrastructure/compatibility/LegacyRuntimeAdapter.js';
+export { LegacyRuntimeAdapter } from './compatibility/LegacyRuntimeAdapter.js';
