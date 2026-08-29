@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1300" role="img" aria-label="Bastion nocturno de CryptoQuest">
+<defs>
+ <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#080b1c"/><stop offset=".46" stop-color="#241443"/><stop offset="1" stop-color="#06070c"/></linearGradient>
+ <radialGradient id="moon"><stop stop-color="#ff6680"/><stop offset=".55" stop-color="#a52558"/><stop offset="1" stop-color="#4a1238"/></radialGradient>
+ <linearGradient id="fog"><stop stop-color="#7f62b9" stop-opacity=".25"/><stop offset="1" stop-color="#10101e" stop-opacity="0"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="8"/></filter>
+</defs>
+<rect width="900" height="1300" fill="url(#sky)"/>
+<circle cx="650" cy="265" r="150" fill="#d43b69" opacity=".22" filter="url(#glow)"/><circle cx="650" cy="265" r="112" fill="url(#moon)" opacity=".86"/>
+<path d="M0 630 90 520l55 58 92-145 84 112 96-176 91 126 85-105 111 157 81-66 115 151v668H0Z" fill="#070914" opacity=".88"/>
+<g fill="#090815" stroke="#3c2a58" stroke-width="3">
+ <path d="M222 770V365h80v405zM238 365l24-88 24 88z"/><path d="M585 800V340h90v460zM602 340l28-105 28 105z"/>
+ <path d="M318 790V455h70v335zM332 455l21-76 21 76z"/><path d="M491 790V430h78v360zM507 430l23-88 23 88z"/>
+ <path d="M255 585h390v255H255z"/><path d="M370 585V285h150v555H370z"/><path d="M395 285l50-155 50 155z"/>
+</g>
+<g fill="#7c49c8" opacity=".78"><rect x="412" y="345" width="18" height="60"/><rect x="461" y="345" width="18" height="60"/><rect x="405" y="500" width="22" height="70"/><rect x="466" y="500" width="22" height="70"/><rect x="270" y="620" width="13" height="45"/><rect x="620" y="585" width="14" height="48"/></g>
+<g fill="#e8a24d" opacity=".5"><circle cx="150" cy="875" r="5"/><circle cx="742" cy="855" r="5"/><circle cx="112" cy="945" r="4"/><circle cx="805" cy="942" r="4"/></g>
+<ellipse cx="450" cy="850" rx="420" ry="150" fill="url(#fog)"/><path d="M0 1000Q220 900 450 980t450 15v305H0Z" fill="#04050a"/>
+<g stroke="#c99d55" stroke-opacity=".18" fill="none"><circle cx="450" cy="990" r="235"/><circle cx="450" cy="990" r="190"/><path d="m450 765 64 160 171 65-171 64-64 161-64-161-171-64 171-65z"/></g>
+</svg>
