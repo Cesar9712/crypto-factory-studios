@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "generatedFrom": "data/p00.txt..p11.txt",
+  "runtime": "runtime.html",
+  "externalizedStyles": 2,
+  "externalizedScripts": 1,
+  "architecture": "5.0.0-canonical"
+}
