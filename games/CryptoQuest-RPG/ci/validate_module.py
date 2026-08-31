@@ -15,9 +15,17 @@ REQUIRED = [
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "ThirdwebTransactionController.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadata.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadataLoader.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MetadataNormalizer.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "InventoryItem.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "InventoryCatalogService.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "InventoryMarketItem.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "InventoryMarketplaceService.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TransactionReceiptNormalizer.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "IpfsUri.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDtos.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "AI" / "NpcAiClient.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Diagnostics" / "CryptoQuestRuntimeSmokeTest.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Editor" / "AndroidBuild.cs",
 ]
 
 errors: list[str] = []
@@ -62,9 +70,19 @@ if "84532" not in web3_text:
 if "InAppWallet" not in web3_text:
     errors.append("Thirdweb InAppWallet integration missing")
 
-ipfs_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "IpfsUri.cs"
-if ipfs_path.is_file() and "ipfs://" not in ipfs_path.read_text(encoding="utf-8"):
-    errors.append("IPFS URI resolver is incomplete")
+metadata_loader = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadataLoader.cs"
+metadata_text = metadata_loader.read_text(encoding="utf-8") if metadata_loader.is_file() else ""
+if "LoadRawAsync" not in metadata_text or "ExpandErc1155Uri" not in metadata_text:
+    errors.append("ERC1155 raw metadata extraction or {id} expansion missing")
+
+marketplace_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceService.cs"
+marketplace_text = marketplace_path.read_text(encoding="utf-8") if marketplace_path.is_file() else ""
+if "getListing" not in marketplace_text or "buyFromListing" not in marketplace_text:
+    errors.append("Marketplace V3 read/buy integration missing")
+
+receipt_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TransactionReceiptNormalizer.cs"
+if receipt_path.is_file() and "transactionHash" not in receipt_path.read_text(encoding="utf-8"):
+    errors.append("Transaction receipt normalization missing transaction hash")
 
 if errors:
     print("CryptoQuest RPG validation FAILED")
