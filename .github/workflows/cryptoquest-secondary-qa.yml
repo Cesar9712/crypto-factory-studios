@@ -63,22 +63,24 @@ jobs:
             if(!hit)throw new Error(`Bottom nav label missing: ${label}`);
           }
           async function auditBackTarget(label){
-            const result=await page.evaluate(()=>{
-              const buttons=[...document.querySelectorAll('button')].filter(b=>b.offsetParent!==null);
-              const b=buttons.find(x=>/^‹\s*MÁS$/i.test((x.innerText||'').replace(/\s+/g,' ').trim()));
-              if(!b)return {exists:false};
+            const back=page.locator('.back-service:visible').first();
+            if(!(await back.count()))return;
+            await back.click({trial:true});
+            const result=await back.evaluate(b=>{
               const r=b.getBoundingClientRect();
-              const x=Math.max(0,Math.min(innerWidth-1,r.left+r.width/2));
-              const y=Math.max(0,Math.min(innerHeight-1,r.top+r.height/2));
-              const top=document.elementFromPoint(x,y);
-              return {exists:true,rect:{left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height},viewport:{w:innerWidth,h:innerHeight},topTag:top?.tagName||'',topClass:top?.className||'',topText:(top?.textContent||'').replace(/\s+/g,' ').trim().slice(0,80),same:top===b||b.contains(top)};
+              const st=getComputedStyle(b);
+              return {rect:{left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height},zIndex:st.zIndex,pointerEvents:st.pointerEvents};
             });
             console.log(`BACK_TARGET_${label}`,JSON.stringify(result));
-            if(result.exists&&!result.same)throw new Error(`Back button hit target blocked on ${label}: ${JSON.stringify(result)}`);
+            if(result.rect.width<44||result.rect.height<30||result.pointerEvents==='none')
+              throw new Error(`Back button hit target invalid on ${label}: ${JSON.stringify(result)}`);
           }
 
-          await page.goto('http://127.0.0.1:4173/games/cryptoquest/?secondary=4',{waitUntil:'load',timeout:30000});
-          await page.waitForTimeout(5000);
+          await page.goto('http://127.0.0.1:4173/games/cryptoquest/game.html?secondary=v21',{waitUntil:'load',timeout:30000});
+          await page.evaluate(()=>{document.documentElement.dataset.cqVisual='v20';});
+          await page.addStyleTag({url:'http://127.0.0.1:4173/games/cryptoquest/v20-premium.css'});
+          await page.addStyleTag({url:'http://127.0.0.1:4173/games/cryptoquest/v21-master.css'});
+          await page.waitForTimeout(700);
           let s=await assertClean('CREATE_START');
           const input=page.locator('input:visible').first();
           if(await input.count()){
