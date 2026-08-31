@@ -1,5 +1,7 @@
+using CryptoQuest.Diagnostics;
 using CryptoQuest.UI;
 using CryptoQuest.Web3;
+using Thirdweb;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -109,10 +111,14 @@ namespace CryptoQuest.Editor
             scrollRect.horizontal = false;
 
             var systems = new GameObject("CryptoQuestInventorySystems");
+            systems.AddComponent<ThirdwebManager>();
             var web3 = systems.AddComponent<CryptoQuestWeb3Controller>();
             var metadata = systems.AddComponent<TokenMetadataLoader>();
             var actions = systems.AddComponent<MarketplaceActionController>();
             var panel = systems.AddComponent<InventoryMarketPanelController>();
+            var runtimeConfig = systems.AddComponent<RuntimeConfigLoader>();
+            var runtimeSmoke = systems.AddComponent<CryptoQuestRuntimeSmokeTest>();
+            var endToEndSmoke = systems.AddComponent<CryptoQuestEndToEndSmokeTest>();
 
             var actionsSerialized = new SerializedObject(actions);
             actionsSerialized.FindProperty("web3").objectReferenceValue = web3;
@@ -125,6 +131,20 @@ namespace CryptoQuest.Editor
             panelSerialized.FindProperty("contentRoot").objectReferenceValue = content.transform;
             panelSerialized.FindProperty("itemPrefab").objectReferenceValue = itemPrefab;
             panelSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var runtimeSerialized = new SerializedObject(runtimeConfig);
+            runtimeSerialized.FindProperty("web3").objectReferenceValue = web3;
+            runtimeSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var smokeSerialized = new SerializedObject(runtimeSmoke);
+            smokeSerialized.FindProperty("web3").objectReferenceValue = web3;
+            smokeSerialized.FindProperty("metadataLoader").objectReferenceValue = metadata;
+            smokeSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var e2eSerialized = new SerializedObject(endToEndSmoke);
+            e2eSerialized.FindProperty("web3").objectReferenceValue = web3;
+            e2eSerialized.FindProperty("metadataLoader").objectReferenceValue = metadata;
+            e2eSerialized.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
         }
