@@ -430,3 +430,20 @@ html[data-cq-visual="v20"] #cq-bp-modal{
     scroll-behavior:auto!important;
   }
 }
+
+
+/* Interaction safety: service back control must stay above decorative/HUD overflow. */
+html[data-cq-visual="v20"] .back-service{
+  position:relative!important;
+  z-index:30!important;
+  min-width:64px;
+  min-height:38px!important;
+  padding:0 12px!important;
+  border:1px solid rgba(122,90,51,.58)!important;
+  border-radius:10px!important;
+  background:#0c0e13!important;
+  color:var(--cq21-gold-hi)!important;
+  pointer-events:auto!important;
+}
+html[data-cq-visual="v20"] .back-service::before,
+html[data-cq-visual="v20"] .back-service::after{pointer-events:none!important}
