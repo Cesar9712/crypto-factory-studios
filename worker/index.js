@@ -8,6 +8,7 @@ const LEGACY_PUBLIC_ORIGIN = 'https://crypto-factory-studios.cesargp9712.workers
 const ANALYTICS_SCRIPT = '<script src="/analytics.js?v=20260828-2" defer></script>';
 const CQ_V20_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v20-premium.css?v=20.0.0">';
 const CQ_V20_SCRIPT = '<script src="/games/cryptoquest/v20-battle-pass.js?v=20.0.0" defer></script>';
+const CQ_V21_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v21-master.css?v=21.0.0">';
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {status, headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...SECURITY_HEADERS,...extraHeaders}});
@@ -64,7 +65,7 @@ async function serveAsset(request,env){
     headers.set('Cache-Control','no-store, max-age=0');
     headers.set('Pragma','no-cache');
     headers.set('X-Content-Type-Options','nosniff');
-    headers.set('X-CryptoQuest-Visual','V20-PREMIUM');
+    headers.set('X-CryptoQuest-Visual','V20-PREMIUM+V21-MASTER');
   }
 
   if(!isText)return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
@@ -74,6 +75,7 @@ async function serveAsset(request,env){
 
   if(isCryptoQuest&&type.includes('text/html')){
     if(!body.includes('/games/cryptoquest/v20-premium.css'))body=injectBeforeLastClosingTag(body,'head',CQ_V20_STYLE);
+    if(!body.includes('/games/cryptoquest/v21-master.css'))body=injectBeforeLastClosingTag(body,'head',CQ_V21_STYLE);
     if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=injectBeforeLastClosingTag(body,'body',CQ_V20_SCRIPT);
   }
 

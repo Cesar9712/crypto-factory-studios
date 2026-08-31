@@ -17,34 +17,54 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Wait for Cloudflare Workers build
+      - name: Wait for Cloudflare Workers deploy
         run: sleep 45
-      - name: Verify V5 production runtime and canonical assets
+      - name: Verify current V19 core + V20 premium + V21 master production stack
         shell: bash
         env:
           BASE: https://crypto-factory-studios.cryptofactorystudios.workers.dev
         run: |
           set -euo pipefail
-          tmp="$(mktemp)"
-          ok=0
-          for attempt in 1 2 3 4 5 6 7 8; do
-            if curl --fail --silent --show-error --location --max-time 20 -H 'Cache-Control: no-cache' "$BASE/games/cryptoquest/?smoke=${GITHUB_SHA}-${attempt}" -o "$tmp"; then
-              if grep -q 'Cargando CryptoQuest' "$tmp" && grep -q 'core/loader.js?v=5.0.0' "$tmp"; then
-                ok=1
-                break
+
+          fetch_retry() {
+            local url="$1" out="$2"
+            for attempt in 1 2 3 4 5 6 7 8; do
+              if curl --fail --silent --show-error --location --max-time 25 \
+                -H 'Cache-Control: no-cache' "${url}&attempt=${attempt}" -o "${out}"; then
+                return 0
               fi
-            fi
-            sleep 20
-          done
-          test "$ok" = 1
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/runtime.html?smoke=${GITHUB_SHA}" -o /tmp/runtime.html
-          grep -q 'V5-CANONICAL' /tmp/runtime.html
-          grep -q 'core/bootstrap.js?v=5.0.0' /tmp/runtime.html
-          ! grep -q 'DecompressionStream' /tmp/runtime.html
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/core/loader.js?smoke=${GITHUB_SHA}" -o /tmp/loader.js
-          ! grep -q 'DecompressionStream' /tmp/loader.js
-          ! grep -q 'data/p00.txt' /tmp/loader.js
-          curl --fail --silent --show-error --location "$BASE/games/cryptoquest/core/bootstrap.js?smoke=${GITHUB_SHA}" -o /tmp/bootstrap.js
-          grep -q "version:'5.0.0-canonical'" /tmp/bootstrap.js
+              sleep 15
+            done
+            return 1
+          }
+
+          fetch_retry "$BASE/games/cryptoquest/game.html?smoke=${GITHUB_SHA}" /tmp/game.html
+          grep -q 'CryptoQuest RPG' /tmp/game.html
+          grep -q 'Elige tu destino' /tmp/game.html
+          grep -q 'CONTINUAR AVENTURA' /tmp/game.html
+          grep -q '/games/cryptoquest/v20-premium.css?v=20.0.0' /tmp/game.html
+          grep -q '/games/cryptoquest/v21-master.css?v=21.0.0' /tmp/game.html
+          grep -q '/games/cryptoquest/v20-battle-pass.js?v=20.0.0' /tmp/game.html
+
+          curl --fail --silent --show-error --location \
+            "$BASE/games/cryptoquest/v20-premium.css?smoke=${GITHUB_SHA}" -o /tmp/v20.css
+          grep -q 'CryptoQuest RPG V20' /tmp/v20.css
+          grep -q 'data-cq-visual="v20"' /tmp/v20.css
+
+          curl --fail --silent --show-error --location \
+            "$BASE/games/cryptoquest/v21-master.css?smoke=${GITHUB_SHA}" -o /tmp/v21.css
+          grep -q 'CryptoQuest RPG V21 Master Visual Layer' /tmp/v21.css
+          grep -q -- '--cq21-obsidian:#111319' /tmp/v21.css
+          grep -q 'grid-template-columns:repeat(6,minmax(0,1fr))' /tmp/v21.css
+
+          curl --fail --silent --show-error --location \
+            "$BASE/games/cryptoquest/v20-battle-pass.js?smoke=${GITHUB_SHA}" -o /tmp/v20.js
+          grep -q "const VERSION='20.0.0'" /tmp/v20.js
+          grep -q "dataset.cqVisual='v20'" /tmp/v20.js
+
+          headers="$(curl --fail --silent --show-error --head --location "$BASE/games/cryptoquest/game.html?header=${GITHUB_SHA}")"
+          grep -qi 'x-cryptoquest-visual: V20-PREMIUM+V21-MASTER' <<<"$headers"
+
+          echo 'CRYPTOQUEST_CURRENT_PRODUCTION_STACK_OK'
       - name: Report
-        run: echo 'CryptoQuest V5 canonical runtime is reachable in production without the packed fallback.'
+        run: echo 'CryptoQuest V19 core + V20 premium + V21 master visual layer are reachable in production.'
