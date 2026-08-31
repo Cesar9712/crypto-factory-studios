@@ -13,6 +13,9 @@ namespace CryptoQuest.Web3
 
         [SerializeField] private CryptoQuestWeb3Controller web3;
         [SerializeField] private string streamingAssetsFileName = "cryptoquest.runtime.json";
+        [SerializeField] private string fallbackClientId = string.Empty;
+        [SerializeField] private string fallbackInventoryContractAddress = string.Empty;
+        [SerializeField] private string fallbackMarketplaceContractAddress = string.Empty;
         [SerializeField] private bool applyOnAwake = true;
 
         public static Web3RuntimeConfig Current { get; private set; }
@@ -44,22 +47,34 @@ namespace CryptoQuest.Web3
         public Web3RuntimeConfig Load()
         {
             var fileConfig = LoadFile();
-            var clientId = FirstNonEmpty(Environment.GetEnvironmentVariable(ClientIdEnv), fileConfig?.ThirdwebClientId);
-            var inventory = FirstNonEmpty(Environment.GetEnvironmentVariable(InventoryEnv), fileConfig?.InventoryContractAddress);
-            var marketplace = FirstNonEmpty(Environment.GetEnvironmentVariable(MarketplaceEnv), fileConfig?.MarketplaceContractAddress);
+            var clientId = FirstNonEmpty(Environment.GetEnvironmentVariable(ClientIdEnv), fileConfig?.ThirdwebClientId, fallbackClientId);
+            var inventory = FirstNonEmpty(Environment.GetEnvironmentVariable(InventoryEnv), fileConfig?.InventoryContractAddress, fallbackInventoryContractAddress);
+            var marketplace = FirstNonEmpty(Environment.GetEnvironmentVariable(MarketplaceEnv), fileConfig?.MarketplaceContractAddress, fallbackMarketplaceContractAddress);
             return Web3RuntimeConfig.Create(clientId, inventory, marketplace);
         }
 
         private Web3RuntimeConfig LoadFile()
         {
-            var path = Path.Combine(Application.streamingAssetsPath, streamingAssetsFileName);
-            if (!File.Exists(path)) return null;
-            var json = File.ReadAllText(path);
-            if (string.IsNullOrWhiteSpace(json)) return null;
-            return JsonUtility.FromJson<Web3RuntimeConfig>(json);
+            try
+            {
+                var path = Path.Combine(Application.streamingAssetsPath, streamingAssetsFileName);
+                if (!File.Exists(path)) return null;
+                var json = File.ReadAllText(path);
+                if (string.IsNullOrWhiteSpace(json)) return null;
+                return JsonUtility.FromJson<Web3RuntimeConfig>(json);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[CryptoQuest/Web3] Runtime config file unavailable; using embedded/environment fallback. {ex.Message}");
+                return null;
+            }
         }
 
-        private static string FirstNonEmpty(string first, string second) =>
-            !string.IsNullOrWhiteSpace(first) ? first.Trim() : (second ?? string.Empty).Trim();
+        private static string FirstNonEmpty(params string[] values)
+        {
+            foreach (var value in values)
+                if (!string.IsNullOrWhiteSpace(value)) return value.Trim();
+            return string.Empty;
+        }
     }
 }
