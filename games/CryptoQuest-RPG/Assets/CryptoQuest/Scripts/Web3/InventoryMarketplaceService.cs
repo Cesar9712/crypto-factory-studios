@@ -21,7 +21,7 @@ namespace CryptoQuest.Web3
             var seller = listing?.seller ?? string.Empty;
             var isSeller = !string.IsNullOrWhiteSpace(walletAddress) && string.Equals(seller, walletAddress, StringComparison.OrdinalIgnoreCase);
             var sameToken = listing != null && listing.tokenId == inventory.TokenId;
-            var active = sameToken && listing.quantity > BigInteger.Zero;
+            var active = sameToken && listing.IsCreated && listing.quantity > BigInteger.Zero;
 
             return new InventoryMarketItem
             {
@@ -52,7 +52,7 @@ namespace CryptoQuest.Web3
                     var key = listing.tokenId.ToString();
                     if (!byToken.TryGetValue(key, out var merged)) continue;
                     var isSeller = string.Equals(listing.seller, walletAddress, StringComparison.OrdinalIgnoreCase);
-                    var active = listing.quantity > BigInteger.Zero;
+                    var active = listing.IsCreated && listing.quantity > BigInteger.Zero;
                     merged.listing = listing;
                     merged.isListed = active;
                     merged.isSeller = isSeller;
