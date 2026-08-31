@@ -64,6 +64,11 @@ def register_tropipay_routes(
         configured = settings.public_base_url.strip().rstrip("/")
         return configured or str(request.base_url).rstrip("/")
 
+    def webhook_base(request: Request) -> str:
+        configured = settings.webhook_base_url.strip().rstrip("/")
+        # Direct backend origin is preferred for server-to-server callbacks.
+        return configured or str(request.base_url).rstrip("/")
+
     def cents(value: str) -> int:
         return int((Decimal(str(value)) * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
@@ -282,7 +287,7 @@ def register_tropipay_routes(
                 currency=settings.tropipay_currency,
                 success_url=f"{base}/billing.html?tropipay=success&order_id={oid}",
                 failed_url=f"{base}/billing.html?tropipay=failed&order_id={oid}",
-                notification_url=f"{base}/api/v1/payments/tropipay/webhook",
+                notification_url=f"{webhook_base(request)}/api/v1/payments/tropipay/webhook",
             )
         except TropiPayError:
             db.execute("UPDATE orders SET status='FAILED' WHERE order_id=?", (oid,))
