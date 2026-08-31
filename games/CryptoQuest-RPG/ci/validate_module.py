@@ -13,6 +13,10 @@ REQUIRED = [
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "ERC1155InventoryService.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceService.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "ThirdwebTransactionController.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadata.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadataLoader.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "IpfsUri.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDtos.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "AI" / "NpcAiClient.cs",
 ]
 
@@ -38,6 +42,7 @@ secret_patterns = [
     re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
     re.compile(r"OPENAI_API_KEY\s*=\s*[^\s\"']+", re.I),
     re.compile(r"THIRDWEB_SECRET", re.I),
+    re.compile(r"PRIVATE_KEY\s*=\s*[^\s\"']+", re.I),
 ]
 for path in ROOT.rglob("*"):
     if not path.is_file() or path.suffix.lower() not in {".cs", ".json", ".md", ".txt", ".xml", ".yml", ".yaml"}:
@@ -50,9 +55,16 @@ for path in ROOT.rglob("*"):
         if pattern.search(text):
             errors.append(f"possible client-side secret in {path.relative_to(ROOT)}")
 
-web3_text = (ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "CryptoQuestWeb3Controller.cs").read_text(encoding="utf-8") if (ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "CryptoQuestWeb3Controller.cs").is_file() else ""
+web3_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "CryptoQuestWeb3Controller.cs"
+web3_text = web3_path.read_text(encoding="utf-8") if web3_path.is_file() else ""
 if "84532" not in web3_text:
     errors.append("Base Sepolia chain id 84532 missing from Web3 controller")
+if "InAppWallet" not in web3_text:
+    errors.append("Thirdweb InAppWallet integration missing")
+
+ipfs_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "IpfsUri.cs"
+if ipfs_path.is_file() and "ipfs://" not in ipfs_path.read_text(encoding="utf-8"):
+    errors.append("IPFS URI resolver is incomplete")
 
 if errors:
     print("CryptoQuest RPG validation FAILED")
