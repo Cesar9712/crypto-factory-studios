@@ -105,8 +105,15 @@ if "LoadRawAsync" not in metadata_text or "ExpandErc1155Uri" not in metadata_tex
 
 marketplace_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceService.cs"
 marketplace_text = marketplace_path.read_text(encoding="utf-8") if marketplace_path.is_file() else ""
-if "getListing" not in marketplace_text or "buyFromListing" not in marketplace_text:
-    errors.append("Marketplace V3 read/buy integration missing")
+for marker in ("getListing", "buyFromListing", "MarketplaceListingDecoder.Decode", "(object)listing"):
+    if marker not in marketplace_text:
+        errors.append(f"Marketplace V3 integration missing marker: {marker}")
+
+marketplace_dto_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDtos.cs"
+marketplace_dto_text = marketplace_dto_path.read_text(encoding="utf-8") if marketplace_dto_path.is_file() else ""
+for marker in ("listingCreator", "tokenType", "status", "MarketplaceListingDecoder", "IsCreated"):
+    if marker not in marketplace_dto_text:
+        errors.append(f"Marketplace V3 tuple model missing marker: {marker}")
 
 discovery_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDiscoveryService.cs"
 discovery_text = discovery_path.read_text(encoding="utf-8") if discovery_path.is_file() else ""
@@ -116,6 +123,8 @@ if "DiscoverNewestPageAsync" not in discovery_text or "DiscoverActiveListingIdsR
     errors.append("Marketplace paged discovery missing")
 if "Task.WhenAll" not in discovery_text or "MarketplaceListingCache" not in discovery_text:
     errors.append("Marketplace batched/cached discovery missing")
+if "listing.IsCreated" not in discovery_text:
+    errors.append("Marketplace discovery is not filtering CREATED listing status")
 
 panel_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketPanelController.cs"
 panel_text = panel_path.read_text(encoding="utf-8") if panel_path.is_file() else ""
