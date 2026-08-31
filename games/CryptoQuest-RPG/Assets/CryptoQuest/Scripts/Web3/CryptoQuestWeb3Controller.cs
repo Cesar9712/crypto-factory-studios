@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 using System.Threading.Tasks;
 using Thirdweb;
@@ -13,7 +14,9 @@ namespace CryptoQuest.Web3
         [SerializeField] private string inventoryContractAddress = "";
         [SerializeField] private string marketplaceContractAddress = "";
 
-        public IThirdwebWallet ActiveWallet => ThirdwebManager.Instance.ActiveWallet;
+        public string InventoryContractAddress => inventoryContractAddress;
+        public string MarketplaceContractAddress => marketplaceContractAddress;
+        public IThirdwebWallet ActiveWallet => ThirdwebManager.Instance != null ? ThirdwebManager.Instance.ActiveWallet : null;
 
         public async Task<IThirdwebWallet> ConnectGuestAsync()
         {
@@ -41,6 +44,13 @@ namespace CryptoQuest.Web3
             return wallet;
         }
 
+        public IThirdwebWallet RequireWallet()
+        {
+            var wallet = ActiveWallet;
+            if (wallet == null) throw new InvalidOperationException("No Thirdweb wallet is connected.");
+            return wallet;
+        }
+
         public Task<ThirdwebContract> GetInventoryContractAsync()
         {
             RequireAddress(inventoryContractAddress, "Inventory");
@@ -53,10 +63,18 @@ namespace CryptoQuest.Web3
             return ThirdwebManager.Instance.GetContract(marketplaceContractAddress, new BigInteger(BaseSepoliaChainId));
         }
 
+        public void ConfigureContracts(string inventoryAddress, string marketplaceAddress)
+        {
+            RequireAddress(inventoryAddress, "Inventory");
+            RequireAddress(marketplaceAddress, "Marketplace");
+            inventoryContractAddress = inventoryAddress;
+            marketplaceContractAddress = marketplaceAddress;
+        }
+
         private static void RequireAddress(string address, string label)
         {
-            if (string.IsNullOrWhiteSpace(address))
-                throw new System.InvalidOperationException($"{label} contract address is not configured.");
+            if (string.IsNullOrWhiteSpace(address) || !address.StartsWith("0x", StringComparison.OrdinalIgnoreCase) || address.Length != 42)
+                throw new InvalidOperationException($"{label} contract address is not configured or invalid.");
         }
     }
 }
