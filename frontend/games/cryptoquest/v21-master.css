@@ -1,0 +1,432 @@
+/* CryptoQuest RPG V21 Master Visual Layer
+   Additive visual-only layer over the stable V19 runtime + V20 Battle Pass.
+   Source of truth: CryptoQuest AAA Visual System (obsidian / aged bronze / arcane).
+   No gameplay, economy, save, payment, or combat logic is changed here. */
+
+:root{
+  --cq21-void:#0A0B10;
+  --cq21-obsidian:#111319;
+  --cq21-panel:#171A22;
+  --cq21-raised:#1E2430;
+  --cq21-line:#2A3140;
+  --cq21-bronze:#7A5A33;
+  --cq21-gold:#C69B3C;
+  --cq21-gold-hi:#F1D27A;
+  --cq21-text:#F2F1ED;
+  --cq21-soft:#B9BDC8;
+  --cq21-dim:#848B98;
+  --cq21-hp:#B83A3A;
+  --cq21-mana:#4B7BE5;
+  --cq21-energy:#D99B37;
+  --cq21-exp:#7B5CE0;
+  --cq21-good:#3FB98B;
+  --cq21-danger:#C64A4A;
+  --cq21-shadow:0 14px 38px rgba(0,0,0,.58);
+  --cq21-inset:inset 0 1px rgba(255,255,255,.035),inset 0 0 24px rgba(0,0,0,.42);
+}
+
+html[data-cq-visual="v20"]{
+  background:var(--cq21-void);
+  color-scheme:dark;
+}
+
+html[data-cq-visual="v20"] body{
+  background:
+    radial-gradient(ellipse at 50% -8%,rgba(198,155,60,.13),transparent 31%),
+    radial-gradient(circle at 12% 22%,rgba(123,92,224,.07),transparent 28%),
+    linear-gradient(180deg,#08090d 0,var(--cq21-void) 48%,#050608 100%) !important;
+  color:var(--cq21-text);
+}
+
+html[data-cq-visual="v20"] .game-shell{
+  max-width:520px;
+  background:
+    linear-gradient(180deg,rgba(12,13,18,.985),rgba(5,6,8,.995)) !important;
+  border-inline:1px solid rgba(122,90,51,.24);
+  box-shadow:0 0 76px #000;
+}
+
+html[data-cq-visual="v20"] .game-shell::before{
+  opacity:.045;
+  background-image:
+    linear-gradient(45deg,rgba(255,255,255,.22) 25%,transparent 25%),
+    linear-gradient(-45deg,rgba(255,255,255,.16) 25%,transparent 25%);
+  background-size:28px 28px;
+}
+
+/* Typography and hierarchy */
+html[data-cq-visual="v20"] :is(h1,h2,h3,.screen-heading h2,.identity strong,.home-identity strong,.eyebrow,.section-title){
+  letter-spacing:.045em;
+  text-wrap:balance;
+}
+html[data-cq-visual="v20"] :is(p,small,em,.bar-caption,.node-info,.item-card-meta){
+  color:var(--cq21-soft);
+}
+html[data-cq-visual="v20"] :focus-visible{
+  outline:2px solid var(--cq21-gold-hi) !important;
+  outline-offset:2px;
+}
+
+/* Premium surfaces */
+html[data-cq-visual="v20"] :is(
+  .rpg-frame,.content-card,.activity-card,.dungeon-card-v9,.main-quest,.screen-heading,
+  .summary-card,.skill-card,.talent-branch,.build-summary,.mastery-hero,.modifier-banner,
+  .spec-identity,.faction-card,.pet-card,.loadout-card,.target-row,.resist-panel,
+  .advanced-stats,.energy-command,.bastion-recovery,.item-sheet,.settings-modal
+){
+  border-color:color-mix(in srgb,var(--cq21-bronze) 78%,#17130e) !important;
+  background:
+    radial-gradient(circle at 86% 2%,rgba(198,155,60,.055),transparent 30%),
+    linear-gradient(180deg,rgba(23,26,34,.985),rgba(10,11,16,.995)) !important;
+  box-shadow:var(--cq21-inset),var(--cq21-shadow) !important;
+}
+
+html[data-cq-visual="v20"] :is(
+  .content-card,.activity-card,.dungeon-card-v9,.main-quest,.skill-card,.talent-branch,
+  .summary-card,.advanced-stats
+){
+  border-radius:14px !important;
+  overflow:hidden;
+}
+
+html[data-cq-visual="v20"] :is(
+  .content-card,.activity-card,.dungeon-card-v9,.main-quest,.skill-card,.talent-branch,
+  .summary-card
+)::after{
+  content:"";
+  position:absolute;
+  inset:4px;
+  pointer-events:none;
+  border:1px solid rgba(241,210,122,.055);
+  border-radius:10px;
+}
+
+/* Header/HUD */
+html[data-cq-visual="v20"] .player-hud{
+  border-bottom:1px solid rgba(198,155,60,.48) !important;
+  background:
+    radial-gradient(circle at 11% 0,rgba(198,155,60,.08),transparent 23%),
+    linear-gradient(180deg,rgba(10,11,15,.995),rgba(8,9,13,.965)) !important;
+  box-shadow:0 10px 34px rgba(0,0,0,.66) !important;
+}
+html[data-cq-visual="v20"] :is(.avatar,.home-avatar){
+  border-color:var(--cq21-gold) !important;
+  background:radial-gradient(circle at 50% 36%,color-mix(in srgb,var(--class),#fff 4%),#11131a 64%,#07080b) !important;
+  box-shadow:0 0 0 2px rgba(122,90,51,.18),0 0 17px color-mix(in srgb,var(--class),transparent 74%),inset 0 0 18px #000 !important;
+}
+html[data-cq-visual="v20"] .home-resource-strip{
+  border-color:rgba(122,90,51,.58) !important;
+  background:linear-gradient(180deg,#101117,#07080b) !important;
+}
+html[data-cq-visual="v20"] .home-resource-strip>span{
+  min-width:0;
+  border-right-color:rgba(122,90,51,.32) !important;
+  background:linear-gradient(180deg,rgba(30,36,48,.62),rgba(12,13,18,.72)) !important;
+}
+html[data-cq-visual="v20"] .home-resource-strip b{color:var(--cq21-gold-hi)!important}
+html[data-cq-visual="v20"] .home-resource-strip small{color:#a99061!important}
+
+/* Vital bars */
+html[data-cq-visual="v20"] :is(.bar-track,.home-bar-track,.quest-progress,.energy-command>i){
+  border-color:#3f3322 !important;
+  background:#05060a !important;
+  box-shadow:inset 0 2px 6px #000 !important;
+}
+html[data-cq-visual="v20"] .hp :is(.bar-track i,.home-bar-track i),
+html[data-cq-visual="v20"] .home-vital.hp i{
+  background:linear-gradient(90deg,#661620,var(--cq21-hp) 62%,#e65c59)!important;
+}
+html[data-cq-visual="v20"] .mana :is(.bar-track i,.home-bar-track i),
+html[data-cq-visual="v20"] .home-vital.mana i{
+  background:linear-gradient(90deg,#213f81,var(--cq21-mana) 64%,#74b8f4)!important;
+}
+html[data-cq-visual="v20"] .exp :is(.bar-track i,.home-bar-track i),
+html[data-cq-visual="v20"] .home-vital.exp i{
+  background:linear-gradient(90deg,#54349c,var(--cq21-exp) 62%,#c097ff)!important;
+}
+
+/* Hero stage — cinematic without hiding the rest of the mobile home */
+html[data-cq-visual="v20"] .home-hero-stage{
+  min-height:270px;
+  height:clamp(270px,36vh,330px) !important;
+  border:1px solid rgba(198,155,60,.75) !important;
+  border-radius:16px;
+  clip-path:none !important;
+  background:
+    radial-gradient(circle at 50% 21%,color-mix(in srgb,var(--class),transparent 73%),transparent 30%),
+    radial-gradient(ellipse at 50% 88%,rgba(198,155,60,.11),transparent 44%),
+    linear-gradient(180deg,#151820,#08090d 74%) !important;
+  box-shadow:inset 0 0 70px #000,0 14px 34px #000b !important;
+}
+html[data-cq-visual="v20"] .home-hero-stage::before{
+  inset:6px !important;
+  border-color:rgba(241,210,122,.20)!important;
+  border-radius:11px;
+  clip-path:none !important;
+}
+html[data-cq-visual="v20"] .home-hero-stage::after{
+  border-radius:15px;
+  background:
+    radial-gradient(ellipse at 50% 47%,transparent 20%,rgba(0,0,0,.14) 55%,rgba(0,0,0,.82) 114%),
+    linear-gradient(180deg,transparent 47%,rgba(0,0,0,.78)) !important;
+}
+html[data-cq-visual="v20"] .hero-art-slot{
+  width:min(67%,250px) !important;
+  height:108% !important;
+  bottom:-26px !important;
+  filter:drop-shadow(0 14px 11px #000) drop-shadow(0 0 16px color-mix(in srgb,var(--class),transparent 83%)) !important;
+}
+html[data-cq-visual="v20"] .hero-class-mark,
+html[data-cq-visual="v20"] .hero-power{
+  border-color:rgba(198,155,60,.48)!important;
+  background:rgba(9,10,14,.78)!important;
+  backdrop-filter:blur(8px);
+}
+html[data-cq-visual="v20"] .hero-power strong{color:var(--cq21-gold-hi)!important}
+
+/* Home cards and CTA */
+html[data-cq-visual="v20"] .home-vitals{
+  border-radius:12px!important;
+  padding:8px 10px!important;
+}
+html[data-cq-visual="v20"] .main-quest{
+  border-color:rgba(198,155,60,.52)!important;
+  background:
+    radial-gradient(circle at 94% 0,rgba(123,92,224,.08),transparent 35%),
+    linear-gradient(180deg,#171921,#0a0b10)!important;
+}
+html[data-cq-visual="v20"] .main-quest h3{color:var(--cq21-text)!important}
+html[data-cq-visual="v20"] .quest-reward{color:var(--cq21-gold-hi)!important}
+html[data-cq-visual="v20"] .adventure-cta{
+  width:100% !important;
+  min-height:58px !important;
+  display:grid !important;
+  grid-template-columns:42px 1fr 32px !important;
+  align-items:center !important;
+  padding:0 12px !important;
+  border-radius:14px!important;
+  border:1px solid var(--cq21-gold)!important;
+  background:
+    radial-gradient(circle at 50% -60%,rgba(241,210,122,.25),transparent 54%),
+    linear-gradient(180deg,#77511c,#40280e 54%,#211207)!important;
+  box-shadow:inset 0 1px rgba(255,239,189,.22),0 8px 20px #0008,0 0 22px rgba(198,155,60,.12)!important;
+}
+html[data-cq-visual="v20"] .adventure-cta b{
+  color:#fff2ca!important;
+  font-size:clamp(12px,3.4vw,15px)!important;
+  letter-spacing:.08em!important;
+  writing-mode:horizontal-tb!important;
+  white-space:nowrap;
+}
+html[data-cq-visual="v20"] .home-quick{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:8px!important;
+}
+html[data-cq-visual="v20"] .home-quick>button{
+  min-width:0;
+  min-height:82px;
+  border:1px solid rgba(122,90,51,.58)!important;
+  border-radius:14px!important;
+  background:
+    radial-gradient(circle at 18% 18%,rgba(198,155,60,.06),transparent 40%),
+    linear-gradient(180deg,#171a22,#0b0c11)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.025),0 7px 17px #0006!important;
+}
+html[data-cq-visual="v20"] .home-quick>button[data-state="selected"]{
+  border-color:var(--cq21-gold)!important;
+  box-shadow:0 0 18px rgba(198,155,60,.12),inset 0 0 20px rgba(198,155,60,.04)!important;
+}
+html[data-cq-visual="v20"] .home-quick b{color:var(--cq21-text)!important}
+html[data-cq-visual="v20"] .home-quick small{color:var(--cq21-dim)!important}
+
+/* Bottom navigation — exactly six canonical destinations in the runtime */
+html[data-cq-visual="v20"] .bottom-nav{
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:0!important;
+  min-width:0!important;
+  padding-inline:4px!important;
+  border-top:1px solid rgba(198,155,60,.48)!important;
+  background:linear-gradient(180deg,rgba(13,14,19,.985),rgba(5,6,8,.998))!important;
+  box-shadow:0 -10px 30px rgba(0,0,0,.48)!important;
+}
+html[data-cq-visual="v20"] .bottom-nav button{
+  min-width:0!important;
+  overflow:hidden;
+  border-radius:10px!important;
+  color:var(--cq21-dim)!important;
+}
+html[data-cq-visual="v20"] .bottom-nav button span{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:clamp(6px,1.8vw,8px)!important;
+  letter-spacing:.02em!important;
+}
+html[data-cq-visual="v20"] .bottom-nav button.active{
+  color:var(--cq21-gold-hi)!important;
+  background:linear-gradient(180deg,rgba(198,155,60,.09),transparent)!important;
+}
+html[data-cq-visual="v20"] .bottom-nav .nav-icon{
+  width:22px!important;
+  height:22px!important;
+}
+
+/* Inventory */
+html[data-cq-visual="v20"] .bag-tabs,
+html[data-cq-visual="v20"] .hero-tabs{
+  border-radius:12px;
+  background:#0b0c10;
+  border:1px solid rgba(42,49,64,.88);
+}
+html[data-cq-visual="v20"] :is(.bag-tabs,.hero-tabs) button.active{
+  color:var(--cq21-gold-hi)!important;
+  background:linear-gradient(180deg,rgba(122,90,51,.45),rgba(35,25,13,.55))!important;
+}
+html[data-cq-visual="v20"] .inventory-grid{
+  gap:7px!important;
+}
+html[data-cq-visual="v20"] .inventory-slot,
+html[data-cq-visual="v20"] .item-card{
+  border-radius:12px!important;
+  background:linear-gradient(180deg,#181b23,#0b0c11)!important;
+  box-shadow:inset 0 0 14px #0007,0 5px 14px #0005!important;
+}
+html[data-cq-visual="v20"] .item-card:active{transform:scale(.985)}
+html[data-cq-visual="v20"] .item-sheet{
+  border-radius:22px 22px 0 0!important;
+  border-color:rgba(198,155,60,.64)!important;
+}
+
+/* Combat */
+html[data-cq-visual="v20"] :is(.combat-screen,.battle-screen){
+  background:
+    radial-gradient(ellipse at 50% 25%,rgba(198,155,60,.06),transparent 40%),
+    linear-gradient(180deg,#0d0f15,#07080b)!important;
+}
+html[data-cq-visual="v20"] :is(.skill-button,.combat-skill,.combat-actions button,[data-skill]){
+  border-radius:14px!important;
+}
+html[data-cq-visual="v20"] :is(.combat-actions button,[data-combat],[data-skill]){
+  border-color:rgba(122,90,51,.62)!important;
+  background:linear-gradient(180deg,#1b1e27,#0b0c11)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.035),0 6px 14px #0006!important;
+}
+html[data-cq-visual="v20"] :is(.combat-actions button,[data-combat],[data-skill]):active{
+  transform:translateY(1px) scale(.985);
+}
+
+/* Map, activities, crafting */
+html[data-cq-visual="v20"] .map-zone{
+  border-radius:16px!important;
+  background:
+    radial-gradient(circle at 80% 0,rgba(123,92,224,.055),transparent 35%),
+    linear-gradient(180deg,#151820,#090a0e)!important;
+}
+html[data-cq-visual="v20"] .path-step button{
+  border-radius:12px!important;
+  border-color:rgba(122,90,51,.56)!important;
+  background:linear-gradient(90deg,#0b0c10,#15171d)!important;
+}
+html[data-cq-visual="v20"] .path-step.boss button{
+  border-color:rgba(198,74,74,.68)!important;
+  box-shadow:inset 0 0 26px rgba(198,74,74,.07),0 6px 16px #0005!important;
+}
+html[data-cq-visual="v20"] :is(.service-grid,.more-grid)>button{
+  min-width:0;
+  border-radius:13px!important;
+  border-color:rgba(122,90,51,.48)!important;
+  background:linear-gradient(180deg,#171a22,#0a0b0f)!important;
+}
+
+/* Forms */
+html[data-cq-visual="v20"] :is(input,select,textarea){
+  min-width:0;
+  border-color:#394052!important;
+  border-radius:10px!important;
+  background:#0c0e13!important;
+  color:var(--cq21-text)!important;
+}
+html[data-cq-visual="v20"] :is(input,select,textarea):focus{
+  border-color:var(--cq21-gold)!important;
+  box-shadow:0 0 0 2px rgba(198,155,60,.10)!important;
+}
+
+/* Creation */
+html[data-cq-visual="v20"] .creation-screen{
+  background:
+    radial-gradient(circle at 50% 17%,rgba(198,155,60,.09),transparent 24%),
+    radial-gradient(circle at 50% 34%,rgba(123,92,224,.08),transparent 34%);
+}
+html[data-cq-visual="v20"] .brand-rune{
+  border-color:var(--cq21-gold)!important;
+  color:var(--cq21-gold-hi)!important;
+  background:radial-gradient(circle,#2a241a,#111319 58%,#07080b)!important;
+  box-shadow:0 0 34px rgba(198,155,60,.16),inset 0 0 25px #000!important;
+}
+html[data-cq-visual="v20"] .class-card{
+  border-radius:14px!important;
+  background:linear-gradient(135deg,#171a22,#0c0e13)!important;
+}
+html[data-cq-visual="v20"] .class-card.selected{
+  box-shadow:0 0 20px color-mix(in srgb,var(--class),transparent 75%),inset 0 0 28px color-mix(in srgb,var(--class),transparent 92%)!important;
+}
+
+/* Buttons and touch targets */
+html[data-cq-visual="v20"] button{
+  touch-action:manipulation;
+}
+html[data-cq-visual="v20"] :is(.primary,.secondary,.adventure-cta,.rest-button){
+  min-height:48px;
+}
+html[data-cq-visual="v20"] .primary{
+  border-radius:12px!important;
+  border-color:var(--cq21-gold)!important;
+  background:linear-gradient(180deg,#73501e,#38230e 55%,#1e1107)!important;
+  color:#fff0c7!important;
+}
+
+/* Battle pass alignment with master system */
+html[data-cq-visual="v20"] #cq-bp-entry{
+  border-color:var(--cq21-gold)!important;
+  background:linear-gradient(180deg,#23190b,#0d0b08)!important;
+  color:var(--cq21-gold-hi)!important;
+}
+html[data-cq-visual="v20"] #cq-bp-modal{
+  border-color:rgba(198,155,60,.74)!important;
+  background:
+    radial-gradient(circle at 75% 0,var(--bp-glow,rgba(123,92,224,.18)),transparent 31%),
+    linear-gradient(165deg,#171921,#08090d 50%,#040507)!important;
+}
+
+/* Responsive safety gates */
+@media(max-width:420px){
+  html[data-cq-visual="v20"] .home-hero-stage{
+    min-height:258px!important;
+    height:clamp(258px,34.5vh,306px)!important;
+  }
+  html[data-cq-visual="v20"] .home-quick>button{min-height:76px!important}
+  html[data-cq-visual="v20"] .screen{padding-inline:7px!important}
+  html[data-cq-visual="v20"] :is(.service-grid,.more-grid){gap:7px!important}
+}
+@media(max-width:375px){
+  html[data-cq-visual="v20"] .home-hero-stage{
+    min-height:242px!important;
+    height:242px!important;
+  }
+  html[data-cq-visual="v20"] .adventure-cta b{font-size:11px!important;letter-spacing:.055em!important}
+  html[data-cq-visual="v20"] .bottom-nav .nav-icon{width:20px!important;height:20px!important}
+  html[data-cq-visual="v20"] .bottom-nav button span{font-size:6px!important}
+}
+@media(min-width:700px){
+  html[data-cq-visual="v20"] .game-shell{max-width:560px}
+  html[data-cq-visual="v20"] .home-hero-stage{height:350px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-cq-visual="v20"] *,html[data-cq-visual="v20"] *::before,html[data-cq-visual="v20"] *::after{
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    scroll-behavior:auto!important;
+  }
+}
