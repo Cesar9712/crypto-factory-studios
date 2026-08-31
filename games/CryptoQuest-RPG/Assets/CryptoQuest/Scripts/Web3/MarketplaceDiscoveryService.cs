@@ -8,31 +8,47 @@ namespace CryptoQuest.Web3
     public sealed class MarketplaceDiscoveryService
     {
         private readonly MarketplaceService marketplace;
+        private readonly MarketplaceListingCache cache;
 
-        public MarketplaceDiscoveryService(MarketplaceService marketplaceService)
+        public MarketplaceDiscoveryService(MarketplaceService marketplaceService, MarketplaceListingCache listingCache = null)
         {
             marketplace = marketplaceService ?? throw new ArgumentNullException(nameof(marketplaceService));
+            cache = listingCache ?? new MarketplaceListingCache();
         }
 
-        public async Task<List<BigInteger>> DiscoverActiveListingIdsAsync(int maxListingsToScan = 500)
+        public async Task<List<BigInteger>> DiscoverActiveListingIdsAsync(int maxListingsToScan = 500, bool forceRefresh = false)
         {
             if (maxListingsToScan <= 0) throw new ArgumentOutOfRangeException(nameof(maxListingsToScan));
+            if (!forceRefresh && cache.TryGet(out var cached)) return new List<BigInteger>(cached);
+
             var total = await marketplace.TotalListingsAsync();
             var capped = BigInteger.Min(total, new BigInteger(maxListingsToScan));
             var start = total > capped ? total - capped : BigInteger.Zero;
-            return await DiscoverActiveListingIdsRangeAsync(start, total);
+            var result = await DiscoverActiveListingIdsRangeAsync(start, total);
+            cache.Store(result);
+            return result;
         }
 
-        public async Task<List<BigInteger>> DiscoverActiveListingIdsRangeAsync(BigInteger startInclusive, BigInteger endExclusive)
+        public async Task<List<BigInteger>> DiscoverActiveListingIdsRangeAsync(BigInteger startInclusive, BigInteger endExclusive, int batchSize = 8)
         {
             if (startInclusive < BigInteger.Zero) throw new ArgumentOutOfRangeException(nameof(startInclusive));
             if (endExclusive < startInclusive) throw new ArgumentOutOfRangeException(nameof(endExclusive));
+            if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
 
             var result = new List<BigInteger>();
-            for (var id = startInclusive; id < endExclusive; id += BigInteger.One)
+            for (var cursor = startInclusive; cursor < endExclusive; cursor += batchSize)
             {
-                var listing = await TryGetActiveListingAsync(id);
-                if (listing != null) result.Add(id);
+                var batchEnd = BigInteger.Min(endExclusive, cursor + batchSize);
+                var tasks = new List<Task<KeyValuePair<BigInteger, MarketplaceListingView>>>();
+                for (var id = cursor; id < batchEnd; id += BigInteger.One)
+                {
+                    var captured = id;
+                    tasks.Add(ReadPairAsync(captured));
+                }
+
+                var rows = await Task.WhenAll(tasks);
+                foreach (var row in rows)
+                    if (row.Value != null) result.Add(row.Key);
             }
             return result;
         }
@@ -60,6 +76,13 @@ namespace CryptoQuest.Web3
             {
                 return null;
             }
+        }
+
+        public void InvalidateCache() => cache.Invalidate();
+
+        private async Task<KeyValuePair<BigInteger, MarketplaceListingView>> ReadPairAsync(BigInteger listingId)
+        {
+            return new KeyValuePair<BigInteger, MarketplaceListingView>(listingId, await TryGetActiveListingAsync(listingId));
         }
     }
 }
