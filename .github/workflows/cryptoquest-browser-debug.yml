@@ -24,9 +24,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Syntax check canonical runtime
+      - name: Syntax check current monolithic runtime
+        shell: bash
         run: |
-          find frontend/games/cryptoquest/core frontend/games/cryptoquest/systems frontend/games/cryptoquest/player frontend/games/cryptoquest/world frontend/games/cryptoquest/ui frontend/games/cryptoquest/scripts frontend/games/cryptoquest/src -name '*.js' -print0 | xargs -0 -n1 node --check
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('frontend/games/cryptoquest/game.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,flags=re.I|re.S)
+          Path('/tmp/cryptoquest-inline.mjs').write_text('\n'.join(scripts),encoding='utf-8')
+          PY
+          node --check /tmp/cryptoquest-inline.mjs
+          node --check frontend/games/cryptoquest/v20-battle-pass.js
+          test -s frontend/games/cryptoquest/v21-master.css
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null 2>&1
@@ -36,7 +47,7 @@ jobs:
         run: |
           python3 -m http.server 4173 --directory frontend >/tmp/cq-http.log 2>&1 &
           sleep 2
-      - name: Verify canonical V5 browser runtime on mobile viewports
+      - name: Verify local browser runtime on mobile viewports
         shell: bash
         run: |
           cat > cq-browser-probe.mjs <<'JS'
@@ -44,54 +55,79 @@ jobs:
           const browser=await chromium.launch({headless:true});
           const sizes=[{width:360,height:800},{width:390,height:844},{width:412,height:915}];
           let failed=false;
+
           async function clickText(page,re){
             const list=page.locator('button:visible');
             for(let i=0,n=await list.count();i<n;i++){
-              const b=list.nth(i);const t=(await b.innerText()).replace(/\s+/g,' ').trim();
-              re.lastIndex=0;if(re.test(t)){await b.click();return true;}
+              const b=list.nth(i);
+              const t=(await b.innerText()).replace(/\s+/g,' ').trim();
+              re.lastIndex=0;
+              if(re.test(t)){await b.click();return true;}
             }
             return false;
           }
+
           for(const size of sizes){
             const context=await browser.newContext({viewport:size,isMobile:true,hasTouch:true});
-            const page=await context.newPage();const errors=[];
+            const page=await context.newPage();
+            const errors=[];
             page.on('pageerror',e=>errors.push(String(e.stack||e.message||e)));
-            const response=await page.goto(`http://127.0.0.1:4173/games/cryptoquest/?browser-v5=${size.width}`,{waitUntil:'load',timeout:30000});
-            await page.waitForFunction(()=>window.CQArchitecture?.version==='5.0.0-canonical',{timeout:12000}).catch(()=>{});
-            await page.waitForTimeout(900);
-            let state=await page.evaluate(()=>({
-              version:window.CQArchitecture?.version||'',
-              architectureVersion:window.CQArchitecture?.store?.select?.(s=>s.meta?.architectureVersion)||null,
-              services:Object.keys(window.CQArchitecture?.services||{}),
-              machines:Object.keys(window.CQArchitecture?.machines||{}),
-              loaderError:document.getElementById('err')?.textContent||'',
+
+            const response=await page.goto(
+              `http://127.0.0.1:4173/games/cryptoquest/game.html?browser-v21=${size.width}`,
+              {waitUntil:'load',timeout:30000}
+            );
+            await page.waitForTimeout(700);
+
+            const start=await page.evaluate(()=>({
+              title:document.title,
+              text:(document.body?.innerText||'').replace(/\s+/g,' ').slice(0,1200),
               overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),
-              text:(document.body?.innerText||'').replace(/\s+/g,' ').slice(0,1200)
+              input:!!document.querySelector('input:not([type="hidden"])')
             }));
-            const required=['navigation','energy','inventory','equipment','economy','skills','quests','talents','worldMap','player'];
-            if(response?.status()!==200||errors.length||state.loaderError||state.version!=='5.0.0-canonical'||state.architectureVersion!==5||!required.every(k=>state.services.includes(k))||!state.machines.includes('combat')||state.overflow>4){
-              console.error('BOOT_FAIL',size,state,errors);failed=true;await context.close();continue;
+
+            if(response?.status()!==200||errors.length||start.overflow>4||!start.input||!/Elige tu destino/i.test(start.text)){
+              console.error('BOOT_FAIL',size,start,errors);
+              failed=true;await context.close();continue;
             }
+
             const input=page.locator('input:visible').first();
-            if(await input.count()){
-              await input.fill(`BrowserHero${size.width}`);
-              if(!await clickText(page,/continuar|siguiente|aceptar/i)){failed=true;await context.close();continue;}
-              await page.waitForTimeout(250);
-              if(!await clickText(page,/guerrero/i)){failed=true;await context.close();continue;}
-              await page.waitForTimeout(150);
-              if(!await clickText(page,/comenzar aventura|crear héroe|entrar al juego/i)){failed=true;await context.close();continue;}
-              await page.waitForTimeout(600);
-            }
+            await input.fill(`BrowserHero${size.width}`);
+            if(!await clickText(page,/continuar/i)){failed=true;await context.close();continue;}
+            await page.waitForTimeout(180);
+            if(!await clickText(page,/guerrero/i)){failed=true;await context.close();continue;}
+            await page.waitForTimeout(120);
+            if(!await clickText(page,/comenzar aventura/i)){failed=true;await context.close();continue;}
+            await page.waitForTimeout(650);
+
             const post=await page.evaluate(()=>({
               overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),
               saveKeys:Object.keys(localStorage).filter(k=>/cryptoquest/i.test(k)),
-              text:(document.body?.innerText||'').replace(/\s+/g,' ').slice(0,1400)
+              nav:[...document.querySelectorAll('.bottom-nav > button')].map(x=>(x.textContent||'').trim()),
+              cta:!![...document.querySelectorAll('button')].find(x=>/CONTINUAR AVENTURA/i.test(x.textContent||'')),
+              text:(document.body?.innerText||'').replace(/\s+/g,' ').slice(0,1800)
             }));
-            if(errors.length||post.overflow>4||post.saveKeys.length===0||!/INICIO|AVENTURA|HÉROE|BrowserHero/i.test(post.text)){
-              console.error('POST_CREATE_FAIL',size,post,errors);failed=true;
+
+            if(errors.length||post.overflow>4||post.saveKeys.length<2||post.nav.length!==6||!post.cta||!/INICIO|AVENTURA|HÉROE/i.test(post.text)){
+              console.error('POST_CREATE_FAIL',size,post,errors);
+              failed=true;
+            }
+
+            await page.reload({waitUntil:'load'});
+            await page.waitForTimeout(450);
+            const persisted=await page.evaluate(()=>({
+              text:(document.body?.innerText||'').replace(/\s+/g,' ').slice(0,900),
+              overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth)
+            }));
+            if(/Elige tu destino/i.test(persisted.text)||persisted.overflow>4){
+              console.error('PERSIST_FAIL',size,persisted);
+              failed=true;
             }
             await context.close();
           }
-          await browser.close();if(failed)process.exit(1);
+
+          await browser.close();
+          if(failed)process.exit(1);
+          console.log('CRYPTOQUEST_BROWSER_V21_OK');
           JS
           timeout 150s node cq-browser-probe.mjs
