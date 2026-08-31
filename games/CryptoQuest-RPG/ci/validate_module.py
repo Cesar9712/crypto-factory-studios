@@ -31,6 +31,7 @@ REQUIRED = [
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "AI" / "NpcAiClient.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Diagnostics" / "CryptoQuestRuntimeSmokeTest.cs",
     ROOT / "Assets" / "CryptoQuest" / "Editor" / "AndroidBuild.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Editor" / "InventoryMarketUiBootstrap.cs",
 ]
 
 errors: list[str] = []
@@ -89,11 +90,18 @@ discovery_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "Marketp
 discovery_text = discovery_path.read_text(encoding="utf-8") if discovery_path.is_file() else ""
 if "TotalListingsAsync" not in discovery_text or "DiscoverActiveListingIdsAsync" not in discovery_text:
     errors.append("Marketplace automatic listing discovery missing")
+if "DiscoverNewestPageAsync" not in discovery_text or "DiscoverActiveListingIdsRangeAsync" not in discovery_text:
+    errors.append("Marketplace paged discovery missing")
 
 panel_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketPanelController.cs"
 panel_text = panel_path.read_text(encoding="utf-8") if panel_path.is_file() else ""
 if "MarketplaceDiscoveryService" not in panel_text:
     errors.append("Inventory UI is not wired to automatic marketplace discovery")
+
+bootstrap_path = ROOT / "Assets" / "CryptoQuest" / "Editor" / "InventoryMarketUiBootstrap.cs"
+bootstrap_text = bootstrap_path.read_text(encoding="utf-8") if bootstrap_path.is_file() else ""
+if "Build Inventory Marketplace" not in bootstrap_text or "InventoryMarketItem.prefab" not in bootstrap_text:
+    errors.append("Production inventory prefab/scene bootstrap missing")
 
 receipt_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TransactionReceiptNormalizer.cs"
 if receipt_path.is_file() and "transactionHash" not in receipt_path.read_text(encoding="utf-8"):
