@@ -10,9 +10,13 @@ REQUIRED = [
     ROOT / "ProjectSettings" / "ProjectVersion.txt",
     ROOT / "Packages" / "manifest.json",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "CryptoQuestWeb3Controller.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "Web3RuntimeConfig.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "RuntimeConfigLoader.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "ThirdwebClientIdInjector.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "ERC1155InventoryService.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceService.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDiscoveryService.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceListingCache.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenAmountFormatter.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "ThirdwebTransactionController.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadata.cs",
@@ -30,8 +34,10 @@ REQUIRED = [
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "MarketplaceActionController.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "AI" / "NpcAiClient.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Diagnostics" / "CryptoQuestRuntimeSmokeTest.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Diagnostics" / "CryptoQuestEndToEndSmokeTest.cs",
     ROOT / "Assets" / "CryptoQuest" / "Editor" / "AndroidBuild.cs",
     ROOT / "Assets" / "CryptoQuest" / "Editor" / "InventoryMarketUiBootstrap.cs",
+    ROOT / "Assets" / "StreamingAssets" / "cryptoquest.runtime.example.json",
 ]
 
 errors: list[str] = []
@@ -76,6 +82,12 @@ if "84532" not in web3_text:
 if "InAppWallet" not in web3_text:
     errors.append("Thirdweb InAppWallet integration missing")
 
+runtime_loader = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "RuntimeConfigLoader.cs"
+runtime_text = runtime_loader.read_text(encoding="utf-8") if runtime_loader.is_file() else ""
+for env_name in ("CRYPTOQUEST_THIRDWEB_CLIENT_ID", "CRYPTOQUEST_ERC1155_ADDRESS", "CRYPTOQUEST_MARKETPLACE_ADDRESS"):
+    if env_name not in runtime_text:
+        errors.append(f"runtime config injection missing {env_name}")
+
 metadata_loader = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadataLoader.cs"
 metadata_text = metadata_loader.read_text(encoding="utf-8") if metadata_loader.is_file() else ""
 if "LoadRawAsync" not in metadata_text or "ExpandErc1155Uri" not in metadata_text:
@@ -92,11 +104,13 @@ if "TotalListingsAsync" not in discovery_text or "DiscoverActiveListingIdsAsync"
     errors.append("Marketplace automatic listing discovery missing")
 if "DiscoverNewestPageAsync" not in discovery_text or "DiscoverActiveListingIdsRangeAsync" not in discovery_text:
     errors.append("Marketplace paged discovery missing")
+if "Task.WhenAll" not in discovery_text or "MarketplaceListingCache" not in discovery_text:
+    errors.append("Marketplace batched/cached discovery missing")
 
 panel_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketPanelController.cs"
 panel_text = panel_path.read_text(encoding="utf-8") if panel_path.is_file() else ""
-if "MarketplaceDiscoveryService" not in panel_text:
-    errors.append("Inventory UI is not wired to automatic marketplace discovery")
+if "MarketplaceDiscoveryService" not in panel_text or "RefreshAfterMutationAsync" not in panel_text:
+    errors.append("Inventory UI is not wired to cached discovery invalidation")
 
 bootstrap_path = ROOT / "Assets" / "CryptoQuest" / "Editor" / "InventoryMarketUiBootstrap.cs"
 bootstrap_text = bootstrap_path.read_text(encoding="utf-8") if bootstrap_path.is_file() else ""
