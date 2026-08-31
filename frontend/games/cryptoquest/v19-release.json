@@ -1,0 +1,7 @@
+{
+  "release": "V19 Energy UI Final",
+  "source_commit": "6c3fdbb98f7b33fed22d8fa65e74dccca237eb66",
+  "released_at": "2026-08-27",
+  "energy_safety": "transactional_expedition_refund",
+  "checks": ["mobile_boot", "energy_costs", "offline_regen", "bastion_regen", "energy_progression", "ui_reference_layer", "failed_activity_refund"]
+}
