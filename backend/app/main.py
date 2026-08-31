@@ -17,6 +17,7 @@ from .routes_v03 import register_routes
 from .routes_platform import register_platform_routes
 from .routes_game_edit import register_game_edit_routes
 from .routes_payment_extras import register_payment_extra_routes
+from .routes_cryptoquest_ai import register_cryptoquest_ai_routes
 
 settings=Settings(); db=DB(settings.database_path, settings.database_url); storage=StorageService(settings)
 payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings)
@@ -77,23 +78,16 @@ async def headers(request:Request,call_next):
     finally: REQUEST_SESSION.reset(marker)
     play=request.url.path.startswith('/play/')
     security_headers={
-        'X-Content-Type-Options':'nosniff',
-        'Referrer-Policy':'strict-origin-when-cross-origin',
-        'Permissions-Policy':'camera=(), microphone=(), geolocation=()',
-        'X-Frame-Options':'DENY',
-        'Cross-Origin-Resource-Policy':'cross-origin' if play else 'same-origin',
-        'X-Request-ID':request.headers.get('X-Request-ID') or rid(),
+        'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Permissions-Policy':'camera=(), microphone=(), geolocation=()','X-Frame-Options':'DENY','Cross-Origin-Resource-Policy':'cross-origin' if play else 'same-origin','X-Request-ID':request.headers.get('X-Request-ID') or rid(),
     }
     if play: security_headers['Content-Security-Policy']=PLAY_CSP
-    response.headers.update(security_headers)
-    return response
+    response.headers.update(security_headers); return response
 
 @app.get('/health')
 def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.6.0','git_commit':os.getenv('RENDER_GIT_COMMIT','')}
 @app.get('/ready')
 def ready():
-    db_ok=db.ping(); storage_ok=storage.ping()
-    provider_status=payment_verifier.status() if settings.payments_mode=='PRODUCTION' else {}
+    db_ok=db.ping(); storage_ok=storage.ping(); provider_status=payment_verifier.status() if settings.payments_mode=='PRODUCTION' else {}
     payments_ready=(all(provider_status.get(m.method_id,False) for m in payment_methods.values() if m.enabled and m.production_allowed) if settings.payments_mode=='PRODUCTION' else True)
     payload={'ready':bool(db_ok and storage_ok),'environment':settings.environment,'payments_mode':settings.payments_mode,'payments_ready':payments_ready,'upload_scan_engine':'external-required' if settings.antivirus_required else 'built-in-static','external_antivirus_required':settings.antivirus_required,'database_backend':db.backend,'database_persistent':db.persistent,'storage_backend':settings.storage_backend}
     if not payload['ready']: raise HTTPException(503,detail=payload)
@@ -127,3 +121,4 @@ register_routes(app,db=db,settings=settings,payment_methods=payment_methods,pric
 register_platform_routes(app,db=db,settings=settings,scanner=scanner,storage=storage,session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,now=now,sha256_bytes=sha256_bytes,verify_password=verify_password)
 register_game_edit_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
 register_payment_extra_routes(app,db=db,settings=settings,payment_methods=payment_methods,session_user=session_user,fail=fail)
+register_cryptoquest_ai_routes(app)
