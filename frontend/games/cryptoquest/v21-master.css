@@ -241,6 +241,13 @@ html[data-cq-visual="v20"] .home-quick small{color:var(--cq21-dim)!important}
 
 /* Bottom navigation — exactly six canonical destinations in the runtime */
 html[data-cq-visual="v20"] .bottom-nav{
+  position:absolute!important;
+  z-index:20!important;
+  left:0!important;
+  right:0!important;
+  bottom:0!important;
+  height:calc(64px + var(--safe-bottom))!important;
+  box-sizing:border-box!important;
   display:grid!important;
   grid-template-columns:repeat(6,minmax(0,1fr))!important;
   gap:0!important;
