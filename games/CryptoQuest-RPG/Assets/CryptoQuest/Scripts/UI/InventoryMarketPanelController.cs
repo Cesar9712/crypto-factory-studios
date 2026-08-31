@@ -21,7 +21,8 @@ namespace CryptoQuest.UI
 
         [Header("Discovery")]
         [SerializeField] private string[] tokenIds = Array.Empty<string>();
-        [SerializeField] private string[] listingIds = Array.Empty<string>();
+        [SerializeField] private bool autoDiscoverListings = true;
+        [SerializeField, Min(1)] private int maxListingsToScan = 500;
         [SerializeField] private bool refreshOnEnable = true;
 
         private readonly List<GameObject> spawned = new List<GameObject>();
@@ -45,15 +46,18 @@ namespace CryptoQuest.UI
                 var wallet = web3.RequireWallet();
                 var owner = await wallet.GetAddress();
                 var parsedTokenIds = ParseIds(tokenIds);
-                var parsedListingIds = ParseIds(listingIds);
 
                 var inventoryService = new ERC1155InventoryService(web3);
                 var catalog = new InventoryCatalogService(inventoryService, metadataLoader);
                 var owned = await catalog.LoadOwnedAsync(owner, parsedTokenIds);
 
                 var marketplace = new MarketplaceService(web3);
+                var listingIds = autoDiscoverListings
+                    ? await new MarketplaceDiscoveryService(marketplace).DiscoverActiveListingIdsAsync(maxListingsToScan)
+                    : new List<BigInteger>();
+
                 var merger = new InventoryMarketplaceService(marketplace);
-                var merged = await merger.MergeManyAsync(owned, parsedListingIds, owner);
+                var merged = await merger.MergeManyAsync(owned, listingIds, owner);
 
                 Clear();
                 foreach (var item in merged)
