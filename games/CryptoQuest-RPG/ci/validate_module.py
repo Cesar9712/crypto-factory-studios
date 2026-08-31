@@ -38,6 +38,7 @@ REQUIRED = [
     ROOT / "Assets" / "CryptoQuest" / "Editor" / "AndroidBuild.cs",
     ROOT / "Assets" / "CryptoQuest" / "Editor" / "InventoryMarketUiBootstrap.cs",
     ROOT / "Assets" / "StreamingAssets" / "cryptoquest.runtime.example.json",
+    ROOT / "docs" / "RUNTIME_AND_DEVICE_TEST.md",
 ]
 
 errors: list[str] = []
@@ -83,12 +84,16 @@ if "84532" not in web3_text:
     errors.append("Base Sepolia chain id 84532 missing from Web3 controller")
 if "InAppWallet" not in web3_text:
     errors.append("Thirdweb InAppWallet integration missing")
+if "using Thirdweb.Unity;" not in web3_text:
+    errors.append("Thirdweb Unity v6 manager namespace missing from Web3 controller")
 
 runtime_loader = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "RuntimeConfigLoader.cs"
 runtime_text = runtime_loader.read_text(encoding="utf-8") if runtime_loader.is_file() else ""
 for env_name in ("CRYPTOQUEST_THIRDWEB_CLIENT_ID", "CRYPTOQUEST_ERC1155_ADDRESS", "CRYPTOQUEST_MARKETPLACE_ADDRESS"):
     if env_name not in runtime_text:
         errors.append(f"runtime config injection missing {env_name}")
+if "ThirdwebManager.Instance.Initialize()" not in runtime_text:
+    errors.append("Thirdweb manager is not initialized after runtime Client ID injection")
 
 metadata_loader = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadataLoader.cs"
 metadata_text = metadata_loader.read_text(encoding="utf-8") if metadata_loader.is_file() else ""
@@ -126,6 +131,8 @@ bootstrap_path = ROOT / "Assets" / "CryptoQuest" / "Editor" / "InventoryMarketUi
 bootstrap_text = bootstrap_path.read_text(encoding="utf-8") if bootstrap_path.is_file() else ""
 if "Build Inventory Marketplace" not in bootstrap_text or "InventoryMarketItem.prefab" not in bootstrap_text:
     errors.append("Production inventory prefab/scene bootstrap missing")
+if "using Thirdweb.Unity;" not in bootstrap_text or "AddComponent<ThirdwebManager>" not in bootstrap_text:
+    errors.append("Generated production scene does not include Thirdweb Unity v6 manager")
 
 receipt_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TransactionReceiptNormalizer.cs"
 if receipt_path.is_file() and "transactionHash" not in receipt_path.read_text(encoding="utf-8"):
