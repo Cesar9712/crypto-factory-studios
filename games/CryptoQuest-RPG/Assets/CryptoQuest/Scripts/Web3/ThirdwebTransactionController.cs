@@ -11,10 +11,10 @@ namespace CryptoQuest.Web3
         [SerializeField] private CryptoQuestWeb3Controller web3;
 
         public event Action<string> TransactionStarted;
-        public event Action<string> TransactionSucceeded;
+        public event Action<Web3TransactionResult> TransactionSucceeded;
         public event Action<string, Exception> TransactionFailed;
 
-        public async Task<object> ExecuteContractWriteAsync(ThirdwebContract contract, string methodName, BigInteger weiValue, params object[] parameters)
+        public async Task<Web3TransactionResult> ExecuteContractWriteAsync(ThirdwebContract contract, string methodName, BigInteger weiValue, string contractAddress, params object[] parameters)
         {
             if (contract == null) throw new ArgumentNullException(nameof(contract));
             if (string.IsNullOrWhiteSpace(methodName)) throw new ArgumentException("Method name is required.", nameof(methodName));
@@ -24,8 +24,9 @@ namespace CryptoQuest.Web3
             try
             {
                 var receipt = await contract.Write(web3.RequireWallet(), methodName, weiValue, parameters);
-                TransactionSucceeded?.Invoke(methodName);
-                return receipt;
+                var normalized = TransactionReceiptNormalizer.Normalize(receipt, methodName, contractAddress);
+                TransactionSucceeded?.Invoke(normalized);
+                return normalized;
             }
             catch (Exception ex)
             {
@@ -35,11 +36,7 @@ namespace CryptoQuest.Web3
             }
         }
 
-        public async Task<string> CurrentWalletAddressAsync()
-        {
-            return await web3.RequireWallet().GetAddress();
-        }
-
+        public async Task<string> CurrentWalletAddressAsync() => await web3.RequireWallet().GetAddress();
         public Task<ThirdwebContract> InventoryContractAsync() => web3.GetInventoryContractAsync();
         public Task<ThirdwebContract> MarketplaceContractAsync() => web3.GetMarketplaceContractAsync();
     }
