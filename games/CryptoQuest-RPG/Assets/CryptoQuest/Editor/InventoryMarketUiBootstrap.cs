@@ -1,7 +1,7 @@
 using CryptoQuest.Diagnostics;
 using CryptoQuest.UI;
 using CryptoQuest.Web3;
-using Thirdweb;
+using Thirdweb.Unity;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
