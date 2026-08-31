@@ -92,6 +92,9 @@ runtime_text = runtime_loader.read_text(encoding="utf-8") if runtime_loader.is_f
 for env_name in ("CRYPTOQUEST_THIRDWEB_CLIENT_ID", "CRYPTOQUEST_ERC1155_ADDRESS", "CRYPTOQUEST_MARKETPLACE_ADDRESS"):
     if env_name not in runtime_text:
         errors.append(f"runtime config injection missing {env_name}")
+for fallback_field in ("fallbackClientId", "fallbackInventoryContractAddress", "fallbackMarketplaceContractAddress"):
+    if fallback_field not in runtime_text:
+        errors.append(f"embedded Android runtime fallback missing {fallback_field}")
 if "ThirdwebManager.Instance.Initialize()" not in runtime_text:
     errors.append("Thirdweb manager is not initialized after runtime Client ID injection")
 
@@ -133,6 +136,12 @@ if "Build Inventory Marketplace" not in bootstrap_text or "InventoryMarketItem.p
     errors.append("Production inventory prefab/scene bootstrap missing")
 if "using Thirdweb.Unity;" not in bootstrap_text or "AddComponent<ThirdwebManager>" not in bootstrap_text:
     errors.append("Generated production scene does not include Thirdweb Unity v6 manager")
+
+android_build_path = ROOT / "Assets" / "CryptoQuest" / "Editor" / "AndroidBuild.cs"
+android_text = android_build_path.read_text(encoding="utf-8") if android_build_path.is_file() else ""
+for marker in ("InventoryMarketUiBootstrap.Build()", "InjectProductionConfig", "fallbackClientId", "com.cryptofactorystudios.cryptoquest"):
+    if marker not in android_text:
+        errors.append(f"production Android build wiring missing marker: {marker}")
 
 receipt_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TransactionReceiptNormalizer.cs"
 if receipt_path.is_file() and "transactionHash" not in receipt_path.read_text(encoding="utf-8"):
