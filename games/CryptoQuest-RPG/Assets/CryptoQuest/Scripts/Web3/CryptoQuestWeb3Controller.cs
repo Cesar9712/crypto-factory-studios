@@ -2,6 +2,7 @@ using System;
 using System.Numerics;
 using System.Threading.Tasks;
 using Thirdweb;
+using Thirdweb.Unity;
 using UnityEngine;
 
 namespace CryptoQuest.Web3
@@ -20,6 +21,7 @@ namespace CryptoQuest.Web3
 
         public async Task<IThirdwebWallet> ConnectGuestAsync()
         {
+            RequireManagerReady();
             var options = new WalletOptions(
                 provider: WalletProvider.InAppWallet,
                 chainId: new BigInteger(BaseSepoliaChainId),
@@ -33,6 +35,7 @@ namespace CryptoQuest.Web3
 
         public async Task<IThirdwebWallet> ConnectGoogleAsync()
         {
+            RequireManagerReady();
             var options = new WalletOptions(
                 provider: WalletProvider.InAppWallet,
                 chainId: new BigInteger(BaseSepoliaChainId),
@@ -46,6 +49,7 @@ namespace CryptoQuest.Web3
 
         public IThirdwebWallet RequireWallet()
         {
+            RequireManagerReady();
             var wallet = ActiveWallet;
             if (wallet == null) throw new InvalidOperationException("No Thirdweb wallet is connected.");
             return wallet;
@@ -53,12 +57,14 @@ namespace CryptoQuest.Web3
 
         public Task<ThirdwebContract> GetInventoryContractAsync()
         {
+            RequireManagerReady();
             RequireAddress(inventoryContractAddress, "Inventory");
             return ThirdwebManager.Instance.GetContract(inventoryContractAddress, new BigInteger(BaseSepoliaChainId));
         }
 
         public Task<ThirdwebContract> GetMarketplaceContractAsync()
         {
+            RequireManagerReady();
             RequireAddress(marketplaceContractAddress, "Marketplace");
             return ThirdwebManager.Instance.GetContract(marketplaceContractAddress, new BigInteger(BaseSepoliaChainId));
         }
@@ -69,6 +75,14 @@ namespace CryptoQuest.Web3
             RequireAddress(marketplaceAddress, "Marketplace");
             inventoryContractAddress = inventoryAddress;
             marketplaceContractAddress = marketplaceAddress;
+        }
+
+        private static void RequireManagerReady()
+        {
+            if (ThirdwebManager.Instance == null)
+                throw new InvalidOperationException("ThirdwebManager is missing from the active scene.");
+            if (!ThirdwebManager.Instance.Initialized)
+                throw new InvalidOperationException("ThirdwebManager is not initialized. Apply RuntimeConfigLoader before Web3 calls.");
         }
 
         private static void RequireAddress(string address, string label)
