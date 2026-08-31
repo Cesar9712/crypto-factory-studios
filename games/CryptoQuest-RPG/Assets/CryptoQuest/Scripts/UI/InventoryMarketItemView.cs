@@ -41,7 +41,9 @@ namespace CryptoQuest.UI
 
             var listing = item.listing;
             if (priceText != null)
-                priceText.text = item.isListed && listing != null ? listing.pricePerToken.ToString() : "Not listed";
+                priceText.text = item.isListed && listing != null
+                    ? TokenAmountFormatter.FormatNative(listing.pricePerToken)
+                    : "Not listed";
 
             if (statusText != null)
                 statusText.text = item.isSeller ? "Your listing" : item.isListed ? "Marketplace" : "Inventory";
