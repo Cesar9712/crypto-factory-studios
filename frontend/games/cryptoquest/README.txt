@@ -1,14 +1,7 @@
-CryptoQuest RPG — V21 Master Production
+CryptoQuest RPG — V18.2.1 LayoutFix
 
-Runtime architecture:
-- Stable monolithic V19 gameplay core: game.html
-- V20 premium dark-fantasy and Battle Pass layer
-- V21 master visual layer derived from the CryptoQuest AAA design system
-- Cloudflare Worker edge injection with no-store game delivery
-- Production mobile, core and smoke QA through GitHub Actions
-
+Mounted from CryptoQuest_RPG_V18.2.1_LayoutFix.zip.
 Entry point: /games/cryptoquest/
-Canonical game: /games/cryptoquest/game.html
-
-V21 changes are visual/QA only. Gameplay, saves, battle economy, premium ownership,
-payment verification and reward delivery continue to use the existing stable runtime.
+Compatibility route: /games/cryptoquest/game.html
+Runtime payload: gzip/base64 split across data/p00.txt … data/p11.txt.
+Worker V20/V21 visual injection is bypassed for this standalone build.

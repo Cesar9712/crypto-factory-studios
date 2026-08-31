@@ -65,7 +65,7 @@ async function serveAsset(request,env){
     headers.set('Cache-Control','no-store, max-age=0');
     headers.set('Pragma','no-cache');
     headers.set('X-Content-Type-Options','nosniff');
-    headers.set('X-CryptoQuest-Visual','V20-PREMIUM+V21-MASTER');
+    headers.set('X-CryptoQuest-Visual','V18.2.1-LAYOUTFIX');
   }
 
   if(!isText)return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
@@ -74,9 +74,12 @@ async function serveAsset(request,env){
   let body=(await response.text()).split(LEGACY_PUBLIC_ORIGIN).join(currentOrigin);
 
   if(isCryptoQuest&&type.includes('text/html')){
-    if(!body.includes('/games/cryptoquest/v20-premium.css'))body=injectBeforeLastClosingTag(body,'head',CQ_V20_STYLE);
-    if(!body.includes('/games/cryptoquest/v21-master.css'))body=injectBeforeLastClosingTag(body,'head',CQ_V21_STYLE);
-    if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=injectBeforeLastClosingTag(body,'body',CQ_V20_SCRIPT);
+    const standaloneV1821=body.includes('CQ-V18.2.1-LAYOUTFIX');
+    if(!standaloneV1821){
+      if(!body.includes('/games/cryptoquest/v20-premium.css'))body=injectBeforeLastClosingTag(body,'head',CQ_V20_STYLE);
+      if(!body.includes('/games/cryptoquest/v21-master.css'))body=injectBeforeLastClosingTag(body,'head',CQ_V21_STYLE);
+      if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=injectBeforeLastClosingTag(body,'body',CQ_V20_SCRIPT);
+    }
   }
 
   if(type.includes('text/html')&&!body.includes('/analytics.js')){
