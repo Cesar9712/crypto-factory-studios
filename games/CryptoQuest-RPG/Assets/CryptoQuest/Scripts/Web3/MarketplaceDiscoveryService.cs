@@ -67,7 +67,7 @@ namespace CryptoQuest.Web3
             try
             {
                 var listing = await marketplace.GetListingAsync(listingId);
-                if (listing == null || listing.quantity <= BigInteger.Zero) return null;
+                if (listing == null || !listing.IsCreated || listing.quantity <= BigInteger.Zero) return null;
                 var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var activeByTime = listing.startTimestamp <= now && (listing.endTimestamp <= 0 || now <= listing.endTimestamp);
                 return activeByTime ? listing : null;
