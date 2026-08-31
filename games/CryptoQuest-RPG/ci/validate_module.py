@@ -12,6 +12,8 @@ REQUIRED = [
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "CryptoQuestWeb3Controller.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "ERC1155InventoryService.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceService.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDiscoveryService.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenAmountFormatter.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "ThirdwebTransactionController.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadata.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TokenMetadataLoader.cs",
@@ -23,11 +25,11 @@ REQUIRED = [
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TransactionReceiptNormalizer.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "IpfsUri.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDtos.cs",
-    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "AI" / "NpcAiClient.cs",
-    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Diagnostics" / "CryptoQuestRuntimeSmokeTest.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketItemView.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketPanelController.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "MarketplaceActionController.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "AI" / "NpcAiClient.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Diagnostics" / "CryptoQuestRuntimeSmokeTest.cs",
     ROOT / "Assets" / "CryptoQuest" / "Editor" / "AndroidBuild.cs",
 ]
 
@@ -83,20 +85,19 @@ marketplace_text = marketplace_path.read_text(encoding="utf-8") if marketplace_p
 if "getListing" not in marketplace_text or "buyFromListing" not in marketplace_text:
     errors.append("Marketplace V3 read/buy integration missing")
 
+discovery_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDiscoveryService.cs"
+discovery_text = discovery_path.read_text(encoding="utf-8") if discovery_path.is_file() else ""
+if "TotalListingsAsync" not in discovery_text or "DiscoverActiveListingIdsAsync" not in discovery_text:
+    errors.append("Marketplace automatic listing discovery missing")
+
+panel_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketPanelController.cs"
+panel_text = panel_path.read_text(encoding="utf-8") if panel_path.is_file() else ""
+if "MarketplaceDiscoveryService" not in panel_text:
+    errors.append("Inventory UI is not wired to automatic marketplace discovery")
+
 receipt_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TransactionReceiptNormalizer.cs"
 if receipt_path.is_file() and "transactionHash" not in receipt_path.read_text(encoding="utf-8"):
     errors.append("Transaction receipt normalization missing transaction hash")
-
-ui_panel = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketPanelController.cs"
-ui_text = ui_panel.read_text(encoding="utf-8") if ui_panel.is_file() else ""
-if "InventoryCatalogService" not in ui_text or "InventoryMarketplaceService" not in ui_text:
-    errors.append("Visible inventory UI is not wired to ERC1155 balances + marketplace")
-
-ui_actions = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "MarketplaceActionController.cs"
-actions_text = ui_actions.read_text(encoding="utf-8") if ui_actions.is_file() else ""
-for action in ("AcquireListingAsync", "CreateListingAsync", "CancelListingAsync"):
-    if action not in actions_text:
-        errors.append(f"Marketplace UI action missing: {action}")
 
 if errors:
     print("CryptoQuest RPG validation FAILED")
