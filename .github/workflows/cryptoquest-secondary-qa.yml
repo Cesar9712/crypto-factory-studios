@@ -76,10 +76,14 @@ jobs:
               throw new Error(`Back button hit target invalid on ${label}: ${JSON.stringify(result)}`);
           }
 
+          async function applyProductionVisual(){
+            await page.evaluate(()=>{document.documentElement.dataset.cqVisual='v20';});
+            await page.addStyleTag({url:'http://127.0.0.1:4173/games/cryptoquest/v20-premium.css'});
+            await page.addStyleTag({url:'http://127.0.0.1:4173/games/cryptoquest/v21-master.css'});
+          }
+
           await page.goto('http://127.0.0.1:4173/games/cryptoquest/game.html?secondary=v21',{waitUntil:'load',timeout:30000});
-          await page.evaluate(()=>{document.documentElement.dataset.cqVisual='v20';});
-          await page.addStyleTag({url:'http://127.0.0.1:4173/games/cryptoquest/v20-premium.css'});
-          await page.addStyleTag({url:'http://127.0.0.1:4173/games/cryptoquest/v21-master.css'});
+          await applyProductionVisual();
           await page.waitForTimeout(700);
           let s=await assertClean('CREATE_START');
           const input=page.locator('input:visible').first();
@@ -95,7 +99,8 @@ jobs:
           if(!s.storage.includes('cryptoquest-rpg-save-v1')||!s.storage.includes('cryptoquest-rpg-save-v1-backup'))throw new Error('Primary/backup save keys missing');
 
           await page.reload({waitUntil:'load'});
-          await page.waitForTimeout(4500);
+          await applyProductionVisual();
+          await page.waitForTimeout(700);
           s=await assertClean('AFTER_RELOAD');
           if(!/PersistenceHer/i.test(s.text)||/elige tu destino/i.test(s.text))throw new Error('Persistence failed after reload');
 
