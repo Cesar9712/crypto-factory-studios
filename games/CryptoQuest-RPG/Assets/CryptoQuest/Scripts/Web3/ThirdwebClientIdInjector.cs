@@ -13,23 +13,32 @@ namespace CryptoQuest.Web3
             var manager = ThirdwebManager.Instance;
             if (manager == null) return false;
 
-            var type = manager.GetType();
             foreach (var name in new[] { "ClientId", "clientId", "clientID", "ClientID" })
             {
-                var property = type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (property != null && property.CanWrite && property.PropertyType == typeof(string))
+                var type = manager.GetType();
+                while (type != null)
                 {
-                    property.SetValue(manager, clientId.Trim());
-                    Debug.Log("[CryptoQuest/Web3] Thirdweb Client ID injected into manager property.");
-                    return true;
-                }
+                    var property = type.GetProperty(
+                        name,
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    if (property != null && property.CanWrite && property.PropertyType == typeof(string))
+                    {
+                        property.SetValue(manager, clientId.Trim());
+                        Debug.Log("[CryptoQuest/Web3] Thirdweb Client ID injected into manager property.");
+                        return true;
+                    }
 
-                var field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (field != null && field.FieldType == typeof(string))
-                {
-                    field.SetValue(manager, clientId.Trim());
-                    Debug.Log("[CryptoQuest/Web3] Thirdweb Client ID injected into manager field.");
-                    return true;
+                    var field = type.GetField(
+                        name,
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    if (field != null && field.FieldType == typeof(string))
+                    {
+                        field.SetValue(manager, clientId.Trim());
+                        Debug.Log("[CryptoQuest/Web3] Thirdweb Client ID injected into manager field.");
+                        return true;
+                    }
+
+                    type = type.BaseType;
                 }
             }
 
