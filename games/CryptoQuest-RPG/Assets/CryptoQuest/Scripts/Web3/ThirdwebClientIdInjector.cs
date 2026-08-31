@@ -1,6 +1,6 @@
 using System;
 using System.Reflection;
-using Thirdweb;
+using Thirdweb.Unity;
 using UnityEngine;
 
 namespace CryptoQuest.Web3
