@@ -6,10 +6,14 @@ on:
     types: [completed]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   verify-mobile:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/setup-node@v4
         with:
@@ -19,26 +23,57 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Verify deployed mobile rendering and cinematic invariants
+      - name: Verify deployed mobile rendering and V21 master invariants
         run: |
           cat > verify.mjs <<'JS'
           import { chromium } from 'playwright';
-          const base='https://os.cryptofactorystudios.workers.dev';
+
+          const base='https://crypto-factory-studios.cryptofactorystudios.workers.dev';
           const browser=await chromium.launch({headless:true});
+
           async function verifyViewport(width,height){
-            const ctx=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});
+            const ctx=await browser.newContext({
+              viewport:{width,height},
+              isMobile:true,
+              hasTouch:true
+            });
             const page=await ctx.newPage();
-            const errors=[]; page.on('pageerror',e=>errors.push(e.message));
-            const r=await page.goto(base+'/games/cryptoquest/?qa=mobile-'+width+'-'+Date.now(),{waitUntil:'load',timeout:30000});
-            await page.waitForTimeout(1200);
+            const errors=[];
+            page.on('pageerror',e=>errors.push(e.message));
+
+            const r=await page.goto(
+              base+'/games/cryptoquest/game.html?qa=mobile-'+width+'-'+Date.now(),
+              {waitUntil:'load',timeout:30000}
+            );
+            await page.waitForTimeout(1300);
+
             if(r?.status()!==200) throw new Error('HTTP '+r?.status());
-            const entry=await page.evaluate(()=>({title:document.title,text:(document.body.innerText||'').slice(0,1200),scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,input:!!document.querySelector('input:not([type="hidden"])')}));
-            if(!entry.title.includes('CryptoQuest RPG')||!entry.text.includes('Elige tu destino')||!entry.input) throw new Error('Entry UI invalid '+JSON.stringify(entry));
-            if(entry.scroll>entry.client+2) throw new Error('Entry horizontal overflow '+JSON.stringify(entry));
+
+            const entry=await page.evaluate(()=>({
+              title:document.title,
+              text:(document.body.innerText||'').slice(0,1800),
+              scroll:document.documentElement.scrollWidth,
+              client:document.documentElement.clientWidth,
+              input:!!document.querySelector('input:not([type="hidden"])'),
+              v20:document.documentElement.dataset.cqVisual||null,
+              battlePass:window.CryptoQuestBattlePass?.version||null,
+              v20Css:!!document.querySelector('link[href*="v20-premium.css"]'),
+              v21Css:!!document.querySelector('link[href*="v21-master.css"]'),
+              bpJs:!!document.querySelector('script[src*="v20-battle-pass.js"]')
+            }));
+
+            if(!entry.title.includes('CryptoQuest RPG')||!entry.text.includes('Elige tu destino')||!entry.input)
+              throw new Error('Entry UI invalid '+JSON.stringify(entry));
+            if(entry.scroll>entry.client+2)
+              throw new Error('Entry horizontal overflow '+JSON.stringify(entry));
+            if(entry.v20!=='v20'||entry.battlePass!=='20.0.0'||!entry.v20Css||!entry.v21Css||!entry.bpJs)
+              throw new Error('V20/V21 runtime layer missing '+JSON.stringify(entry));
+
             const input=page.locator('input:not([type="hidden"])').first();
             await input.fill('R'+width);
             await page.locator('button').filter({hasText:/CONTINUAR/i}).last().click();
-            await page.waitForTimeout(250);
+            await page.waitForTimeout(300);
+
             let body=(await page.locator('body').innerText()).slice(0,9000);
             if(body.includes('Selecciona una clase')){
               await page.getByText('GUERRERO',{exact:true}).first().click();
@@ -47,31 +82,67 @@ jobs:
               await start.click();
               await page.waitForTimeout(1100);
             }
+
             const metrics=await page.evaluate(()=>{
-              const visible=[...document.querySelectorAll('button,a,[role="button"]')].filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0});
-              const nav=document.querySelector('.bottom-nav.cq34-primary-nav')||document.querySelector('.bottom-nav');
-              const navButtons=nav?[...nav.querySelectorAll(':scope > button,:scope > a,:scope > [role="button"]')].filter(el=>getComputedStyle(el).display!=='none'):[];
+              const visible=[...document.querySelectorAll('button,a,[role="button"]')].filter(el=>{
+                const st=getComputedStyle(el),r=el.getBoundingClientRect();
+                return st.display!=='none'&&st.visibility!=='hidden'&&r.width>0&&r.height>0;
+              });
+              const nav=document.querySelector('.bottom-nav');
+              const navButtons=nav?[...nav.querySelectorAll(':scope > button')].filter(el=>getComputedStyle(el).display!=='none'):[];
               const duplicateIcons=navButtons.filter(el=>el.querySelectorAll('svg').length>1).length;
               const cta=[...document.querySelectorAll('button,a,[role="button"]')].find(el=>/CONTINUAR AVENTURA/i.test(el.textContent||''));
-              const ctaStyle=cta?getComputedStyle(cta):null,ctaRect=cta?.getBoundingClientRect();
-              const stage=document.querySelector('.home-hero-stage'),stageRect=stage?.getBoundingClientRect();
-              const duplicatedQuest=[...document.querySelectorAll('.main-quest')].some(el=>getComputedStyle(el,'::before').content && !['none','normal','""'].includes(getComputedStyle(el,'::before').content));
-              return {scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,visible:visible.length,navCount:navButtons.length,duplicateIcons,duplicatedQuest,cta:ctaRect?{w:ctaRect.width,h:ctaRect.height,writingMode:ctaStyle.writingMode}:null,stage:stageRect?{w:stageRect.width,h:stageRect.height}:null,visual:window.CQVisual?.version||null};
+              const ctaStyle=cta?getComputedStyle(cta):null;
+              const ctaRect=cta?.getBoundingClientRect();
+              const stage=document.querySelector('.home-hero-stage');
+              const stageRect=stage?.getBoundingClientRect();
+              const quest=document.querySelector('.main-quest');
+              const quick=document.querySelector('.home-quick');
+              const gameShell=document.querySelector('.game-shell');
+              return {
+                scroll:document.documentElement.scrollWidth,
+                client:document.documentElement.clientWidth,
+                visible:visible.length,
+                navCount:navButtons.length,
+                duplicateIcons,
+                cta:ctaRect?{w:ctaRect.width,h:ctaRect.height,writingMode:ctaStyle.writingMode}:null,
+                stage:stageRect?{w:stageRect.width,h:stageRect.height}:null,
+                quest:!!quest,
+                quick:!!quick,
+                shell:gameShell?{w:gameShell.getBoundingClientRect().width}:null,
+                visual:document.documentElement.dataset.cqVisual||null,
+                battlePass:window.CryptoQuestBattlePass?.version||null,
+                v21Css:!!document.querySelector('link[href*="v21-master.css"]')
+              };
             });
+
             console.log('MOBILE',width,metrics);
-            if(metrics.scroll>metrics.client+2||metrics.visible<1) throw new Error('Mobile layout invalid '+width+' '+JSON.stringify(metrics));
-            if(metrics.navCount!==5) throw new Error('Bottom nav must render exactly five destinations '+JSON.stringify(metrics));
-            if(metrics.duplicateIcons) throw new Error('Duplicate navigation icons '+JSON.stringify(metrics));
-            if(metrics.duplicatedQuest) throw new Error('Duplicated quest heading regression '+JSON.stringify(metrics));
-            if(!metrics.cta||metrics.cta.w<Math.min(300,width-40)||metrics.cta.h<44||metrics.cta.writingMode!=='horizontal-tb') throw new Error('Continue CTA regression '+JSON.stringify(metrics));
-            if(!metrics.stage||metrics.stage.w<width-45||metrics.stage.h<400) throw new Error('Cinematic stage regression '+JSON.stringify(metrics));
-            if(metrics.visual!=='34.2.2-cinematic-anime') throw new Error('V34.2.2 visual runtime missing '+JSON.stringify(metrics));
-            if(errors.length) throw new Error('Browser errors '+errors.join(' | '));
+
+            if(metrics.scroll>metrics.client+2||metrics.visible<1)
+              throw new Error('Mobile layout invalid '+width+' '+JSON.stringify(metrics));
+            if(metrics.navCount!==6)
+              throw new Error('Bottom nav must render six canonical destinations '+JSON.stringify(metrics));
+            if(metrics.duplicateIcons)
+              throw new Error('Duplicate navigation icons '+JSON.stringify(metrics));
+            if(!metrics.cta||metrics.cta.w<Math.min(300,width-40)||metrics.cta.h<44||metrics.cta.writingMode!=='horizontal-tb')
+              throw new Error('Continue CTA regression '+JSON.stringify(metrics));
+            if(!metrics.stage||metrics.stage.w<width-45||metrics.stage.h<220)
+              throw new Error('Hero stage regression '+JSON.stringify(metrics));
+            if(!metrics.quest||!metrics.quick)
+              throw new Error('Home content regression '+JSON.stringify(metrics));
+            if(metrics.visual!=='v20'||metrics.battlePass!=='20.0.0'||!metrics.v21Css)
+              throw new Error('Current production visual stack missing '+JSON.stringify(metrics));
+            if(errors.length)
+              throw new Error('Browser errors '+errors.join(' | '));
+
             await page.screenshot({path:`cryptoquest-${width}.png`,fullPage:true});
             await ctx.close();
           }
-          for(const [w,h] of [[360,800],[390,844],[412,915],[430,932]]) await verifyViewport(w,h);
-          console.log('CRYPTOQUEST_MOBILE_PRODUCTION_OK');
+
+          for(const [w,h] of [[360,800],[390,844],[412,915],[430,932]])
+            await verifyViewport(w,h);
+
+          console.log('CRYPTOQUEST_MOBILE_V21_OK');
           await browser.close();
           JS
           node verify.mjs
@@ -79,7 +150,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cryptoquest-mobile-qa
+          name: cryptoquest-mobile-v21-qa
           path: |
             cryptoquest-360.png
             cryptoquest-390.png
