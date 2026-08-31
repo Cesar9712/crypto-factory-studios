@@ -75,6 +75,10 @@ CREATE TABLE IF NOT EXISTS payment_events(
 CREATE TABLE IF NOT EXISTS purchase_history(
  purchase_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,order_id TEXT NOT NULL UNIQUE REFERENCES orders(order_id),
  product_id TEXT NOT NULL,amount TEXT NOT NULL,asset TEXT NOT NULL,network TEXT NOT NULL,transaction_hash TEXT,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS tropipay_payment_links(
+ order_id TEXT PRIMARY KEY REFERENCES orders(order_id) ON DELETE CASCADE,reference TEXT NOT NULL UNIQUE,
+ provider_payment_id TEXT,pay_url TEXT NOT NULL,amount_cents INTEGER NOT NULL,currency TEXT NOT NULL,
+ provider_movement_id TEXT UNIQUE,provider_state TEXT NOT NULL DEFAULT '',raw_json TEXT NOT NULL DEFAULT '{}',updated_at INTEGER NOT NULL);
 '''
 
 class DB:

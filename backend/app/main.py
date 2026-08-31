@@ -17,6 +17,7 @@ from .routes_v03 import register_routes
 from .routes_platform import register_platform_routes
 from .routes_game_edit import register_game_edit_routes
 from .routes_payment_extras import register_payment_extra_routes
+from .routes_tropipay import register_tropipay_routes
 
 settings=Settings(); db=DB(settings.database_path, settings.database_url); storage=StorageService(settings)
 payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings)
@@ -127,3 +128,4 @@ register_routes(app,db=db,settings=settings,payment_methods=payment_methods,pric
 register_platform_routes(app,db=db,settings=settings,scanner=scanner,storage=storage,session_user=session_user,creator_profile=creator_profile,effective_plan=effective_plan,audit=audit,fail=fail,now=now,sha256_bytes=sha256_bytes,verify_password=verify_password)
 register_game_edit_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
 register_payment_extra_routes(app,db=db,settings=settings,payment_methods=payment_methods,session_user=session_user,fail=fail)
+register_tropipay_routes(app,db=db,settings=settings,session_user=session_user,creator_profile=creator_profile,audit=audit,fail=fail,now=now)
