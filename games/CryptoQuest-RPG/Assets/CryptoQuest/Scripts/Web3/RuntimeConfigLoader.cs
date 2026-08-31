@@ -26,6 +26,8 @@ namespace CryptoQuest.Web3
             var config = Load();
             config.Validate();
             if (web3 == null) throw new InvalidOperationException("CryptoQuestWeb3Controller is not assigned.");
+
+            ThirdwebClientIdInjector.TryApply(config.ThirdwebClientId);
             web3.ConfigureContracts(config.InventoryContractAddress, config.MarketplaceContractAddress);
             Current = config;
             Debug.Log("[CryptoQuest/Web3] Runtime config applied for Base Sepolia 84532.");
