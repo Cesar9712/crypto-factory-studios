@@ -48,7 +48,9 @@ for path in REQUIRED:
 manifest_path = ROOT / "Packages" / "manifest.json"
 if manifest_path.is_file():
     try:
-        json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if "com.unity.toolchain.win-x86_64-linux-x86_64" in manifest.get("dependencies", {}):
+            errors.append("unrelated cross-platform toolchain package must not be in the Android Unity module")
     except Exception as exc:
         errors.append(f"invalid Packages/manifest.json: {exc}")
 
@@ -111,6 +113,14 @@ panel_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMark
 panel_text = panel_path.read_text(encoding="utf-8") if panel_path.is_file() else ""
 if "MarketplaceDiscoveryService" not in panel_text or "RefreshAfterMutationAsync" not in panel_text:
     errors.append("Inventory UI is not wired to cached discovery invalidation")
+
+npc_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "AI" / "NpcAiClient.cs"
+npc_text = npc_path.read_text(encoding="utf-8") if npc_path.is_file() else ""
+if "/api/v1/cryptoquest/npc/dialogue" not in npc_text:
+    errors.append("NPC client is not targeting the deployed FastAPI dialogue route")
+for required_field in ("npc_id", "npc_name", "npc_role", "player_id", "player_name", "message", "world_state", "dialogue"):
+    if required_field not in npc_text:
+        errors.append(f"NPC client contract missing field {required_field}")
 
 bootstrap_path = ROOT / "Assets" / "CryptoQuest" / "Editor" / "InventoryMarketUiBootstrap.cs"
 bootstrap_text = bootstrap_path.read_text(encoding="utf-8") if bootstrap_path.is_file() else ""
