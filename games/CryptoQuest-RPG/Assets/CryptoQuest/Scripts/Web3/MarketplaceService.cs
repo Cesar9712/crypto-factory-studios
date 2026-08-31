@@ -14,6 +14,12 @@ namespace CryptoQuest.Web3
             web3 = controller ?? throw new ArgumentNullException(nameof(controller));
         }
 
+        public async Task<MarketplaceListingView> GetListingAsync(BigInteger listingId)
+        {
+            var market = await web3.GetMarketplaceContractAsync();
+            return await market.Read<MarketplaceListingView>("getListing", listingId);
+        }
+
         public async Task<object> CreateListingAsync(BigInteger tokenId, BigInteger quantity, string currency, BigInteger unitPrice, ulong startTime, ulong endTime)
         {
             if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity));
