@@ -1,0 +1,49 @@
+name: CryptoQuest Unity Validate
+
+on:
+  pull_request:
+    paths:
+      - 'games/CryptoQuest-RPG/**'
+      - '.github/workflows/cryptoquest-unity-validate.yml'
+  push:
+    branches: [main, 'feat/cryptoquest-unity-bootstrap']
+    paths:
+      - 'games/CryptoQuest-RPG/**'
+      - '.github/workflows/cryptoquest-unity-validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-cryptoquest-module:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: games/CryptoQuest-RPG
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Unity module structure
+        run: python ci/validate_module.py
+
+      - name: Verify no Unity cache directories are committed
+        run: |
+          test ! -d Library
+          test ! -d Temp
+          test ! -d Logs
+          test ! -d obj
+
+      - name: Validate JSON files
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          for p in pathlib.Path('.').rglob('*.json'):
+              json.loads(p.read_text(encoding='utf-8'))
+              print('OK', p)
+          PY
