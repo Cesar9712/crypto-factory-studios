@@ -26,6 +26,7 @@ namespace CryptoQuest.UI
         [SerializeField] private bool refreshOnEnable = true;
 
         private readonly List<GameObject> spawned = new List<GameObject>();
+        private readonly MarketplaceListingCache listingCache = new MarketplaceListingCache(TimeSpan.FromSeconds(30));
         private bool refreshing;
 
         private async void OnEnable()
@@ -53,7 +54,7 @@ namespace CryptoQuest.UI
 
                 var marketplace = new MarketplaceService(web3);
                 var listingIds = autoDiscoverListings
-                    ? await new MarketplaceDiscoveryService(marketplace).DiscoverActiveListingIdsAsync(maxListingsToScan)
+                    ? await new MarketplaceDiscoveryService(marketplace, listingCache).DiscoverActiveListingIdsAsync(maxListingsToScan)
                     : new List<BigInteger>();
 
                 var merger = new InventoryMarketplaceService(marketplace);
@@ -78,9 +79,15 @@ namespace CryptoQuest.UI
             }
         }
 
-        private void HandleBuy(InventoryMarketItem item) => actions?.Buy(item, RefreshAsync);
-        private void HandleSell(InventoryMarketItem item) => actions?.Sell(item, RefreshAsync);
-        private void HandleCancel(InventoryMarketItem item) => actions?.Cancel(item, RefreshAsync);
+        public async Task RefreshAfterMutationAsync()
+        {
+            listingCache.Invalidate();
+            await RefreshAsync();
+        }
+
+        private void HandleBuy(InventoryMarketItem item) => actions?.Buy(item, RefreshAfterMutationAsync);
+        private void HandleSell(InventoryMarketItem item) => actions?.Sell(item, RefreshAfterMutationAsync);
+        private void HandleCancel(InventoryMarketItem item) => actions?.Cancel(item, RefreshAfterMutationAsync);
 
         private void Clear()
         {
