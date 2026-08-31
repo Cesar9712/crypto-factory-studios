@@ -10,10 +10,11 @@ namespace CryptoQuest.Web3
         public const string ClientIdEnv = "CRYPTOQUEST_THIRDWEB_CLIENT_ID";
         public const string InventoryEnv = "CRYPTOQUEST_ERC1155_ADDRESS";
         public const string MarketplaceEnv = "CRYPTOQUEST_MARKETPLACE_ADDRESS";
+        public const string DefaultPublicThirdwebClientId = "b19e8594941d986314344c8576e7b0c3";
 
         [SerializeField] private CryptoQuestWeb3Controller web3;
         [SerializeField] private string streamingAssetsFileName = "cryptoquest.runtime.json";
-        [SerializeField] private string fallbackClientId = string.Empty;
+        [SerializeField] private string fallbackClientId = DefaultPublicThirdwebClientId;
         [SerializeField] private string fallbackInventoryContractAddress = string.Empty;
         [SerializeField] private string fallbackMarketplaceContractAddress = string.Empty;
         [SerializeField] private bool applyOnAwake = true;
@@ -47,7 +48,7 @@ namespace CryptoQuest.Web3
         public Web3RuntimeConfig Load()
         {
             var fileConfig = LoadFile();
-            var clientId = FirstNonEmpty(Environment.GetEnvironmentVariable(ClientIdEnv), fileConfig?.ThirdwebClientId, fallbackClientId);
+            var clientId = FirstNonEmpty(Environment.GetEnvironmentVariable(ClientIdEnv), fileConfig?.ThirdwebClientId, fallbackClientId, DefaultPublicThirdwebClientId);
             var inventory = FirstNonEmpty(Environment.GetEnvironmentVariable(InventoryEnv), fileConfig?.InventoryContractAddress, fallbackInventoryContractAddress);
             var marketplace = FirstNonEmpty(Environment.GetEnvironmentVariable(MarketplaceEnv), fileConfig?.MarketplaceContractAddress, fallbackMarketplaceContractAddress);
             return Web3RuntimeConfig.Create(clientId, inventory, marketplace);
