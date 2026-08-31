@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Threading.Tasks;
 using Thirdweb;
@@ -17,7 +18,8 @@ namespace CryptoQuest.Web3
         public async Task<MarketplaceListingView> GetListingAsync(BigInteger listingId)
         {
             var market = await web3.GetMarketplaceContractAsync();
-            return await market.Read<MarketplaceListingView>("getListing", listingId);
+            var raw = await market.Read<List<object>>("getListing", listingId);
+            return MarketplaceListingDecoder.Decode(raw);
         }
 
         public async Task<object> CreateListingAsync(BigInteger tokenId, BigInteger quantity, string currency, BigInteger unitPrice, ulong startTime, ulong endTime)
@@ -26,8 +28,20 @@ namespace CryptoQuest.Web3
             if (endTime <= startTime) throw new ArgumentException("Invalid listing window.");
             var wallet = web3.RequireWallet();
             var market = await web3.GetMarketplaceContractAsync();
-            object[] listing = { web3.InventoryContractAddress, tokenId, quantity, currency, unitPrice, new BigInteger(startTime), new BigInteger(endTime), false };
-            return await market.Write(wallet, "createListing", BigInteger.Zero, listing);
+            object[] listing =
+            {
+                web3.InventoryContractAddress,
+                tokenId,
+                quantity,
+                currency,
+                unitPrice,
+                new BigInteger(startTime),
+                new BigInteger(endTime),
+                false
+            };
+
+            // createListing accepts exactly one tuple parameter. Casting prevents C# params expansion.
+            return await market.Write(wallet, "createListing", BigInteger.Zero, (object)listing);
         }
 
         public async Task<object> CancelListingAsync(BigInteger listingId)
