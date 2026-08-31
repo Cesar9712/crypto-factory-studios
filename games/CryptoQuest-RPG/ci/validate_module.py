@@ -25,6 +25,9 @@ REQUIRED = [
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "MarketplaceDtos.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "AI" / "NpcAiClient.cs",
     ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Diagnostics" / "CryptoQuestRuntimeSmokeTest.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketItemView.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketPanelController.cs",
+    ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "MarketplaceActionController.cs",
     ROOT / "Assets" / "CryptoQuest" / "Editor" / "AndroidBuild.cs",
 ]
 
@@ -83,6 +86,17 @@ if "getListing" not in marketplace_text or "buyFromListing" not in marketplace_t
 receipt_path = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "Web3" / "TransactionReceiptNormalizer.cs"
 if receipt_path.is_file() and "transactionHash" not in receipt_path.read_text(encoding="utf-8"):
     errors.append("Transaction receipt normalization missing transaction hash")
+
+ui_panel = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "InventoryMarketPanelController.cs"
+ui_text = ui_panel.read_text(encoding="utf-8") if ui_panel.is_file() else ""
+if "InventoryCatalogService" not in ui_text or "InventoryMarketplaceService" not in ui_text:
+    errors.append("Visible inventory UI is not wired to ERC1155 balances + marketplace")
+
+ui_actions = ROOT / "Assets" / "CryptoQuest" / "Scripts" / "UI" / "MarketplaceActionController.cs"
+actions_text = ui_actions.read_text(encoding="utf-8") if ui_actions.is_file() else ""
+for action in ("AcquireListingAsync", "CreateListingAsync", "CancelListingAsync"):
+    if action not in actions_text:
+        errors.append(f"Marketplace UI action missing: {action}")
 
 if errors:
     print("CryptoQuest RPG validation FAILED")
