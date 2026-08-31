@@ -83,6 +83,8 @@ class Settings:
         if self.environment not in {'development','test','production'}: raise RuntimeError('Invalid CFS_ENV')
         if self.storage_backend not in {'local','s3'}: raise RuntimeError('Invalid CFS_STORAGE_BACKEND')
         if self.tropipay_environment not in {'sandbox','production'}: raise RuntimeError('Invalid CFS_TROPIPAY_ENV')
+        if self.tropipay_environment == 'production' and 'sandbox.tropipay.me' in self.tropipay_api_base_url: raise RuntimeError('Production TropiPay cannot use the sandbox API URL')
+        if self.tropipay_environment == 'sandbox' and 'www.tropipay.com/api/v3' in self.tropipay_api_base_url: raise RuntimeError('Sandbox TropiPay cannot use the production API URL')
         if self.tropipay_currency not in {'USD','EUR','USDC'}: raise RuntimeError('Invalid CFS_TROPIPAY_CURRENCY')
         if self.tropipay_timeout_seconds <= 0: raise RuntimeError('CFS_TROPIPAY_TIMEOUT_SECONDS must be positive')
         if self.tropipay_enabled and (not self.tropipay_client_id or not self.tropipay_client_secret): raise RuntimeError('TropiPay enabled but API credentials are missing')
