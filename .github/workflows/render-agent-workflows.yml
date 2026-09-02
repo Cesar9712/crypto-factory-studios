@@ -1,0 +1,48 @@
+name: Render agent workflows contract
+
+on:
+  pull_request:
+    paths:
+      - "workflows/**"
+      - "docs/RENDER_AGENT_AUTOMATION.md"
+      - ".github/workflows/render-agent-workflows.yml"
+  push:
+    branches: [main]
+    paths:
+      - "workflows/**"
+      - ".github/workflows/render-agent-workflows.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install workflow dependencies
+        run: pip install -r workflows/requirements.txt
+
+      - name: Compile workflow modules
+        run: python -m py_compile workflows/main.py workflows/sandbox_qa.py
+
+      - name: Verify task registration
+        run: |
+          python - <<'PY'
+          from workflows.main import app
+
+          names = set(app._registry.get_task_names())
+          expected = {
+              "backend_health",
+              "edge_health",
+              "repository_qa",
+              "maintenance_cycle",
+          }
+          missing = expected - names
+          if missing:
+              raise SystemExit(f"missing workflow tasks: {sorted(missing)}")
+          print("registered:", ", ".join(sorted(names)))
+          PY
