@@ -197,7 +197,7 @@ def register_bitshelf_routes(app, *, db, settings, session_user: Callable, fail:
         user,_=session_user(authorization)
         try:
             ticket=_decode_ticket(settings,token)
-        except ValueError as exc:
+        except Exception as exc:
             fail("invalid_download_link",str(exc),403)
         if ticket.get("u")!=user["id"]:
             fail("download_owner_mismatch","This download link belongs to another account",403)
