@@ -1,4 +1,4 @@
-lines=1 chars=1513
+lines=50 chars=2300
 
 ## energy
 
