@@ -110,6 +110,8 @@ class ProductionBlockchainVerifier:
                 return self._verify_tron(method, txid, expected_amount)
             if method.method_id == 'usdt_bsc':
                 return self._verify_bsc(method, txid, expected_amount)
+            if method.method_id == 'usdc_base':
+                return self._verify_base(method, txid, expected_amount)
             if method.method_id == 'sol':
                 return self._verify_solana(method, txid, expected_amount)
             return {'status': 'FAILED', 'success': False, 'reason': 'unsupported_method', 'txid': txid}
@@ -223,6 +225,56 @@ class ProductionBlockchainVerifier:
         if reason: result['reason']=reason
         return result
 
+    def _verify_base(self, method, txid: str, expected: Decimal) -> dict[str, Any]:
+        if not re.fullmatch(r'0x[0-9a-fA-F]{64}', txid):
+            return {'status': 'NOT_FOUND', 'success': False, 'reason': 'invalid_tx_hash', 'txid': txid, 'network': method.network}
+        chain_id_raw = self._rpc(self.settings.base_rpc_url, 'eth_chainId', [])
+        if not isinstance(chain_id_raw, str):
+            raise ProviderUnavailable('invalid_chain_id')
+        chain_id = int(chain_id_raw, 16)
+        if chain_id != 8453:
+            return {'status': 'WRONG_NETWORK', 'success': False, 'txid': txid, 'network': method.network}
+        receipt = self._rpc(self.settings.base_rpc_url, 'eth_getTransactionReceipt', [txid])
+        if not receipt:
+            return {'status': 'NOT_FOUND', 'success': False, 'txid': txid, 'network': method.network}
+        if int(receipt.get('status', '0x0'), 16) != 1:
+            return {'status': 'FAILED', 'success': False, 'txid': txid, 'network': method.network}
+        if str(receipt.get('transactionHash') or txid).lower() != txid.lower():
+            return {'status': 'FAILED', 'success': False, 'reason': 'provider_tx_mismatch', 'txid': txid, 'network': method.network}
+        latest = int(self._rpc(self.settings.base_rpc_url, 'eth_blockNumber', []), 16)
+        block_num = int(receipt['blockNumber'], 16)
+        confirmations = max(0, latest - block_num + 1)
+        contract = method.token_contract.lower()
+        recipient_topic = method.address.lower().removeprefix('0x').rjust(64, '0')
+        received_units = 0
+        found_contract = False
+        found_recipient = False
+        for log in receipt.get('logs') or []:
+            if str(log.get('address') or '').lower() != contract:
+                continue
+            found_contract = True
+            topics = [str(x).lower() for x in (log.get('topics') or [])]
+            if len(topics) < 3 or topics[0] != TRANSFER_TOPIC:
+                continue
+            if topics[2].removeprefix('0x') != recipient_topic:
+                continue
+            found_recipient = True
+            try:
+                received_units += int(log.get('data') or '0x0', 16)
+            except (TypeError, ValueError):
+                return {'status': 'FAILED', 'success': False, 'reason': 'invalid_transfer_amount', 'txid': txid, 'network': method.network}
+        if not found_contract:
+            return {'status': 'WRONG_ASSET', 'success': False, 'txid': txid, 'network': method.network, 'token_contract': method.token_contract}
+        if not found_recipient:
+            return {'status': 'WRONG_RECIPIENT', 'success': False, 'txid': txid, 'network': method.network, 'recipient': method.address}
+        received = Decimal(received_units) / (Decimal(10) ** method.decimals)
+        if confirmations < self.settings.base_min_confirmations:
+            return {'status': 'CONFIRMING', 'success': False, 'txid': txid, 'network': method.network, 'received_amount': str(received), 'confirmations': confirmations, 'confirmations_ok': False}
+        status, success, reason = _amount_result(received, expected)
+        result={'status': status, 'success': success, 'txid': txid, 'network': method.network, 'recipient': method.address, 'asset': method.asset, 'token_contract': method.token_contract, 'received_amount': str(received), 'confirmations': confirmations, 'confirmations_ok': True, 'block_number': block_num, 'provider': 'base-json-rpc'}
+        if reason: result['reason']=reason
+        return result
+
     def _verify_solana(self, method, txid: str, expected: Decimal) -> dict[str, Any]:
         try:
             signature = _b58decode(txid)
@@ -286,6 +338,10 @@ class ProductionBlockchainVerifier:
             checks['usdt_bsc'] = int(self._rpc(self.settings.bsc_rpc_url, 'eth_chainId', []), 16) == 56
         except Exception:
             checks['usdt_bsc'] = False
+        try:
+            checks['usdc_base'] = int(self._rpc(self.settings.base_rpc_url, 'eth_chainId', []), 16) == 8453
+        except Exception:
+            checks['usdc_base'] = False
         try:
             checks['sol'] = self._rpc(self.settings.solana_rpc_url, 'getHealth', []) == 'ok'
         except Exception:

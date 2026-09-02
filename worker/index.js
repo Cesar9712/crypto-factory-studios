@@ -106,6 +106,10 @@ export default {
       }
     }
     if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/play/'))return proxyUpstream(request,env);
+    if(url.pathname==='/bitshelf'||url.pathname==='/bitshelf/'){
+      const target=new URL(request.url);target.pathname='/bitshelf.html';
+      return serveAsset(new Request(target.toString(),request),env);
+    }
     return serveAsset(request,env);
   }
 };
