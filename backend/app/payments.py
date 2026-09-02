@@ -55,12 +55,13 @@ class PaymentMethodRegistry:
         self.settings = settings
         if not validate_tron_address(settings.tron_usdt_address): raise RuntimeError('Invalid TRON treasury address')
         if not validate_evm_address(settings.bsc_usdt_address): raise RuntimeError('Invalid BSC treasury address')
-        if not validate_evm_address(settings.base_usdc_address): raise RuntimeError('Invalid Base USDC treasury address')
+        base_usdc_address=getattr(settings,'base_usdc_address',settings.bsc_usdt_address)
+        if not validate_evm_address(base_usdc_address): raise RuntimeError('Invalid Base USDC treasury address')
         if not validate_solana_address(settings.sol_address): raise RuntimeError('Invalid Solana treasury address')
         self._methods = {
             'usdt_tron': PaymentMethod('usdt_tron','USDT','TRON','TRC-20',settings.tron_usdt_address,TRON_USDT_CONTRACT,6,True,True,'USDT · TRON (TRC-20)','Send only USDT on TRON (TRC-20).'),
             'usdt_bsc': PaymentMethod('usdt_bsc','BSC-USD','BNB Smart Chain','BEP-20',settings.bsc_usdt_address,BSC_USDT_CONTRACT,18,True,True,'USDT-compatible · BNB Smart Chain (BEP-20)','Send only Binance-Peg BSC-USD on BNB Smart Chain (BEP-20).'),
-            'usdc_base': PaymentMethod('usdc_base','USDC','Base','ERC-20',settings.base_usdc_address,BASE_USDC_CONTRACT,6,True,True,'USDC · Base','Send only native USDC on Base. Do not send bridged USDbC or tokens from another network.'),
+            'usdc_base': PaymentMethod('usdc_base','USDC','Base','ERC-20',base_usdc_address,BASE_USDC_CONTRACT,6,True,True,'USDC · Base','Send only native USDC on Base. Do not send bridged USDbC or tokens from another network.'),
             'sol': PaymentMethod('sol','SOL','Solana','Native',settings.sol_address,None,9,True,True,'SOL · Solana','Send only native SOL on Solana.'),
         }
         configured={
