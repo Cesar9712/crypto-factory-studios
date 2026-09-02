@@ -34,6 +34,7 @@ def validate_solana_address(value: str) -> bool:
 
 TRON_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
 BSC_USDT_CONTRACT = '0x55d398326f99059ff775485246999027b3197955'
+BASE_USDC_CONTRACT = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 
 @dataclass(frozen=True)
 class PaymentMethod:
@@ -54,15 +55,18 @@ class PaymentMethodRegistry:
         self.settings = settings
         if not validate_tron_address(settings.tron_usdt_address): raise RuntimeError('Invalid TRON treasury address')
         if not validate_evm_address(settings.bsc_usdt_address): raise RuntimeError('Invalid BSC treasury address')
+        if not validate_evm_address(settings.base_usdc_address): raise RuntimeError('Invalid Base USDC treasury address')
         if not validate_solana_address(settings.sol_address): raise RuntimeError('Invalid Solana treasury address')
         self._methods = {
             'usdt_tron': PaymentMethod('usdt_tron','USDT','TRON','TRC-20',settings.tron_usdt_address,TRON_USDT_CONTRACT,6,True,True,'USDT · TRON (TRC-20)','Send only USDT on TRON (TRC-20).'),
             'usdt_bsc': PaymentMethod('usdt_bsc','BSC-USD','BNB Smart Chain','BEP-20',settings.bsc_usdt_address,BSC_USDT_CONTRACT,18,True,True,'USDT-compatible · BNB Smart Chain (BEP-20)','Send only Binance-Peg BSC-USD on BNB Smart Chain (BEP-20).'),
+            'usdc_base': PaymentMethod('usdc_base','USDC','Base','ERC-20',settings.base_usdc_address,BASE_USDC_CONTRACT,6,True,True,'USDC · Base','Send only native USDC on Base. Do not send bridged USDbC or tokens from another network.'),
             'sol': PaymentMethod('sol','SOL','Solana','Native',settings.sol_address,None,9,True,True,'SOL · Solana','Send only native SOL on Solana.'),
         }
         configured={
             'usdt_tron': tuple(getattr(settings,'tron_deposit_addresses',()) or ()),
             'usdt_bsc': tuple(getattr(settings,'bsc_deposit_addresses',()) or ()),
+            'usdc_base': tuple(getattr(settings,'base_deposit_addresses',()) or ()),
             'sol': tuple(getattr(settings,'sol_deposit_addresses',()) or ()),
         }
         self._deposit_pools={}
@@ -70,7 +74,7 @@ class PaymentMethodRegistry:
             seen=[]
             for address in (method.address, *configured[method_id]):
                 if address not in seen: seen.append(address)
-            validator=validate_tron_address if method_id=='usdt_tron' else validate_evm_address if method_id=='usdt_bsc' else validate_solana_address
+            validator=validate_tron_address if method_id=='usdt_tron' else validate_evm_address if method_id in {'usdt_bsc','usdc_base'} else validate_solana_address
             if not all(validator(address) for address in seen): raise RuntimeError(f'Invalid deposit address pool for {method_id}')
             self._deposit_pools[method_id]=tuple(seen)
     def get(self, method_id: str) -> PaymentMethod | None: return self._methods.get(method_id)
@@ -101,7 +105,7 @@ class PriceService:
         return Decimal(marker_units)/(Decimal(10)**decimals)
     def quote_amount(self, usd_price: Decimal, method: PaymentMethod) -> tuple[Decimal, Decimal, str]:
         deposit_mode=str(getattr(self.settings,'deposit_address_mode','SHARED_MARKER')).upper()
-        if method.method_id in {'usdt_tron','usdt_bsc'}:
+        if method.method_id in {'usdt_tron','usdt_bsc','usdc_base'}:
             if deposit_mode=='EXCLUSIVE':
                 return usd_price.quantize(Decimal('0.01')), Decimal('1'), 'stable_reference_exact_exclusive_address'
             base=usd_price.quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
@@ -133,11 +137,11 @@ class MockBlockchainVerifier:
         if tx.startswith('mock_under'): return {**base,'status':'UNDERPAID','received_amount':str(max(Decimal('0'),expected_amount-Decimal('0.5')))}
         if tx.startswith('mock_over'): return {**base,'status':'OVERPAID','received_amount':str(expected_amount+Decimal('0.5'))}
         return {**base,'status':'CONFIRMED','received_amount':str(expected_amount)}
-    def status(self): return {'usdt_tron':True,'usdt_bsc':True,'sol':True}
+    def status(self): return {'usdt_tron':True,'usdt_bsc':True,'usdc_base':True,'sol':True}
 
 def canonical_txid(method: PaymentMethod, txid: str) -> str:
     tx=txid.strip()
-    if method.method_id in {'usdt_tron','usdt_bsc'}:
+    if method.method_id in {'usdt_tron','usdt_bsc','usdc_base'}:
         return tx.lower()
     return tx
 
