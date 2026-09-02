@@ -55,20 +55,24 @@ class Settings:
     deposit_address_mode: str = field(default_factory=lambda: os.getenv('CFS_DEPOSIT_ADDRESS_MODE','SHARED_MARKER').upper().strip())
     tron_usdt_address: str = field(default_factory=lambda: os.getenv('CFS_TRON_USDT_ADDRESS','TSrSa2iL7a1csWRLTrzhRoW1oUUaDKpDj9'))
     bsc_usdt_address: str = field(default_factory=lambda: os.getenv('CFS_BSC_USDT_ADDRESS','0xb6e727732F845bDb7792C075B147658e84a173d2'))
+    base_usdc_address: str = field(default_factory=lambda: os.getenv('CFS_BASE_USDC_ADDRESS','0xb6e727732F845bDb7792C075B147658e84a173d2'))
     sol_address: str = field(default_factory=lambda: os.getenv('CFS_SOL_ADDRESS','EpiJ5GUjXMhcQpZtErxwGq5VZKwvkxV8kSz8PUKtpsr2'))
     tron_deposit_addresses: tuple[str,...] = field(default_factory=lambda: _csv_env('CFS_TRON_DEPOSIT_ADDRESSES') or ('TSBJBbqZPz2vg4cmtTKAX7ZVwxvjUzwDHR','TQRXBazP13v2iYSmqVjf6sytfr1CRnmN78','TZANayRE3sW4urfyoXhPNnV3GHP6ekiapb','TB2tRUA55YeniWXoH9tGu6N4UNdyqtR6Xx'))
     bsc_deposit_addresses: tuple[str,...] = field(default_factory=lambda: _csv_env('CFS_BSC_DEPOSIT_ADDRESSES') or ('0x48D86139Dd8229CA97e4Cb9509347D823e859ef9','0xD32896D46E6B3F0aeEA4F4d8a8152E3665E9121E','0x6f80315f3e911D36bBC05aF3AD8eC273f14b4620','0x8d890378Dd006a766C736421458E7e8cfD169F39'))
+    base_deposit_addresses: tuple[str,...] = field(default_factory=lambda: _csv_env('CFS_BASE_DEPOSIT_ADDRESSES'))
     sol_deposit_addresses: tuple[str,...] = field(default_factory=lambda: _csv_env('CFS_SOL_DEPOSIT_ADDRESSES'))
     mock_sol_usd_rate: str = field(default_factory=lambda: os.getenv('CFS_MOCK_SOL_USD_RATE','150.00'))
     tron_rpc_url: str = field(default_factory=lambda: os.getenv('CFS_TRON_RPC_URL','https://api.trongrid.io').strip())
     tron_api_key: str = field(default_factory=lambda: os.getenv('CFS_TRON_API_KEY','').strip())
     bsc_rpc_url: str = field(default_factory=lambda: os.getenv('CFS_BSC_RPC_URL','https://bsc-dataseed.bnbchain.org').strip())
+    base_rpc_url: str = field(default_factory=lambda: os.getenv('CFS_BASE_RPC_URL','https://mainnet.base.org').strip())
     solana_rpc_url: str = field(default_factory=lambda: os.getenv('CFS_SOLANA_RPC_URL','https://api.mainnet-beta.solana.com').strip())
     sol_price_url: str = field(default_factory=lambda: os.getenv('CFS_SOL_PRICE_URL','https://api.coingecko.com/api/v3/simple/price').strip())
     blockchain_timeout_seconds: float = field(default_factory=lambda: float(os.getenv('CFS_BLOCKCHAIN_TIMEOUT_SECONDS','10')))
     blockchain_retries: int = field(default_factory=lambda: int(os.getenv('CFS_BLOCKCHAIN_RETRIES','2')))
     tron_min_confirmations: int = field(default_factory=lambda: int(os.getenv('CFS_TRON_MIN_CONFIRMATIONS','20')))
     bsc_min_confirmations: int = field(default_factory=lambda: int(os.getenv('CFS_BSC_MIN_CONFIRMATIONS','5')))
+    base_min_confirmations: int = field(default_factory=lambda: int(os.getenv('CFS_BASE_MIN_CONFIRMATIONS','2')))
     solana_commitment: str = field(default_factory=lambda: os.getenv('CFS_SOLANA_COMMITMENT','finalized').strip().lower())
     quote_seconds: int = 900
     order_seconds: int = 1800
@@ -91,7 +95,7 @@ class Settings:
         if self.payments_mode not in {'MOCK','TEST','PRODUCTION'}: raise RuntimeError('Invalid CFS_PAYMENTS_MODE')
         if self.deposit_address_mode not in {'EXCLUSIVE','SHARED_MARKER'}: raise RuntimeError('Invalid CFS_DEPOSIT_ADDRESS_MODE')
         if self.solana_commitment not in {'confirmed','finalized'}: raise RuntimeError('Invalid CFS_SOLANA_COMMITMENT')
-        if self.tron_min_confirmations < 1 or self.bsc_min_confirmations < 1: raise RuntimeError('Blockchain confirmation counts must be positive')
+        if self.tron_min_confirmations < 1 or self.bsc_min_confirmations < 1 or self.base_min_confirmations < 1: raise RuntimeError('Blockchain confirmation counts must be positive')
         if self.blockchain_timeout_seconds <= 0: raise RuntimeError('Blockchain timeout must be positive')
         if self.blockchain_retries < 0 or self.blockchain_retries > 5: raise RuntimeError('Blockchain retries must be between 0 and 5')
         if self.environment=='production' and not self.owner_bootstrap_token: raise RuntimeError('Production requires CFS_OWNER_BOOTSTRAP_TOKEN')
@@ -102,5 +106,5 @@ class Settings:
             if missing: raise RuntimeError('Missing S3 storage settings: '+','.join(missing))
         if self.payments_mode=='PRODUCTION' and not self.production_payments_enabled: raise RuntimeError('Production payments require CFS_PRODUCTION_PAYMENTS_ENABLED=true')
         if self.payments_mode=='PRODUCTION':
-            missing=[name for name,val in [('CFS_TRON_RPC_URL',self.tron_rpc_url),('CFS_BSC_RPC_URL',self.bsc_rpc_url),('CFS_SOLANA_RPC_URL',self.solana_rpc_url),('CFS_SOL_PRICE_URL',self.sol_price_url)] if not val]
+            missing=[name for name,val in [('CFS_TRON_RPC_URL',self.tron_rpc_url),('CFS_BSC_RPC_URL',self.bsc_rpc_url),('CFS_BASE_RPC_URL',self.base_rpc_url),('CFS_SOLANA_RPC_URL',self.solana_rpc_url),('CFS_SOL_PRICE_URL',self.sol_price_url)] if not val]
             if missing: raise RuntimeError('Missing production payment provider settings: '+','.join(missing))
