@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07110f">
+<title>BitShelf — Useful Digital Products, Paid in USDC</title>
+<meta name="description" content="Small, practical digital products for creators, freelancers and builders. Instant delivery after verified USDC payment on Base.">
+<link rel="canonical" href="https://crypto-factory-studios.cryptofactorystudios.workers.dev/bitshelf">
+<link rel="stylesheet" href="/bitshelf.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/bitshelf"><span>◈</span><b>BitShelf</b></a>
+  <nav><a href="#catalog">Products</a><a href="#how">How it works</a><a href="#faq">FAQ</a></nav>
+  <button id="accountBtn" class="ghost">Sign in</button>
+</header>
+<main>
+<section class="hero">
+  <div><span class="eyebrow">CHEAP · USEFUL · INSTANT · DIGITAL</span><h1>Small tools.<br><em>Immediate value.</em></h1>
+  <p>Original digital packs for creators, freelancers, small businesses and game developers. Pay with USDC on Base and receive your files after on-chain verification.</p>
+  <div class="hero-actions"><a class="primary" href="#catalog">Browse products</a><a class="ghost" href="/api/v1/bitshelf/free/bitshelf_free_starter">Get free starter pack</a></div>
+  <div class="trust"><span>USDC · Base</span><span>On-chain verified</span><span>No wallet secrets</span><span>Instant ZIP delivery</span></div></div>
+  <aside class="hero-card"><small>FREE SAMPLE</small><h2>AI Starter Pack</h2><p>10 practical prompts + launch checklist.</p><a class="primary full" href="/api/v1/bitshelf/free/bitshelf_free_starter">Download free</a></aside>
+</section>
+
+<section id="catalog" class="section"><div class="section-head"><div><span class="eyebrow">MICROPRODUCTS</span><h2>Pick one useful thing</h2></div><div class="filters" id="filters"></div></div><div id="productGrid" class="grid"><div class="loading">Loading products…</div></div></section>
+
+<section id="how" class="section"><span class="eyebrow">HOW IT WORKS</span><h2>Three simple steps</h2><div class="steps">
+<article><b>01</b><h3>Choose</h3><p>Pick a product that solves one specific problem.</p></article>
+<article><b>02</b><h3>Pay</h3><p>Send the exact USDC amount on Base to the order address.</p></article>
+<article><b>03</b><h3>Download</h3><p>Paste the transaction hash. After verification, your temporary download link appears.</p></article>
+</div></section>
+
+<section id="faq" class="section faq"><span class="eyebrow">FAQ</span><h2>Good to know</h2>
+<details><summary>Which crypto do you accept?</summary><p>BitShelf checkout uses native USDC on Base only.</p></details>
+<details><summary>Do I connect my wallet?</summary><p>No. We never ask for your seed phrase or private key. You send USDC from your own wallet and provide the public transaction hash.</p></details>
+<details><summary>When do I receive the files?</summary><p>After the backend verifies the network, token contract, recipient, amount and confirmations.</p></details>
+<details><summary>Can I share or resell the pack?</summary><p>You may use and adapt resources in your own work and client projects, but you may not redistribute or resell the original files as a competing pack.</p></details>
+</section>
+</main>
+
+<div id="authModal" class="modal hidden"><div class="modal-card"><button id="authClose" class="x">×</button><h2 id="authTitle">Sign in</h2>
+<form id="authForm"><input id="displayName" placeholder="Display name" minlength="2" maxlength="32"><input id="email" type="email" placeholder="Email" required><input id="password" type="password" placeholder="Password" minlength="10" required><button class="primary full" type="submit">Continue</button></form>
+<button id="authSwitch" class="linkbtn">Create an account instead</button><p id="authResult" class="muted"></p></div></div>
+
+<div id="checkoutModal" class="modal hidden"><div class="modal-card checkout"><button id="checkoutClose" class="x">×</button><span class="eyebrow">SECURE CHECKOUT</span><h2 id="checkoutName">Product</h2>
+<div id="checkoutStatus" class="statusbox">Preparing order…</div>
+<div id="payPanel" class="hidden">
+<div class="payrow"><span>Amount</span><b id="payAmount">—</b></div><div class="payrow"><span>Asset / network</span><b>USDC · Base</b></div>
+<div class="address"><small>Receiving address</small><code id="payAddress">—</code><button id="copyAddress" class="ghost">Copy</button></div>
+<label>Transaction hash<input id="txHash" placeholder="0x…"></label><button id="verifyBtn" class="primary full">Verify transaction</button>
+</div>
+<div id="downloadPanel" class="hidden"><p>Payment confirmed. Your files are ready.</p><button id="downloadBtn" class="primary full">Generate download link</button></div>
+</div></div>
+
+<div id="toast" class="toast"></div>
+<script src="/bitshelf.js" defer></script>
+</body></html>
