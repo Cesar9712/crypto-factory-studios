@@ -1,3 +1,4 @@
+/* CFS Prompt Factory advanced runtime v1.0.1 — force edge asset refresh */
 (()=>{
   const adv={seller:null,analytics:null,referral:null,collections:[],offers:[],notifications:[]};
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
