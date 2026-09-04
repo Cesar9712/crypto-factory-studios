@@ -1,9 +1,8 @@
 name: CryptoQuest Mobile Production
 
+# Temporarily frozen while CryptoQuest is preserved/hidden in CFS.
+# Re-enable automatic triggers using docs/HOW_TO_REENABLE_GAMES.md.
 on:
-  workflow_run:
-    workflows: ['Cloudflare Explicit Deploy']
-    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -11,7 +10,6 @@ permissions:
 
 jobs:
   verify-mobile:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
