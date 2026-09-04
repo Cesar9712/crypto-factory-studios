@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#071016">
-  <title>Prompt Factory — Crypto Factory Studios</title>
-  <meta name="description" content="Guarda, organiza, compra y vende prompts dentro de Crypto Factory Studios.">
+  <title>Prompt Factory — Compra, organiza y vende prompts</title>
+  <meta name="description" content="Explora prompts para IA, guarda tu biblioteca privada y vende tus propios prompts dentro de Crypto Factory Studios.">
   <link rel="canonical" href="https://crypto-factory-studios.cryptofactorystudios.workers.dev/prompt-factory.html">
-  <meta property="og:title" content="Prompt Factory — Crypto Factory Studios">
-  <meta property="og:description" content="Build it once. Sell it forever. Biblioteca privada y marketplace de prompts.">
+  <meta property="og:title" content="Prompt Factory — Marketplace y Vault de prompts">
+  <meta property="og:description" content="Descubre prompts útiles, organiza tu Vault y monetiza tus mejores flujos de trabajo.">
   <meta property="og:type" content="website">
   <link rel="stylesheet" href="/prompt-factory.css?v=1">
 </head>
@@ -29,13 +29,13 @@
   <main>
     <section class="pf-hero">
       <div>
-        <span class="eyebrow">CRYPTO FACTORY STUDIOS · PROMPT ECONOMY</span>
+        <span class="eyebrow">MARKETPLACE · PRIVATE VAULT · CREATOR ECONOMY</span>
         <h1>PROMPT <em>FACTORY</em></h1>
-        <p class="hero-line">Build it once. Sell it forever.</p>
-        <p class="hero-copy">Guarda tus mejores prompts en privado, crea versiones reutilizables y conviértelos en productos digitales para otros usuarios.</p>
+        <p class="hero-line">Encuentra mejores prompts. Vende los tuyos.</p>
+        <p class="hero-copy">Explora prompts para tareas reales, guarda tu biblioteca en privado y convierte tus mejores flujos de trabajo en productos digitales para otros usuarios.</p>
         <div class="hero-actions">
-          <button class="primary" data-section="market">EXPLORAR PROMPTS</button>
-          <button class="ghost auth-required" data-section="create">CREAR PROMPT</button>
+          <button class="primary" data-section="market">EXPLORAR MARKETPLACE</button>
+          <button class="ghost auth-required" data-section="create">CREAR Y VENDER</button>
         </div>
       </div>
       <div class="hero-terminal">
@@ -50,7 +50,7 @@
     </section>
 
     <section id="authPanel" class="auth-panel hidden">
-      <div><span class="eyebrow">CUENTA CFS</span><h2>Inicia sesión para usar tu Vault</h2><p>La misma cuenta de Crypto Factory Studios funciona aquí.</p></div>
+      <div><span class="eyebrow">CUENTA CFS</span><h2>Inicia sesión para comprar, guardar o vender</h2><p>La misma cuenta de Crypto Factory Studios funciona aquí.</p></div>
       <form id="loginForm">
         <input id="loginEmail" type="email" autocomplete="email" placeholder="Email" required>
         <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Contraseña" required>
@@ -61,7 +61,7 @@
 
     <section id="market" class="pf-section active-section">
       <div class="section-head">
-        <div><span class="eyebrow">PROMPT MARKETPLACE</span><h2>Descubre herramientas creadas por usuarios</h2></div>
+        <div><span class="eyebrow">PROMPT MARKETPLACE</span><h2>Encuentra prompts por resultado, categoría o herramienta</h2><p class="muted">Abre la vista previa antes de comprar. Los prompts completos permanecen protegidos hasta que tengas acceso válido.</p></div>
         <div class="market-controls">
           <input id="marketSearch" type="search" placeholder="Buscar prompts, tags o casos de uso…">
           <select id="categoryFilter"><option value="">Todas las categorías</option></select>
@@ -107,7 +107,7 @@
     </section>
 
     <section id="plans" class="pf-section">
-      <div class="section-head"><div><span class="eyebrow">CAPACIDAD + COMISIÓN</span><h2>Elige cuánto quieres guardar</h2><p>Los precios y límites se leen desde el servidor y pueden ajustarse sin cambiar la aplicación.</p></div></div>
+      <div class="section-head"><div><span class="eyebrow">CAPACIDAD + COMISIÓN</span><h2>Empieza gratis y escala cuando lo necesites</h2><p>Los precios y límites se leen desde el servidor y pueden ajustarse sin cambiar la aplicación.</p></div></div>
       <div id="planGrid" class="plan-grid"></div>
       <div class="section-head compact"><div><span class="eyebrow">SIN SUSCRIPCIÓN</span><h2>Compra espacios adicionales</h2></div></div>
       <div id="addonGrid" class="addon-grid"></div>
@@ -169,7 +169,7 @@
   </dialog>
 
   <div id="toast" class="toast" role="status"></div>
-  <script src="/analytics.js?v=20260828-2" defer></script>
+  <script src="/analytics.js?v=20260904-growth1" defer></script>
   <script src="/prompt-factory.js?v=1"></script>
   <script src="/prompt-factory-advanced.js?v=1" defer></script>
 </body>
