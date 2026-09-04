@@ -7,7 +7,17 @@ services:
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_ENV
+        value: "production"
       - key: DEMO_MODE
         value: "true"
+      - key: REAL_MONEY_ENABLED
+        value: "false"
+      - key: PAYMENTS_ENABLED
+        value: "false"
+      - key: WITHDRAWALS_ENABLED
+        value: "false"
+      - key: WEB3_SETTLEMENT_ENABLED
+        value: "false"
       - key: NODE_VERSION
         value: "20"
