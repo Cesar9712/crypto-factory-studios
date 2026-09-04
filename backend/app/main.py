@@ -22,6 +22,7 @@ from .routes_bitshelf import register_bitshelf_routes
 from .routes_prompt_factory import register_prompt_factory_routes
 from .routes_prompt_factory_overrides import register_prompt_factory_override_routes
 from .routes_prompt_factory_payments import register_prompt_factory_payment_routes
+from .routes_feature_flags import register_feature_flag_routes
 
 settings=Settings(); db=DB(settings.database_path, settings.database_url); storage=StorageService(settings)
 payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings)
@@ -29,7 +30,7 @@ payment_verifier=ProductionBlockchainVerifier(settings) if settings.payments_mod
 for _pm in payment_methods.values():
     db.execute('INSERT OR REPLACE INTO payment_methods(method_id,asset,network,standard,address,token_contract,enabled,production_allowed,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(_pm.method_id,_pm.asset,_pm.network,_pm.standard,_pm.address,_pm.token_contract,1 if _pm.enabled else 0,1 if _pm.production_allowed else 0,now()))
 scanner=UploadSecurityService(settings.max_upload_bytes,settings.max_uncompressed_bytes,settings.max_archive_files,settings.max_compression_ratio,settings.antivirus_required)
-app=FastAPI(title='Crypto Factory Studios API',version='0.7.0')
+app=FastAPI(title='Crypto Factory Studios API',version='0.7.1')
 app.add_middleware(CORSMiddleware,allow_origins=list(settings.allowed_origins),allow_credentials=True,allow_methods=['GET','POST','PUT','DELETE'],allow_headers=['Authorization','Content-Type','X-Owner-Bootstrap','X-CSRF-Token'])
 RATE:dict[str,list[int]]={}; REQUEST_SESSION:ContextVar[str|None]=ContextVar('cfs_request_session',default=None)
 
@@ -94,7 +95,7 @@ async def headers(request:Request,call_next):
     return response
 
 @app.get('/health')
-def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.7.0','git_commit':os.getenv('RENDER_GIT_COMMIT','')}
+def health(): return {'ok':True,'service':'crypto-factory-studios','version':'0.7.1','git_commit':os.getenv('RENDER_GIT_COMMIT','')}
 @app.get('/ready')
 def ready():
     db_ok=db.ping(); storage_ok=storage.ping()
@@ -137,3 +138,4 @@ register_bitshelf_routes(app,db=db,settings=settings,session_user=session_user,f
 register_prompt_factory_override_routes(app,db=db,session_user=session_user)
 register_prompt_factory_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
 register_prompt_factory_payment_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
+register_feature_flag_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)

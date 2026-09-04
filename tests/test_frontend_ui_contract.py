@@ -26,19 +26,19 @@ def test_portal_session_state_is_server_driven():
     assert 'Iniciar sesión' in js and 'Crear cuenta' in js and 'Cerrar sesión' in js
 
 
-def test_home_surfaces_verified_cryptoquest_runtime():
+def test_home_prioritizes_prompt_factory_and_hides_first_party_games():
     html = read('index.html')
-    assert '<h3>CryptoQuest RPG</h3>' in html
-    assert 'href="/games/cryptoquest/"' in html
-    assert '>Jugar ahora</a>' in html
-    assert '<span class="status live">LIVE</span>' in html
-    assert 'LIVE GAME' in html
-    assert 'CRYPTOQUEST<br>RPG' in html
-    assert 'aria-label="Jugar CryptoQuest RPG ahora"' in html
-    assert 'aria-label="Abrir CryptoQuest RPG"' in html
-    assert 'EN INTEGRACIÓN</button>' not in html
+    assert 'PROMPT VAULT · MARKETPLACE · CREATOR ECONOMY' in html
+    assert 'BUILD ONCE.' in html
+    assert 'SELL FOREVER.' in html
+    assert 'href="/prompt-factory"' in html
+    assert 'PF://MARKETPLACE' in html
+    assert 'Prompt Factory' in html
+    assert 'CryptoQuest RPG' not in html
+    assert '/games/cryptoquest/' not in html
+    assert '<h3>Crypto Factory</h3>' not in html
+    assert 'Crypto Factory Game' not in html
     assert 'ClamAV en producción' not in html
-    assert 'Escaneo estructural y firmas integradas' in html
 
 
 def test_analytics_uses_valid_anonymous_posthog_capture_contract():

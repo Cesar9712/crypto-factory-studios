@@ -1,27 +1,12 @@
 name: CryptoQuest Core Production
 
+# Temporarily frozen while CryptoQuest is preserved/hidden in CFS.
+# Re-enable automatic triggers using docs/HOW_TO_REENABLE_GAMES.md.
 on:
-  push:
-    paths:
-      - 'frontend/games/cryptoquest/**'
-      - 'frontend/index.html'
-      - 'frontend/billing.html'
-      - 'frontend/billing.js'
-      - 'frontend/creator.html'
-      - 'frontend/profile.html'
-      - 'frontend/game.html'
-      - 'frontend/analytics.js'
-      - 'worker/index.js'
-      - 'wrangler.toml'
-      - '.github/workflows/cryptoquest-v19-production.yml'
-  workflow_run:
-    workflows: ['Cloudflare Explicit Deploy']
-    types: [completed]
   workflow_dispatch:
 
 jobs:
   verify-core:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-node@v4

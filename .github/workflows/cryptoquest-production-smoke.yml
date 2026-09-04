@@ -1,12 +1,8 @@
 name: CryptoQuest Production Smoke
 
+# Temporarily frozen while CryptoQuest is preserved/hidden in CFS.
+# Re-enable automatic triggers using docs/HOW_TO_REENABLE_GAMES.md.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'frontend/games/cryptoquest/**'
-      - 'worker/index.js'
-      - '.github/workflows/cryptoquest-production-smoke.yml'
   workflow_dispatch:
 
 permissions:
@@ -67,4 +63,4 @@ jobs:
 
           echo 'CRYPTOQUEST_CURRENT_PRODUCTION_STACK_OK'
       - name: Report
-        run: echo 'CryptoQuest V19 core + V20 premium + V21 master visual layer are reachable in production.'
+        run: echo 'CryptoQuest manual production smoke completed.'

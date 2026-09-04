@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from seo_config import FORBIDDEN_SEO_HOSTS, SEO_PAGES, SITE_URL
+from seo_config import FORBIDDEN_SEO_HOSTS, SEO_PAGES, SITEMAP_PATHS, SITE_URL
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 
@@ -44,12 +44,15 @@ def validate_sitemap() -> None:
     locs = [node.text.strip() for node in root.findall("sm:url/sm:loc", ns) if node.text]
     expected = {
         f"{SITE_URL}{path}" if path != "/" else f"{SITE_URL}/"
-        for path in SEO_PAGES.values()
+        for path in SITEMAP_PATHS
     }
     assert set(locs) == expected, f"sitemap URLs differ: got={set(locs)!r}, expected={expected!r}"
     assert len(locs) == len(set(locs)), "sitemap contains duplicate URLs"
     for loc in locs:
         assert loc.startswith(f"{SITE_URL}/"), f"sitemap foreign host: {loc}"
+    lower = "\n".join(locs).lower()
+    assert "cryptoquest" not in lower, "hidden CryptoQuest URL leaked into sitemap"
+    assert "/game" not in lower and "browser-games" not in lower, "hidden game discovery URL leaked into sitemap"
 
 
 def main() -> None:
