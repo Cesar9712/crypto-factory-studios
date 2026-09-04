@@ -47,15 +47,11 @@ function hiddenGameForUrl(url, features) {
   const path = url.pathname.toLowerCase();
   const slug = (url.searchParams.get('slug') || '').toLowerCase();
   if (!features.cryptoquest_enabled) {
-    if (path === '/cryptoquest' || path.startsWith('/cryptoquest/') || path.startsWith('/games/cryptoquest') || slug === 'cryptoquest-rpg' || slug === 'cryptoquest') {
-      return 'cryptoquest';
-    }
+    if (path === '/cryptoquest' || path.startsWith('/cryptoquest/') || path.startsWith('/games/cryptoquest') || slug === 'cryptoquest-rpg' || slug === 'cryptoquest') return 'cryptoquest';
     if (path.startsWith('/play/cryptoquest')) return 'cryptoquest';
   }
   if (!features.crypto_factory_game_enabled) {
-    if (path === '/crypto-factory-game' || path.startsWith('/crypto-factory-game/') || path.startsWith('/games/crypto-factory') || slug === 'crypto-factory' || slug === 'crypto-factory-game') {
-      return 'crypto_factory_game';
-    }
+    if (path === '/crypto-factory-game' || path.startsWith('/crypto-factory-game/') || path.startsWith('/games/crypto-factory') || slug === 'crypto-factory' || slug === 'crypto-factory-game') return 'crypto_factory_game';
     if (path.startsWith('/play/crypto-factory')) return 'crypto_factory_game';
   }
   return null;
@@ -81,18 +77,22 @@ function isFirstPartyHiddenGame(game, features) {
   return false;
 }
 
-async function filterCatalog(response, features) {
+function isHiddenGameProduct(product, features) {
+  const id = String(product?.product_id || '').toLowerCase();
+  const label = String(product?.label || '').toLowerCase();
+  const entitlement = String(product?.entitlement_key || '').toLowerCase();
+  if (!features.cryptoquest_enabled && (id.startsWith('cryptoquest_') || label.includes('cryptoquest') || entitlement.startsWith('cryptoquest_'))) return true;
+  if (!features.crypto_factory_game_enabled && (id.startsWith('crypto_factory_game_') || label === 'crypto factory' || entitlement.startsWith('crypto_factory_game:'))) return true;
+  return false;
+}
+
+async function filterJsonArray(response, field, predicate) {
   if (!response.ok) return response;
   const type = (response.headers.get('content-type') || '').toLowerCase();
   if (!type.includes('application/json')) return response;
   try {
     const payload = await response.json();
-    if (!Array.isArray(payload?.games)) return new Response(JSON.stringify(payload), {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-    payload.games = payload.games.filter(game => !isFirstPartyHiddenGame(game, features));
+    if (Array.isArray(payload?.[field])) payload[field] = payload[field].filter(item => !predicate(item));
     const headers = new Headers(response.headers);
     headers.delete('content-length');
     headers.set('Cache-Control', 'no-store');
@@ -107,8 +107,7 @@ export default {
     const url = new URL(request.url);
     const features = await loadFeatures(env);
 
-    const hiddenGame = hiddenGameForUrl(url, features);
-    if (hiddenGame) return disabledResponse();
+    if (hiddenGameForUrl(url, features)) return disabledResponse();
 
     if ((!features.cryptoquest_enabled || !features.crypto_factory_game_enabled) && (url.pathname === '/browser-games' || url.pathname === '/browser-games.html')) {
       return disabledResponse();
@@ -117,7 +116,10 @@ export default {
     const response = await legacyWorker.fetch(request, env, ctx);
 
     if (request.method === 'GET' && url.pathname === '/api/v1/games') {
-      return filterCatalog(response, features);
+      return filterJsonArray(response, 'games', game => isFirstPartyHiddenGame(game, features));
+    }
+    if (request.method === 'GET' && url.pathname === '/api/v1/products') {
+      return filterJsonArray(response, 'products', product => isHiddenGameProduct(product, features));
     }
 
     return response;
