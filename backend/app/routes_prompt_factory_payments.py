@@ -5,6 +5,7 @@ from typing import Callable
 from fastapi import Header
 
 from .routes_prompt_factory import apply_prompt_factory_entitlement
+from .routes_prompt_factory_advanced import register_prompt_factory_advanced_routes
 
 
 RECONCILIATION_SCHEMA = """CREATE TABLE IF NOT EXISTS prompt_entitlement_events(
@@ -56,6 +57,8 @@ def register_prompt_factory_payment_routes(app, *, db, session_user: Callable, a
                 complete = bool(db.one("SELECT user_id FROM prompt_user_plans WHERE user_id=? AND plan_id=?", (user_id, plan_id)))
             elif entitlement.startswith("prompt_storage:"):
                 complete = bool(db.one("SELECT user_id FROM prompt_user_storage WHERE user_id=?", (user_id,)))
+            elif entitlement.startswith("prompt_collection:"):
+                complete = False
             if not complete:
                 continue
             db.execute(
@@ -72,3 +75,12 @@ def register_prompt_factory_payment_routes(app, *, db, session_user: Callable, a
         if result["applied"]:
             audit(user["id"], "prompt_factory_reconciled", "user", user["id"], result)
         return result
+
+    register_prompt_factory_advanced_routes(
+        app,
+        db=db,
+        session_user=session_user,
+        audit=audit,
+        fail=fail,
+        now=now,
+    )
