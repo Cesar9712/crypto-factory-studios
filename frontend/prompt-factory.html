@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071016">
+  <title>Prompt Factory — Crypto Factory Studios</title>
+  <meta name="description" content="Guarda, organiza, compra y vende prompts dentro de Crypto Factory Studios.">
+  <link rel="canonical" href="https://crypto-factory-studios.cryptofactorystudios.workers.dev/prompt-factory.html">
+  <meta property="og:title" content="Prompt Factory — Crypto Factory Studios">
+  <meta property="og:description" content="Build it once. Sell it forever. Biblioteca privada y marketplace de prompts.">
+  <meta property="og:type" content="website">
+  <link rel="stylesheet" href="/prompt-factory.css?v=1">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <header class="pf-topbar">
+    <a class="brand" href="/"><span class="brandmark">CF</span><span>CRYPTO FACTORY <b>STUDIOS</b></span></a>
+    <nav class="desktop-nav" aria-label="Prompt Factory">
+      <button data-section="market">Marketplace</button>
+      <button data-section="vault">Vault</button>
+      <button data-section="create">Crear</button>
+      <button data-section="earnings">Ganancias</button>
+      <button data-section="plans">Planes</button>
+    </nav>
+    <div id="accountBadge" class="account-badge">Invitado</div>
+  </header>
+
+  <main>
+    <section class="pf-hero">
+      <div>
+        <span class="eyebrow">CRYPTO FACTORY STUDIOS · PROMPT ECONOMY</span>
+        <h1>PROMPT <em>FACTORY</em></h1>
+        <p class="hero-line">Build it once. Sell it forever.</p>
+        <p class="hero-copy">Guarda tus mejores prompts en privado, crea versiones reutilizables y conviértelos en productos digitales para otros usuarios.</p>
+        <div class="hero-actions">
+          <button class="primary" data-section="market">EXPLORAR PROMPTS</button>
+          <button class="ghost auth-required" data-section="create">CREAR PROMPT</button>
+        </div>
+      </div>
+      <div class="hero-terminal">
+        <div class="terminal-head"><span>PF://MARKETPLACE</span><i></i></div>
+        <div class="terminal-grid">
+          <div><strong id="heroListings">—</strong><span>prompts visibles</span></div>
+          <div><strong id="heroPlan">FREE</strong><span>tu plan</span></div>
+          <div><strong id="heroStorage">—</strong><span>vault</span></div>
+          <div><strong id="heroFee">20%</strong><span>comisión</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="authPanel" class="auth-panel hidden">
+      <div><span class="eyebrow">CUENTA CFS</span><h2>Inicia sesión para usar tu Vault</h2><p>La misma cuenta de Crypto Factory Studios funciona aquí.</p></div>
+      <form id="loginForm">
+        <input id="loginEmail" type="email" autocomplete="email" placeholder="Email" required>
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+        <button class="primary" type="submit">INICIAR SESIÓN</button>
+        <a class="ghost-link" href="/">Crear una cuenta en CFS</a>
+      </form>
+    </section>
+
+    <section id="market" class="pf-section active-section">
+      <div class="section-head">
+        <div><span class="eyebrow">PROMPT MARKETPLACE</span><h2>Descubre herramientas creadas por usuarios</h2></div>
+        <div class="market-controls">
+          <input id="marketSearch" type="search" placeholder="Buscar prompts, tags o casos de uso…">
+          <select id="categoryFilter"><option value="">Todas las categorías</option></select>
+          <select id="sortFilter">
+            <option value="trending">Tendencias</option><option value="new">Nuevos</option><option value="sales">Más vendidos</option>
+            <option value="rating">Mejor valorados</option><option value="price_low">Precio ↑</option><option value="price_high">Precio ↓</option>
+          </select>
+        </div>
+      </div>
+      <div id="marketGrid" class="prompt-grid"><div class="empty-card">Cargando marketplace…</div></div>
+    </section>
+
+    <section id="vault" class="pf-section auth-only hidden">
+      <div class="section-head"><div><span class="eyebrow">PROMPT VAULT</span><h2>Tu biblioteca privada</h2></div><div id="storageMeter" class="storage-meter">—</div></div>
+      <div class="vault-tabs"><button class="active" data-vault-tab="owned">MIS PROMPTS</button><button data-vault-tab="purchased">COMPRADOS</button></div>
+      <div id="vaultGrid" class="prompt-grid"></div>
+    </section>
+
+    <section id="create" class="pf-section auth-only hidden">
+      <div class="section-head"><div><span class="eyebrow">PROMPT BUILDER</span><h2 id="editorTitle">Crear un nuevo prompt</h2></div><button id="cancelEdit" class="ghost hidden" type="button">Cancelar edición</button></div>
+      <form id="promptForm" class="editor-card">
+        <div class="form-grid">
+          <label>Título<input id="promptTitle" required minlength="2" maxlength="120" placeholder="Ej. YouTube Growth Agent"></label>
+          <label>Categoría<select id="promptCategory"></select></label>
+          <label class="wide">Descripción<textarea id="promptDescription" maxlength="4000" placeholder="Qué hace, para quién sirve y qué resultado produce"></textarea></label>
+          <label class="wide">Prompt<textarea id="promptText" required maxlength="120000" rows="12" placeholder="Escribe el prompt completo. Puedes usar variables como {{PRODUCT_NAME}}"></textarea></label>
+          <label class="wide">Instrucciones de sistema<textarea id="systemInstructions" maxlength="40000" rows="5" placeholder="Opcional"></textarea></label>
+          <label>IA compatible<input id="aiModels" placeholder="ChatGPT, Claude, Gemini"></label>
+          <label>Tags<input id="promptTags" placeholder="marketing, youtube, seo"></label>
+          <label>Idioma<input id="promptLanguage" value="es" maxlength="20"></label>
+          <label>Dificultad<select id="promptDifficulty"><option>BEGINNER</option><option selected>INTERMEDIATE</option><option>ADVANCED</option><option>EXPERT</option></select></label>
+          <label class="wide">Variables<input id="promptVariables" placeholder="PRODUCT_NAME, TARGET_AUDIENCE, LANGUAGE"></label>
+          <label class="wide">Cambios de esta versión<input id="promptChangelog" placeholder="Ej. Mejoré la estructura de salida"></label>
+        </div>
+        <div class="form-actions"><button class="primary" type="submit" id="savePromptBtn">GUARDAR EN VAULT</button><span id="editorStatus" class="muted"></span></div>
+      </form>
+    </section>
+
+    <section id="earnings" class="pf-section auth-only hidden">
+      <div class="section-head"><div><span class="eyebrow">CREATOR DASHBOARD</span><h2>Ventas y ganancias</h2></div></div>
+      <div id="earningStats" class="metric-cards"></div>
+      <div class="data-panel"><h3>Tus prompts en venta</h3><div id="topPrompts"></div></div>
+    </section>
+
+    <section id="plans" class="pf-section">
+      <div class="section-head"><div><span class="eyebrow">CAPACIDAD + COMISIÓN</span><h2>Elige cuánto quieres guardar</h2><p>Los precios y límites se leen desde el servidor y pueden ajustarse sin cambiar la aplicación.</p></div></div>
+      <div id="planGrid" class="plan-grid"></div>
+      <div class="section-head compact"><div><span class="eyebrow">SIN SUSCRIPCIÓN</span><h2>Compra espacios adicionales</h2></div></div>
+      <div id="addonGrid" class="addon-grid"></div>
+    </section>
+  </main>
+
+  <nav class="mobile-nav" aria-label="Navegación móvil">
+    <button data-section="market"><b>⌂</b><span>Market</span></button>
+    <button data-section="vault" class="auth-required"><b>▣</b><span>Vault</span></button>
+    <button data-section="create" class="create-nav auth-required"><b>＋</b><span>Crear</span></button>
+    <button data-section="earnings" class="auth-required"><b>↗</b><span>Ventas</span></button>
+    <button data-section="plans"><b>◇</b><span>Planes</span></button>
+  </nav>
+
+  <dialog id="listingDialog" class="pf-dialog">
+    <button class="dialog-close" data-close="listingDialog" aria-label="Cerrar">×</button>
+    <div id="listingContent"></div>
+  </dialog>
+
+  <dialog id="sellDialog" class="pf-dialog small-dialog">
+    <button class="dialog-close" data-close="sellDialog" aria-label="Cerrar">×</button>
+    <span class="eyebrow">SELL PROMPT</span><h2>Poner en venta</h2>
+    <form id="sellForm">
+      <input id="sellPromptId" type="hidden">
+      <label>Modelo de precio<select id="sellPricing"><option value="FIXED">Precio fijo</option><option value="SALE_PRICE">Oferta</option><option value="FREE">Gratis</option></select></label>
+      <label>Precio USD<input id="sellPrice" type="number" min="0" max="1000" step="0.01" value="2.00" required></label>
+      <label>Licencia<select id="sellLicense"><option value="PERSONAL">Personal</option><option value="COMMERCIAL">Comercial</option><option value="EXTENDED">Extendida</option></select></label>
+      <label>Vista previa<textarea id="sellPreview" rows="5" maxlength="3000" placeholder="Explica el resultado sin revelar el prompt completo"></textarea></label>
+      <label>Ejemplos (uno por línea)<textarea id="sellExamples" rows="4"></textarea></label>
+      <button class="primary full" type="submit">PUBLICAR LISTING</button>
+    </form>
+  </dialog>
+
+  <dialog id="promptDialog" class="pf-dialog">
+    <button class="dialog-close" data-close="promptDialog" aria-label="Cerrar">×</button>
+    <div id="promptContent"></div>
+  </dialog>
+
+  <dialog id="checkoutDialog" class="pf-dialog small-dialog">
+    <button class="dialog-close" data-close="checkoutDialog" aria-label="Cerrar">×</button>
+    <span class="eyebrow">SECURE CHECKOUT</span><h2 id="checkoutTitle">Completar compra</h2>
+    <p id="checkoutMode" class="notice"></p>
+    <div id="paymentMethods" class="payment-methods"></div>
+    <button id="createOrder" class="primary full" type="button">CREAR ORDEN</button>
+    <div id="paymentBox" class="payment-box hidden">
+      <div><span>Importe</span><strong id="payAmount">—</strong></div>
+      <div><span>Red</span><strong id="payNetwork">—</strong></div>
+      <div class="address-line"><span>Dirección</span><code id="payAddress">—</code></div>
+      <p id="networkWarning" class="notice"></p>
+      <input id="txInput" placeholder="Transaction hash / TXID">
+      <button id="verifyPayment" class="primary full" type="button">VERIFICAR TRANSACCIÓN</button>
+    </div>
+  </dialog>
+
+  <dialog id="reviewDialog" class="pf-dialog small-dialog">
+    <button class="dialog-close" data-close="reviewDialog" aria-label="Cerrar">×</button>
+    <span class="eyebrow">VERIFIED REVIEW</span><h2>Valora tu compra</h2>
+    <form id="reviewForm"><input id="reviewPurchaseId" type="hidden"><label>Estrellas<select id="reviewRating"><option value="5">★★★★★</option><option value="4">★★★★☆</option><option value="3">★★★☆☆</option><option value="2">★★☆☆☆</option><option value="1">★☆☆☆☆</option></select></label><label>Comentario<textarea id="reviewComment" maxlength="2000" rows="5"></textarea></label><button class="primary full" type="submit">PUBLICAR RESEÑA</button></form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/prompt-factory.js?v=1"></script>
+</body>
+</html>
