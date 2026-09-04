@@ -10,8 +10,10 @@ const DATA_DIR = join(__dirname, 'data');
 const DATA_FILE = join(DATA_DIR, 'state.json');
 const PORT = Number(process.env.PORT || 4173);
 const GAME_API_URL = process.env.SUPABASE_GAME_API_URL || '';
+const COMBAT_API_URL = process.env.SUPABASE_COMBAT_API_URL || '';
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || '';
 const USE_SUPABASE = Boolean(GAME_API_URL && SUPABASE_PUBLISHABLE_KEY);
+const USE_COMBAT_ENGINE = Boolean(COMBAT_API_URL && SUPABASE_PUBLISHABLE_KEY);
 
 await mkdir(DATA_DIR, {recursive:true});
 let world;
@@ -40,17 +42,38 @@ function rateLimited(req){
   return entry.count > limit;
 }
 
-async function proxyGame(req,res,payload){
+async function callEdge(req,url,payload){
   const auth = req.headers.authorization;
-  if(!auth) return json(res,401,{error:'Authentication required'});
-  const r = await fetch(GAME_API_URL,{
+  if(!auth) return {status:401,data:{error:'Authentication required'}};
+  const r = await fetch(url,{
     method:'POST',
     headers:{'content-type':'application/json','authorization':auth,'apikey':SUPABASE_PUBLISHABLE_KEY},
     body:JSON.stringify(payload),
   });
-  const text = await r.text();
-  res.writeHead(r.status,{...securityHeaders,'content-type':r.headers.get('content-type')||'application/json; charset=utf-8','cache-control':'no-store'});
-  res.end(text);
+  let data={};
+  try{data=await r.json();}catch{data={error:'Invalid upstream response'};}
+  return {status:r.status,data};
+}
+function mergeProgression(base,progress){
+  if(!base?.player || !progress?.player) return base;
+  base.player = {
+    ...base.player,
+    power: progress.player.power ?? base.player.power,
+    combatStats: progress.player.combatStats,
+    attributes: progress.player.attributes,
+    unspentPoints: progress.player.unspentPoints,
+    tactic: progress.player.tactic,
+    skills: progress.player.skills,
+    xpToNext: progress.player.xpToNext,
+  };
+  return base;
+}
+async function getMergedState(req){
+  const main = await callEdge(req,GAME_API_URL,{op:'state'});
+  if(main.status>=400 || !USE_COMBAT_ENGINE) return main;
+  const progress = await callEdge(req,COMBAT_API_URL,{op:'state'});
+  if(progress.status<400) mergeProgression(main.data,progress.data);
+  return main;
 }
 
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
@@ -58,14 +81,43 @@ const server=http.createServer(async (req,res)=>{
   try{
     const url=new URL(req.url, `http://${req.headers.host||'localhost'}`);
     if(url.pathname.startsWith('/api/') && rateLimited(req)) return json(res,429,{error:'Too many requests'});
-    if(url.pathname==='/api/health') return json(res,200,{ok:true,mode:USE_SUPABASE?'supabase':'demo',time:Date.now()});
+    if(url.pathname==='/api/health') return json(res,200,{ok:true,mode:USE_SUPABASE?'supabase':'demo',combatEngine:USE_COMBAT_ENGINE,time:Date.now()});
 
-    if(USE_SUPABASE && url.pathname==='/api/state' && req.method==='GET') return proxyGame(req,res,{op:'state'});
+    if(USE_SUPABASE && url.pathname==='/api/progression' && req.method==='GET'){
+      if(!USE_COMBAT_ENGINE) return json(res,503,{error:'Combat engine not configured'});
+      const result=await callEdge(req,COMBAT_API_URL,{op:'state'});
+      return json(res,result.status,result.data);
+    }
+    if(USE_SUPABASE && url.pathname==='/api/state' && req.method==='GET'){
+      const result=await getMergedState(req);
+      return json(res,result.status,result.data);
+    }
     if(USE_SUPABASE && url.pathname==='/api/action' && req.method==='POST'){
       const input=await body(req);
-      return proxyGame(req,res,{op:'action',action:input.action,payload:input.payload||{}});
+      const actionName=String(input.action||'');
+      const engineActions=new Set(['combat','allocateStat','setTactic']);
+      if(USE_COMBAT_ENGINE && engineActions.has(actionName)){
+        const engine=await callEdge(req,COMBAT_API_URL,{op:'action',action:actionName,payload:input.payload||{}});
+        if(engine.status>=400) return json(res,engine.status,engine.data);
+        const current=await getMergedState(req);
+        if(current.status>=400) return json(res,current.status,current.data);
+        current.data.message=engine.data.message||current.data.message;
+        if(engine.data.log) current.data.log=engine.data.log;
+        if(typeof engine.data.victory==='boolean') current.data.victory=engine.data.victory;
+        return json(res,200,current.data);
+      }
+      const main=await callEdge(req,GAME_API_URL,{op:'action',action:actionName,payload:input.payload||{}});
+      if(main.status>=400 || !USE_COMBAT_ENGINE) return json(res,main.status,main.data);
+      const progress=await callEdge(req,COMBAT_API_URL,{op:'state'});
+      if(progress.status<400) mergeProgression(main.data,progress.data);
+      return json(res,main.status,main.data);
     }
-    if(USE_SUPABASE && url.pathname==='/api/reset' && req.method==='POST') return proxyGame(req,res,{op:'reset'});
+    if(USE_SUPABASE && url.pathname==='/api/reset' && req.method==='POST'){
+      const main=await callEdge(req,GAME_API_URL,{op:'reset'});
+      if(main.status>=400 || !USE_COMBAT_ENGINE) return json(res,main.status,main.data);
+      const current=await getMergedState(req);
+      return json(res,current.status,current.data);
+    }
 
     if(url.pathname==='/api/state' && req.method==='GET'){
       const id=url.searchParams.get('playerId')||'demo';
@@ -87,12 +139,10 @@ const server=http.createServer(async (req,res)=>{
     if(!fp.startsWith(join(ROOT,'frontend'))) return json(res,403,{error:'forbidden'});
     try {
       const data=await readFile(fp);
-      // During active development always serve frontend assets fresh so mobile browsers
-      // do not remain stuck on an older JS/CSS bundle after a deploy.
       const cache='no-store, max-age=0';
       res.writeHead(200,{...securityHeaders,'content-type':mime[extname(fp)]||'application/octet-stream','cache-control':cache,'pragma':'no-cache','expires':'0'});
       res.end(data);
     } catch { json(res,404,{error:'not found'}); }
   }catch(e){ json(res,400,{error:e.message||'request failed'}); }
 });
-server.listen(PORT,()=>console.log(`Nexus Realms running on http://localhost:${PORT} (${USE_SUPABASE?'supabase':'demo'})`));
+server.listen(PORT,()=>console.log(`Nexus Realms running on http://localhost:${PORT} (${USE_SUPABASE?'supabase':'demo'}, combat=${USE_COMBAT_ENGINE?'v2':'legacy'})`));
