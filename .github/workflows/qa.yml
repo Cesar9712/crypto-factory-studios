@@ -35,6 +35,8 @@ jobs:
           node --check frontend/game.js
           node --check frontend/profile.js
           node --check frontend/prompt-factory.js
+          node --check frontend/prompt-factory-advanced.js
+          node --check frontend/prompt-factory-admin.js
           node --check worker/index.js
       - name: Validate Wrangler configuration
         run: npx --yes wrangler@4 deploy --dry-run
@@ -158,6 +160,31 @@ jobs:
           print('live production payment providers, methods, and product catalog verified')
           PY
 
+      - name: Verify Prompt Factory production API
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://crypto-factory-studios.onrender.com'
+          curl --fail --silent --show-error --max-time 30 "$base/api/v1/prompt-factory/config" -o /tmp/pf-config.json
+          curl --fail --silent --show-error --max-time 30 "$base/api/v1/prompt-factory/categories" -o /tmp/pf-categories.json
+          curl --fail --silent --show-error --max-time 30 "$base/api/v1/prompt-factory/marketplace?limit=5" -o /tmp/pf-market.json
+          curl --fail --silent --show-error --max-time 30 "$base/api/v1/prompt-factory/collection-offers?limit=5" -o /tmp/pf-collections.json
+          python - <<'PY'
+          import json
+          config=json.load(open('/tmp/pf-config.json'))
+          categories=json.load(open('/tmp/pf-categories.json'))
+          market=json.load(open('/tmp/pf-market.json'))
+          collections=json.load(open('/tmp/pf-collections.json'))
+          assert config.get('name') == 'Prompt Factory', config
+          plan_ids={p.get('plan_id') for p in config.get('plans', [])}
+          assert {'free','starter','creator','pro','unlimited'}.issubset(plan_ids), plan_ids
+          labels={c.get('label') for c in categories.get('categories', [])}
+          assert {'AI AGENTS','MARKETING','CODING','WEB3'}.issubset(labels), labels
+          assert isinstance(market.get('listings'), list), market
+          assert isinstance(collections.get('offers'), list), collections
+          print('Prompt Factory production API verified')
+          PY
+
       - name: Verify Cloudflare edge health and upstream readiness
         shell: bash
         run: |
@@ -176,6 +203,23 @@ jobs:
           assert ready.get('upstream_status') == 200, ready
           print('Cloudflare edge and Render upstream verified')
           PY
+
+      - name: Verify Prompt Factory production frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          edge='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
+          pf="$(curl --location --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -H 'Cache-Control: no-cache' "${edge}/prompt-factory?deploy_sha=${GITHUB_SHA}")"
+          grep -Fq 'PROMPT FACTORY' <<<"${pf}"
+          grep -Fq '/prompt-factory.js' <<<"${pf}"
+          grep -Fq '/prompt-factory-advanced.js' <<<"${pf}"
+          admin="$(curl --location --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -H 'Cache-Control: no-cache' "${edge}/prompt-factory/admin?deploy_sha=${GITHUB_SHA}")"
+          grep -Fq 'PROMPT FACTORY' <<<"${admin}"
+          grep -Fq '/prompt-factory-admin.js' <<<"${admin}"
+          advanced="$(curl --location --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -H 'Cache-Control: no-cache' "${edge}/prompt-factory-advanced.js?deploy_sha=${GITHUB_SHA}")"
+          grep -Fq 'checkout-advanced' <<<"${advanced}"
+          grep -Fq 'reconcile-advanced' <<<"${advanced}"
+          echo 'CFS_PROMPT_FACTORY_PRODUCTION_FRONTEND_OK'
 
       - name: Run disposable production end-to-end verification
         env:
