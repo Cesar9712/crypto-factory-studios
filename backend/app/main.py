@@ -23,6 +23,7 @@ from .routes_prompt_factory import register_prompt_factory_routes
 from .routes_prompt_factory_overrides import register_prompt_factory_override_routes
 from .routes_prompt_factory_payments import register_prompt_factory_payment_routes
 from .routes_feature_flags import register_feature_flag_routes
+from .prompt_catalog_seed import ensure_official_prompt_catalog
 
 settings=Settings(); db=DB(settings.database_path, settings.database_url); storage=StorageService(settings)
 payment_methods=PaymentMethodRegistry(settings); price_service=PriceService(settings)
@@ -137,5 +138,6 @@ register_tropipay_routes(app,db=db,settings=settings,session_user=session_user,c
 register_bitshelf_routes(app,db=db,settings=settings,session_user=session_user,fail=fail)
 register_prompt_factory_override_routes(app,db=db,session_user=session_user)
 register_prompt_factory_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
+ensure_official_prompt_catalog(db, now)
 register_prompt_factory_payment_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
 register_feature_flag_routes(app,db=db,session_user=session_user,audit=audit,fail=fail,now=now)
