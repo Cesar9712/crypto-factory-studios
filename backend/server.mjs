@@ -51,6 +51,7 @@ async function callEdge(req,url,payload){
     method:'POST',
     headers:{'content-type':'application/json','authorization':auth,'apikey':SUPABASE_PUBLISHABLE_KEY},
     body:JSON.stringify(payload),
+    signal:AbortSignal.timeout(12000),
   });
   let data={};
   try{data=await r.json();}catch{data={error:'Invalid upstream response'};}
@@ -71,9 +72,10 @@ function mergeProgression(base,progress){
   return base;
 }
 async function getMergedState(req){
-  const main = await callEdge(req,GAME_API_URL,{op:'state'});
-  if(main.status>=400 || !USE_COMBAT_ENGINE) return main;
-  const progress = await callEdge(req,COMBAT_API_URL,{op:'state'});
+  const mainPromise=callEdge(req,GAME_API_URL,{op:'state'});
+  if(!USE_COMBAT_ENGINE) return mainPromise;
+  const [main,progress]=await Promise.all([mainPromise,callEdge(req,COMBAT_API_URL,{op:'state'})]);
+  if(main.status>=400) return main;
   if(progress.status<400) mergeProgression(main.data,progress.data);
   return main;
 }
@@ -112,8 +114,13 @@ const server=http.createServer(async (req,res)=>{
       if(USE_COMBAT_ENGINE && engineActions.has(actionName)){
         const engine=await callEdge(req,COMBAT_API_URL,{op:'action',action:actionName,payload:input.payload||{}});
         if(engine.status>=400) return json(res,engine.status,engine.data);
-        const current=await getMergedState(req);
+        const current=await callEdge(req,GAME_API_URL,{op:'state'});
         if(current.status>=400) return json(res,current.status,current.data);
+        if(engine.data.progression) mergeProgression(current.data,{player:engine.data.progression});
+        else {
+          const progress=await callEdge(req,COMBAT_API_URL,{op:'state'});
+          if(progress.status<400) mergeProgression(current.data,progress.data);
+        }
         current.data.message=engine.data.message||current.data.message;
         if(engine.data.log) current.data.log=engine.data.log;
         if(typeof engine.data.victory==='boolean') current.data.victory=engine.data.victory;
@@ -157,6 +164,9 @@ const server=http.createServer(async (req,res)=>{
       res.writeHead(200,{...securityHeaders,'content-type':mime[extname(fp)]||'application/octet-stream','cache-control':cache,'pragma':'no-cache','expires':'0'});
       res.end(data);
     } catch { json(res,404,{error:'not found'}); }
-  }catch(e){ json(res,400,{error:e.message||'request failed'}); }
+  }catch(e){
+    if(e?.name==='TimeoutError') return json(res,504,{error:'Upstream timeout'});
+    json(res,400,{error:e.message||'request failed'});
+  }
 });
 server.listen(PORT,()=>console.log(`Nexus Realms running on http://localhost:${PORT} (${USE_SUPABASE?'supabase':'demo'}, combat=${USE_COMBAT_ENGINE?'v2':'legacy'}, professions=${USE_PROFESSION_ENGINE?'v1':'off'})`));
