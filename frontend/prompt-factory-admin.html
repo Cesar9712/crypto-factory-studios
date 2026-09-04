@@ -12,11 +12,12 @@
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
   <header class="pf-topbar"><a class="brand" href="/prompt-factory"><span class="brandmark">CF</span><span>PROMPT FACTORY <b>ADMIN</b></span></a><div id="adminBadge" class="account-badge">Verificando…</div></header>
   <main>
-    <section class="pf-hero"><div><span class="eyebrow">CRYPTO FACTORY STUDIOS</span><h1>ADMIN <em>CONTROL</em></h1><p class="hero-copy">Moderación, vendedores, ventas, disputas, retiros, categorías, planes y analítica global.</p><div class="hero-actions"><a class="ghost" href="/prompt-factory">VOLVER A PROMPT FACTORY</a><button id="refreshAdmin" class="primary">ACTUALIZAR</button></div></div><div class="hero-terminal"><div class="terminal-head"><span>PF://ADMIN</span><i></i></div><div id="adminHeroStats" class="terminal-grid"></div></div></section>
+    <section class="pf-hero"><div><span class="eyebrow">CRYPTO FACTORY STUDIOS</span><h1>ADMIN <em>CONTROL</em></h1><p class="hero-copy">Moderación, vendedores, ventas, disputas, retiros, categorías, planes, analítica global y flags de plataforma.</p><div class="hero-actions"><a class="ghost" href="/prompt-factory">VOLVER A PROMPT FACTORY</a><button id="refreshAdmin" class="primary">ACTUALIZAR</button></div></div><div class="hero-terminal"><div class="terminal-head"><span>PF://ADMIN</span><i></i></div><div id="adminHeroStats" class="terminal-grid"></div></div></section>
     <section id="adminDenied" class="auth-panel hidden"><div><span class="eyebrow">ACCESO RESTRINGIDO</span><h2>Se requiere rol de administrador</h2><p>Esta consola solo está disponible para administradores o propietarios de plataforma.</p></div></section>
     <section id="adminConsole" class="pf-section hidden">
       <div class="section-head"><div><span class="eyebrow">GLOBAL ANALYTICS</span><h2>Economía de Prompt Factory</h2></div></div>
       <div id="globalMetrics" class="metric-cards"></div>
+      <div class="data-panel"><h3>Feature flags de plataforma</h3><p class="muted">Los juegos permanecen preservados. OFF los oculta y bloquea públicamente; ON los vuelve a habilitar sin restaurar archivos.</p><div id="gameFeatureFlags"><div class="listing-row"><div><b>CryptoQuest RPG</b><small>Preservado · acceso público controlado por feature flag</small></div><button id="toggleCryptoQuest" class="ghost" type="button">Cargando…</button></div><div class="listing-row"><div><b>Crypto Factory Game</b><small>Preservado · acceso público controlado por feature flag</small></div><button id="toggleCryptoFactory" class="ghost" type="button">Cargando…</button></div></div></div>
       <div class="data-panel"><h3>Top categorías</h3><div id="topCategories"></div></div>
       <div class="data-panel"><h3>Listings y moderación</h3><div id="adminListings"></div></div>
       <div class="data-panel"><h3>Reportes de contenido y duplicados</h3><div id="adminReports"></div></div>
@@ -28,5 +29,6 @@
   </main>
   <div id="toast" class="toast" role="status"></div>
   <script src="/prompt-factory-admin.js?v=1"></script>
+  <script src="/feature-flags-admin.js?v=1"></script>
 </body>
 </html>
