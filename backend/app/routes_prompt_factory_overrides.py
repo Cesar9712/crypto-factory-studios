@@ -73,11 +73,12 @@ def register_prompt_factory_override_routes(app, *, db, session_user: Callable):
     @app.post("/api/v1/prompt-factory/analytics/events")
     def analytics_event_override(body: AnalyticsOverrideIn, authorization: str | None = Header(default=None)):
         user = None
-        if authorization:
-            try:
-                user = current_user(authorization)
-            except Exception:
-                user = None
+        try:
+            # session_user also resolves the normal CFS session cookie when no
+            # Authorization header is present.
+            user = current_user(authorization)
+        except Exception:
+            user = None
 
         prompt_id = body.prompt_id
         listing_id = body.listing_id
