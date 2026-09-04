@@ -1,9 +1,16 @@
 SITE_URL = "https://crypto-factory-studios.cryptofactorystudios.workers.dev"
 
+# Pages whose canonical + OpenGraph URL are validated directly.
 SEO_PAGES = {
     "index.html": "/",
-    "prompt-factory.html": "/prompt-factory",
-    "bitshelf.html": "/bitshelf",
+}
+
+# Focused public discovery surface while first-party games are hidden.
+# Prompt product pages are appended dynamically by the Cloudflare Worker.
+SITEMAP_PATHS = {
+    "/",
+    "/prompt-factory",
+    "/bitshelf",
 }
 
 FORBIDDEN_SEO_HOSTS = {
