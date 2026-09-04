@@ -29,9 +29,9 @@ def register_prompt_factory_payment_routes(app, *, db, session_user: Callable, a
                FROM purchase_history ph
                JOIN orders o ON o.order_id=ph.order_id
                JOIN products p ON p.product_id=ph.product_id
-               WHERE ph.user_id=? AND o.status='FULFILLED' AND p.entitlement_key LIKE 'prompt_%'
+               WHERE ph.user_id=? AND o.status='FULFILLED' AND p.entitlement_key LIKE ?
                ORDER BY ph.created_at ASC""",
-            (user_id,),
+            (user_id, "prompt_%"),
         )
         applied = 0
         for order in rows:
