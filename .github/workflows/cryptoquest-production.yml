@@ -1,12 +1,8 @@
 name: CryptoQuest Production
 
+# Temporarily frozen while CryptoQuest is preserved/hidden in CFS.
+# Re-enable automatic triggers using docs/HOW_TO_REENABLE_GAMES.md.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'frontend/games/cryptoquest/**'
-      - 'worker/index.js'
-      - '.github/workflows/cryptoquest-production.yml'
   workflow_dispatch:
 
 permissions:
