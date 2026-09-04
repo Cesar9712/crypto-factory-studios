@@ -1,9 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /admin/
-Disallow: /billing.html
-Disallow: /profile.html
-Disallow: /creator.html
-Disallow: /api/
-
-Sitemap: https://crypto-factory-studios.cryptofactorystudios.workers.dev/sitemap.xml

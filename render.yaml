@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: nexus-realms-web3
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
+      - key: NODE_VERSION
+        value: "20"
