@@ -43,6 +43,18 @@ async function loadFeatures(env) {
   }
 }
 
+function needsFeatureState(url, method) {
+  const path = url.pathname.toLowerCase();
+  if (path === '/api/v1/platform/features') return false;
+  if (path === '/api/v1/games' || path === '/api/v1/products') return method === 'GET';
+  if (path === '/browser-games' || path === '/browser-games.html') return true;
+  if (path === '/game' || path === '/game.html') return Boolean(url.searchParams.get('slug'));
+  return path === '/cryptoquest' || path.startsWith('/cryptoquest/') ||
+    path === '/crypto-factory-game' || path.startsWith('/crypto-factory-game/') ||
+    path.startsWith('/games/cryptoquest') || path.startsWith('/games/crypto-factory') ||
+    path.startsWith('/play/cryptoquest') || path.startsWith('/play/crypto-factory');
+}
+
 function hiddenGameForUrl(url, features) {
   const path = url.pathname.toLowerCase();
   const slug = (url.searchParams.get('slug') || '').toLowerCase();
@@ -105,8 +117,9 @@ async function filterJsonArray(response, field, predicate) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const features = await loadFeatures(env);
+    if (!needsFeatureState(url, request.method)) return legacyWorker.fetch(request, env, ctx);
 
+    const features = await loadFeatures(env);
     if (hiddenGameForUrl(url, features)) return disabledResponse();
 
     if ((!features.cryptoquest_enabled || !features.crypto_factory_game_enabled) && (url.pathname === '/browser-games' || url.pathname === '/browser-games.html')) {
@@ -114,14 +127,12 @@ export default {
     }
 
     const response = await legacyWorker.fetch(request, env, ctx);
-
     if (request.method === 'GET' && url.pathname === '/api/v1/games') {
       return filterJsonArray(response, 'games', game => isFirstPartyHiddenGame(game, features));
     }
     if (request.method === 'GET' && url.pathname === '/api/v1/products') {
       return filterJsonArray(response, 'products', product => isHiddenGameProduct(product, features));
     }
-
     return response;
   },
 };
