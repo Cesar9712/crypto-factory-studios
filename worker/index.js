@@ -24,6 +24,14 @@ function normalizeOrigin(value){
   }catch{return null}
 }
 
+function escapeHtml(value){
+  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function jsonLd(value){
+  return JSON.stringify(value).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
+}
+
 function injectBeforeLastClosingTag(source, tag, insertion){
   const closing=`</${tag}>`;
   const index=source.toLowerCase().lastIndexOf(closing);
@@ -51,6 +59,53 @@ async function proxyUpstream(request,env){
   }catch{
     return json({ok:false,code:'API_UPSTREAM_UNAVAILABLE',message:'El servicio online no está disponible temporalmente.'},502);
   }
+}
+
+async function fetchPublicListing(slug,env){
+  const origin=normalizeOrigin(env.API_ORIGIN);
+  if(!origin)return null;
+  try{
+    const r=await fetch(new URL(`/api/v1/prompt-factory/listings/${encodeURIComponent(slug)}`,origin),{headers:{'X-CFS-Edge':'cloudflare-worker','Accept':'application/json'}});
+    if(!r.ok)return null;
+    const data=await r.json();
+    return data&&data.listing?data:null;
+  }catch{return null}
+}
+
+async function servePromptProduct(request,env,slug){
+  const data=await fetchPublicListing(slug,env);
+  if(!data)return new Response('Prompt not found',{status:404,headers:{'Content-Type':'text/plain; charset=utf-8',...SECURITY_HEADERS}});
+  const p=data.listing;
+  const origin=new URL(request.url).origin;
+  const canonical=`${origin}/prompts/${encodeURIComponent(p.slug)}`;
+  const title=`${p.title} — Prompt Factory | Crypto Factory Studios`;
+  const description=String(p.description||p.preview_text||'Prompt premium de Prompt Factory').slice(0,300);
+  const price=Number(p.price_usd||0).toFixed(2);
+  const ratingCount=Number(p.rating_count||0);
+  const structured={
+    '@context':'https://schema.org','@type':'Product',name:p.title,description,
+    brand:{'@type':'Brand',name:'Crypto Factory Studios'},category:p.category||'Prompt',
+    offers:{'@type':'Offer',url:canonical,priceCurrency:'USD',price,availability:'https://schema.org/InStock'},
+    ...(ratingCount>0?{aggregateRating:{'@type':'AggregateRating',ratingValue:Number(p.rating_avg||0).toFixed(1),reviewCount:ratingCount}}:{}),
+  };
+  const reviews=(data.reviews||[]).slice(0,12);
+  const tags=[...(p.ai_models||[]),...(p.tags||[])].slice(0,12);
+  const body=`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#071016"><title>${escapeHtml(title)}</title><meta name="description" content="${escapeHtml(description)}"><link rel="canonical" href="${escapeHtml(canonical)}"><meta property="og:type" content="product"><meta property="og:title" content="${escapeHtml(p.title)}"><meta property="og:description" content="${escapeHtml(description)}"><meta property="og:url" content="${escapeHtml(canonical)}"><meta name="twitter:card" content="summary"><script type="application/ld+json">${jsonLd(structured)}</script><link rel="stylesheet" href="/prompt-factory.css?v=1"></head><body><div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><header class="pf-topbar"><a class="brand" href="/"><span class="brandmark">CF</span><span>CRYPTO FACTORY <b>STUDIOS</b></span></a><a class="ghost tiny" href="/prompt-factory">PROMPT FACTORY</a></header><main><section class="pf-hero"><div><span class="eyebrow">${escapeHtml(p.category||'PROMPT')} · ${escapeHtml(p.license_type||'PERSONAL')} LICENSE</span><h1>${escapeHtml(p.title)}</h1><p class="hero-line">${price==='0.00'?'FREE':`$${escapeHtml(price)} USD`}</p><p class="hero-copy">${escapeHtml(description)}</p><div class="tags">${tags.map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div><div class="hero-actions"><a class="primary" href="/prompt-factory?prompt=${encodeURIComponent(p.slug)}">${price==='0.00'?'OBTENER PROMPT':'BUY NOW'}</a><a class="ghost" href="/prompt-factory">EXPLORAR MARKETPLACE</a></div></div><div class="hero-terminal"><div class="terminal-head"><span>PF://PRODUCT</span><i></i></div><div class="terminal-grid"><div><strong>${Number(p.sales_count||0)}</strong><span>ventas</span></div><div><strong>${Number(p.rating_avg||0).toFixed(1)}</strong><span>rating</span></div><div><strong>${ratingCount}</strong><span>reviews</span></div><div><strong>${escapeHtml(p.creator_name||'Creator')}</strong><span>creador</span></div></div></div></section><section class="pf-section"><div class="data-panel"><h2>Vista previa</h2><p>${escapeHtml(p.preview_text||'El contenido completo se desbloquea después de adquirir el prompt.')}</p></div><div class="data-panel"><h2>Reseñas verificadas</h2>${reviews.length?reviews.map(r=>`<div class="review-item"><b>${escapeHtml(r.display_name)} · ${'★'.repeat(Math.max(1,Math.min(5,Number(r.rating)||1)))}</b><p>${escapeHtml(r.comment||'')}</p></div>`).join(''):'<p class="muted">Aún no hay reseñas.</p>'}</div></section></main><script src="/analytics.js?v=20260828-2" defer></script></body></html>`;
+  return new Response(body,{status:200,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','X-Robots-Tag':'index, follow',...SECURITY_HEADERS}});
+}
+
+async function augmentSitemap(body,request,env){
+  const origin=normalizeOrigin(env.API_ORIGIN);
+  if(!origin||!body.includes('</urlset>'))return body;
+  try{
+    const r=await fetch(new URL('/api/v1/prompt-factory/marketplace?sort=new&limit=100&offset=0',origin),{headers:{'X-CFS-Edge':'cloudflare-worker','Accept':'application/json'}});
+    if(!r.ok)return body;
+    const data=await r.json();
+    const publicOrigin=new URL(request.url).origin;
+    const urls=(data.listings||[]).filter(x=>x.slug).map(x=>`<url><loc>${escapeHtml(`${publicOrigin}/prompts/${encodeURIComponent(x.slug)}`)}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`).join('');
+    if(!urls)return body;
+    return body.replace('</urlset>',`${urls}</urlset>`);
+  }catch{return body}
 }
 
 async function serveAsset(request,env){
@@ -84,8 +139,13 @@ async function serveAsset(request,env){
     }
   }
 
-  if(isPromptFactory&&type.includes('text/html')&&!body.includes('/prompt-factory-advanced.js')){
-    body=injectBeforeLastClosingTag(body,'body',PROMPT_FACTORY_ADVANCED_SCRIPT);
+  if(isPromptFactory&&type.includes('text/html')){
+    body=body.replace('/prompt-factory.html','/prompt-factory');
+    if(!body.includes('/prompt-factory-advanced.js'))body=injectBeforeLastClosingTag(body,'body',PROMPT_FACTORY_ADVANCED_SCRIPT);
+  }
+
+  if(pathname==='/sitemap.xml'&&(type.includes('xml')||type.includes('text/plain'))){
+    body=await augmentSitemap(body,request,env);
   }
 
   if(type.includes('text/html')&&(pathname==='/'||pathname==='/index.html')&&!body.includes('href="/prompt-factory"')){
@@ -116,6 +176,10 @@ export default {
       }
     }
     if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/play/'))return proxyUpstream(request,env);
+    if(/^\/prompts\/[a-z0-9-]+\/?$/.test(url.pathname)){
+      const slug=decodeURIComponent(url.pathname.split('/')[2]||'');
+      return servePromptProduct(request,env,slug);
+    }
     if(url.pathname==='/bitshelf'||url.pathname==='/bitshelf/'){
       const target=new URL(request.url);target.pathname='/bitshelf.html';
       return serveAsset(new Request(target.toString(),request),env);
