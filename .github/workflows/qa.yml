@@ -34,6 +34,7 @@ jobs:
           node --check frontend/billing.js
           node --check frontend/game.js
           node --check frontend/profile.js
+          node --check frontend/prompt-factory.js
           node --check worker/index.js
       - name: Validate Wrangler configuration
         run: npx --yes wrangler@4 deploy --dry-run
