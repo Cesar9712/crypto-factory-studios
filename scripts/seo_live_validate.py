@@ -5,7 +5,7 @@ import time
 import urllib.request
 from xml.etree import ElementTree as ET
 
-from seo_config import FORBIDDEN_SEO_HOSTS, SEO_PAGES, SITE_URL
+from seo_config import FORBIDDEN_SEO_HOSTS, SEO_PAGES, SITEMAP_PATHS, SITE_URL
 
 
 def fetch(path: str) -> tuple[int, str, str]:
@@ -75,10 +75,13 @@ def validate_sitemap() -> None:
     root = ET.fromstring(xml)
     ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     locs = [node.text.strip() for node in root.findall("sm:url/sm:loc", ns) if node.text]
-    expected = {expected_url(path) for path in SEO_PAGES.values()}
-    assert set(locs) == expected, (set(locs), expected)
+    static_expected = {expected_url(path) for path in SITEMAP_PATHS}
+    assert static_expected.issubset(set(locs)), (set(locs), static_expected)
     assert len(locs) == len(set(locs)), "duplicate sitemap URLs"
     assert not any(host in xml for host in FORBIDDEN_SEO_HOSTS), "sitemap contains obsolete SEO host"
+    lower = "\n".join(locs).lower()
+    assert "cryptoquest" not in lower, "hidden CryptoQuest URL leaked into production sitemap"
+    assert "browser-games" not in lower and "/game.html" not in lower, "hidden game discovery URL leaked into production sitemap"
     print("sitemap.xml ok")
 
 
