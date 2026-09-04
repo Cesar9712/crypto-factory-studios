@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071016">
+  <title>Prompt Factory Admin — Crypto Factory Studios</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="stylesheet" href="/prompt-factory.css?v=1">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <header class="pf-topbar"><a class="brand" href="/prompt-factory"><span class="brandmark">CF</span><span>PROMPT FACTORY <b>ADMIN</b></span></a><div id="adminBadge" class="account-badge">Verificando…</div></header>
+  <main>
+    <section class="pf-hero"><div><span class="eyebrow">CRYPTO FACTORY STUDIOS</span><h1>ADMIN <em>CONTROL</em></h1><p class="hero-copy">Moderación, vendedores, ventas, disputas, retiros, categorías, planes y analítica global.</p><div class="hero-actions"><a class="ghost" href="/prompt-factory">VOLVER A PROMPT FACTORY</a><button id="refreshAdmin" class="primary">ACTUALIZAR</button></div></div><div class="hero-terminal"><div class="terminal-head"><span>PF://ADMIN</span><i></i></div><div id="adminHeroStats" class="terminal-grid"></div></div></section>
+    <section id="adminDenied" class="auth-panel hidden"><div><span class="eyebrow">ACCESO RESTRINGIDO</span><h2>Se requiere rol de administrador</h2><p>Esta consola solo está disponible para administradores o propietarios de plataforma.</p></div></section>
+    <section id="adminConsole" class="pf-section hidden">
+      <div class="section-head"><div><span class="eyebrow">GLOBAL ANALYTICS</span><h2>Economía de Prompt Factory</h2></div></div>
+      <div id="globalMetrics" class="metric-cards"></div>
+      <div class="data-panel"><h3>Top categorías</h3><div id="topCategories"></div></div>
+      <div class="data-panel"><h3>Listings y moderación</h3><div id="adminListings"></div></div>
+      <div class="data-panel"><h3>Reportes de contenido y duplicados</h3><div id="adminReports"></div></div>
+      <div class="data-panel"><h3>Disputas</h3><div id="adminDisputes"></div></div>
+      <div class="data-panel"><h3>Retiros</h3><div id="adminPayouts"></div></div>
+      <div class="data-panel"><h3>Usuarios y vendedores</h3><div id="adminUsers"></div></div>
+      <div class="data-panel"><h3>Crear categoría</h3><form id="categoryForm" class="form-grid"><label>Nombre<input id="adminCategoryLabel" required></label><label>Orden<input id="adminCategoryOrder" type="number" min="0" value="100"></label><button class="primary" type="submit">CREAR CATEGORÍA</button></form></div>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/prompt-factory-admin.js?v=1"></script>
+</body>
+</html>
