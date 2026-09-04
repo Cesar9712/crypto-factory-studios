@@ -6,6 +6,7 @@ from fastapi import Header
 
 from .routes_prompt_factory import apply_prompt_factory_entitlement
 from .routes_prompt_factory_advanced import register_prompt_factory_advanced_routes
+from .routes_prompt_factory_compat import register_prompt_factory_compat_routes
 from .routes_prompt_factory_finishing import register_prompt_factory_finishing_routes
 
 
@@ -77,9 +78,17 @@ def register_prompt_factory_payment_routes(app, *, db, session_user: Callable, a
             audit(user["id"], "prompt_factory_reconciled", "user", user["id"], result)
         return result
 
-    register_prompt_factory_advanced_routes(
+    advanced_db = register_prompt_factory_compat_routes(
         app,
         db=db,
+        session_user=session_user,
+        audit=audit,
+        fail=fail,
+        now=now,
+    )
+    register_prompt_factory_advanced_routes(
+        app,
+        db=advanced_db,
         session_user=session_user,
         audit=audit,
         fail=fail,
