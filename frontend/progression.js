@@ -1,0 +1,33 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL='https://culwlrspkwbcbtmopgcp.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_JfDoNvnecRDooAOK6dTg2A_2fRV5zRZ';
+const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct=(a,b)=>Math.max(0,Math.min(100,b?Number(a)/Number(b)*100:0));
+let expanded=false,last=null,loading=false;
+
+function lang(){return localStorage.getItem('nexus-lang')||'es'}
+const L={
+ es:{title:'Progresión y combate automático',details:'Detalles',hide:'Ocultar',xp:'Experiencia',points:'Puntos libres',tactic:'Táctica',smart:'Inteligente',balanced:'Equilibrada',aggressive:'Agresiva',defensive:'Defensiva',atk:'ATQ',def:'DEF',crit:'CRÍT',dodge:'ESQ',strength:'Fuerza',vitality:'Vitalidad',agility:'Agilidad',intelligence:'Inteligencia',luck:'Suerte',skills:'Habilidades automáticas',rules:'Al subir de nivel ganas crecimiento automático según tu clase + 2 puntos para repartir. El combate usa tus atributos, equipo, maná, crítico, esquiva y habilidades automáticamente.',strHelp:'Aumenta el daño físico.',vitHelp:'Aumenta defensa; cada punto manual da +3 Vida máxima.',agiHelp:'Aumenta crítico y esquiva; clave para Arquero/Asesino.',intHelp:'Aumenta poder de habilidades; cada punto manual da +2 Maná máximo.',luckHelp:'Mejora crítico y probabilidad de mejor botín.',noPoints:'Sin puntos disponibles',mana:'Maná',level:'Nivel'},
+ en:{title:'Progression & automatic combat',details:'Details',hide:'Hide',xp:'Experience',points:'Free points',tactic:'Tactic',smart:'Smart',balanced:'Balanced',aggressive:'Aggressive',defensive:'Defensive',atk:'ATK',def:'DEF',crit:'CRIT',dodge:'DODGE',strength:'Strength',vitality:'Vitality',agility:'Agility',intelligence:'Intelligence',luck:'Luck',skills:'Automatic skills',rules:'Each level grants class-based automatic growth + 2 points to spend. Auto combat uses your attributes, gear, mana, crit, dodge and skills.',strHelp:'Raises physical damage.',vitHelp:'Raises defense; manual points also grant +3 max Health.',agiHelp:'Raises crit and dodge; especially strong for Archer/Assassin.',intHelp:'Raises skill power; manual points also grant +2 max Mana.',luckHelp:'Raises crit and better-loot chance.',noPoints:'No points available',mana:'Mana',level:'Level'}
+};
+const t=k=>L[lang()]?.[k]??k;
+
+async function sessionHeaders(){const {data}=await supabase.auth.getSession();const token=data.session?.access_token;return token?{'content-type':'application/json','authorization':`Bearer ${token}`}:{'content-type':'application/json'};}
+async function getProgress(){const headers=await sessionHeaders();if(!headers.authorization)return null;const r=await fetch('/api/progression',{headers,cache:'no-store'});if(!r.ok)return null;return r.json();}
+async function act(action,payload){const headers=await sessionHeaders();const r=await fetch('/api/action',{method:'POST',headers,body:JSON.stringify({action,payload}),cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok||j.error)throw new Error(j.error||'Request failed');return j;}
+function ensureHost(){let el=document.querySelector('#progression-v2');if(el)return el;el=document.createElement('section');el.id='progression-v2';el.hidden=true;const hud=document.querySelector('#hud');if(hud)hud.after(el);else document.querySelector('main')?.before(el);return el;}
+function skillLabel(s){return lang()==='es'?(s.nameEs||s.name):s.name}
+function render(){const host=ensureHost();if(!last?.player){host.hidden=true;return;}host.hidden=false;const p=last.player,a=p.attributes||{},s=p.combatStats||{},points=Number(p.unspentPoints||0),xpMax=Number(p.xpToNext||Math.max(100,p.level*100));const tactics=['smart','balanced','aggressive','defensive'];const attrs=[['strength','💪',t('strHelp')],['vitality','❤️',t('vitHelp')],['agility','💨',t('agiHelp')],['intelligence','🔮',t('intHelp')],['luck','🍀',t('luckHelp')]];
+ host.innerHTML=`<div class="pv2-shell"><div class="pv2-head"><div><span class="pv2-kicker">AUTO RPG</span><b>⚙️ ${t('title')}</b></div><button class="pv2-toggle" data-pv2-toggle>${expanded?t('hide'):t('details')}</button></div><div class="pv2-xp"><div><span>${t('level')} ${p.level}</span><strong>${p.xp}/${xpMax} XP</strong></div><div class="pv2-meter"><i style="width:${pct(p.xp,xpMax)}%"></i></div></div><div class="pv2-summary"><span>${t('atk')} <b>${s.atk??0}</b></span><span>${t('def')} <b>${s.def??0}</b></span><span>${t('crit')} <b>${Math.round(Number(s.crit||0)*100)}%</b></span><span>${t('dodge')} <b>${Math.round(Number(s.dodge||0)*100)}%</b></span><span>${t('points')} <b>${points}</b></span></div><div class="pv2-tactics">${tactics.map(x=>`<button data-pv2-tactic="${x}" class="${p.tactic===x?'active':''}">${t(x)}</button>`).join('')}</div>${expanded?`<div class="pv2-detail"><p class="pv2-rules">${t('rules')}</p><div class="pv2-attrs">${attrs.map(([k,ic,help])=>`<div class="pv2-attr"><span>${ic}</span><div><b>${t(k)} ${a[k]??0}</b><small>${help}</small></div><button data-pv2-stat="${k}" ${points<=0?'disabled':''}>+1</button></div>`).join('')}</div><div class="pv2-skills"><b>✨ ${t('skills')}</b><div>${(p.skills||[]).map(sk=>`<span>${esc(skillLabel(sk))}<small>${sk.manaCost} ${t('mana')} · x${Number(sk.multiplier).toFixed(2)}</small></span>`).join('')||'<span>—</span>'}</div></div></div>`:''}</div>`;
+ bind();
+}
+function bind(){document.querySelector('[data-pv2-toggle]')?.addEventListener('click',()=>{expanded=!expanded;render()});document.querySelectorAll('[data-pv2-tactic]').forEach(b=>b.addEventListener('click',async()=>{if(loading)return;loading=true;try{await act('setTactic',{tactic:b.dataset.pv2Tactic});await refresh();}catch(e){console.warn(e)}finally{loading=false}}));document.querySelectorAll('[data-pv2-stat]').forEach(b=>b.addEventListener('click',async()=>{if(loading)return;loading=true;try{await act('allocateStat',{stat:b.dataset.pv2Stat});await refresh();}catch(e){console.warn(e)}finally{loading=false}}));}
+async function refresh(){if(loading&&last)return;try{const data=await getProgress();last=data;render();}catch{}}
+
+supabase.auth.onAuthStateChange((_event,session)=>{if(session)setTimeout(refresh,100);else{last=null;render();}});
+window.addEventListener('focus',refresh);
+window.addEventListener('nexus-refresh-progression',refresh);
+setInterval(()=>{if(document.visibilityState==='visible')refresh()},15000);
+setTimeout(refresh,300);
