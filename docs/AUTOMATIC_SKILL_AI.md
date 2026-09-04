@@ -1,31 +1,22 @@
 # Automatic Skill AI
 
-Nexus Realms resolves combat server-side. Players choose a combat tactic, while the combat engine automatically selects class skills based on combat state.
+Nexus Realms resolves combat server-side. Players choose a combat tactic, while the combat engine automatically selects class skills based on the combat state.
 
 ## Decision inputs
 
-The automatic skill selector evaluates:
-
-- current player HP ratio;
-- current enemy HP ratio;
-- available mana and skill mana cost;
-- cooldowns measured in combat turns;
-- whether the enemy is a boss;
-- selected tactic: Smart, Balanced, Aggressive, or Defensive;
-- skill role: damage, guard, or execute;
-- execution thresholds, armor piercing, critical modifiers, and damage reduction.
+The automatic selector evaluates player HP, enemy HP, mana, skill cost, cooldowns, boss status, selected tactic, skill role, execution thresholds, armor piercing, critical modifiers and damage reduction.
 
 ## Tactics
 
-- **Smart:** adapts to HP, mana, enemy state and boss encounters; it reserves mana when appropriate and prioritizes defensive skills when HP is low.
-- **Balanced:** alternates basic attacks and affordable abilities.
+- **Smart:** adapts to HP, mana, enemy state and boss encounters; it preserves mana when useful and prioritizes defensive skills when HP is low.
+- **Balanced:** alternates basic attacks and affordable skills.
 - **Aggressive:** prioritizes the strongest available damage skill.
 - **Defensive:** conserves mana and favors guard/survival behavior.
 
 ## Skill roles
 
-- **Damage:** used when the tactic, cooldown and mana budget allow it.
+- **Damage:** used when tactic, cooldown and mana allow it.
 - **Guard:** prioritized by defensive logic and by Smart mode when HP falls low.
 - **Execute:** held until the enemy reaches its execution threshold.
 
-Skills unlock by character level and remain server-authoritative. The client only displays the current skill set and AI behavior; it does not decide combat outcomes.
+Skills unlock by character level and remain server-authoritative. The client displays the current skill set and AI behavior but does not decide combat outcomes.
