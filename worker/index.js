@@ -109,10 +109,23 @@ async function augmentSitemap(body,request,env){
 }
 
 async function serveAsset(request,env){
-  const response=await env.ASSETS.fetch(request);
+  let response;
+  try{
+    response=await env.ASSETS.fetch(request);
+  }catch{
+    return new Response('Service temporarily unavailable',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store',...SECURITY_HEADERS}});
+  }
   const type=(response.headers.get('content-type')||'').toLowerCase();
-  const isText=type.includes('text/html')||type.includes('application/xml')||type.includes('text/xml')||type.includes('text/plain');
   const headers=new Headers(response.headers);
+
+  // RFC 9110 no-content responses cannot legally carry a body. Cloudflare Assets
+  // can return 304 to browser conditional requests; rebuilding that response with
+  // response.text() would throw inside the Worker and surface as Cloudflare 1101.
+  if(request.method==='HEAD'||response.status===204||response.status===205||response.status===304){
+    return new Response(null,{status:response.status,statusText:response.statusText,headers});
+  }
+
+  const isText=type.includes('text/html')||type.includes('application/xml')||type.includes('text/xml')||type.includes('text/plain');
   const pathname=new URL(request.url).pathname;
   const isCryptoQuest=pathname==='/games/cryptoquest' || pathname.startsWith('/games/cryptoquest/');
   const isPromptFactory=pathname==='/prompt-factory' || pathname==='/prompt-factory/' || pathname==='/prompt-factory.html';
