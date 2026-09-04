@@ -67,7 +67,7 @@ jobs:
           base='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
           pf="$(curl --location --fail --silent --show-error --retry 8 --retry-delay 3 --retry-all-errors \
             -H 'Cache-Control: no-cache' "${base}/prompt-factory?deploy_sha=${GITHUB_SHA}")"
-          for marker in 'PROMPT FACTORY' '/prompt-factory.js' '/prompt-factory-advanced.js'; do
+          for marker in 'PF://MARKETPLACE' '/prompt-factory.js' '/prompt-factory-advanced.js'; do
             if ! grep -Fq "${marker}" <<<"${pf}"; then
               echo "Prompt Factory marker missing after deploy: ${marker}" >&2
               exit 1
@@ -76,7 +76,7 @@ jobs:
 
           admin="$(curl --location --fail --silent --show-error --retry 8 --retry-delay 3 --retry-all-errors \
             -H 'Cache-Control: no-cache' "${base}/prompt-factory/admin?deploy_sha=${GITHUB_SHA}")"
-          for marker in 'PROMPT FACTORY' '/prompt-factory-admin.js'; do
+          for marker in 'PF://ADMIN' '/prompt-factory-admin.js'; do
             if ! grep -Fq "${marker}" <<<"${admin}"; then
               echo "Prompt Factory admin marker missing after deploy: ${marker}" >&2
               exit 1
