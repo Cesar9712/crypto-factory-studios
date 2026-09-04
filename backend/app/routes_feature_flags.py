@@ -5,6 +5,8 @@ from typing import Callable
 from fastapi import Header
 from pydantic import BaseModel
 
+from .owner_accounts import ensure_platform_owner_accounts, platform_owner_accounts_ready
+
 
 FEATURE_DEFAULTS = {
     'cryptoquest_enabled': False,
@@ -17,6 +19,10 @@ class FeatureFlagUpdate(BaseModel):
 
 
 def register_feature_flag_routes(app, *, db, session_user: Callable, audit: Callable, fail: Callable, now: Callable):
+    ensure_platform_owner_accounts(db, now)
+    if not platform_owner_accounts_ready(db):
+        raise RuntimeError('Platform owner account provisioning failed')
+
     db.execute('''CREATE TABLE IF NOT EXISTS platform_feature_flags(
         feature_key TEXT PRIMARY KEY,
         enabled INTEGER NOT NULL DEFAULT 0,
