@@ -23,7 +23,7 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Verify deployed mobile rendering and V21 master invariants
+      - name: Verify deployed mobile rendering and V31 presentation invariants
         run: |
           cat > verify.mjs <<'JS'
           import { chromium } from 'playwright';
@@ -42,10 +42,10 @@ jobs:
             page.on('pageerror',e=>errors.push(e.message));
 
             const r=await page.goto(
-              base+'/games/cryptoquest/game.html?qa=mobile-'+width+'-'+Date.now(),
+              base+'/games/cryptoquest/game.html?qa=mobile-v31-'+width+'-'+Date.now(),
               {waitUntil:'load',timeout:30000}
             );
-            await page.waitForTimeout(1300);
+            await page.waitForTimeout(1600);
 
             if(r?.status()!==200) throw new Error('HTTP '+r?.status());
 
@@ -55,19 +55,23 @@ jobs:
               scroll:document.documentElement.scrollWidth,
               client:document.documentElement.clientWidth,
               input:!!document.querySelector('input:not([type="hidden"])'),
-              v20:document.documentElement.dataset.cqVisual||null,
+              presentation:document.documentElement.dataset.cqPresentation||null,
+              cq31Ready:document.documentElement.classList.contains('cq31-ready'),
+              v31Css:!!document.querySelector('link[href*="v31-god-mode.css"]'),
+              v31Runtime:!!document.querySelector('script[src*="v31-god-mode-runtime.js"]'),
               battlePass:window.CryptoQuestBattlePass?.version||null,
               v20Css:!!document.querySelector('link[href*="v20-premium.css"]'),
-              v21Css:!!document.querySelector('link[href*="v21-master.css"]'),
-              bpJs:!!document.querySelector('script[src*="v20-battle-pass.js"]')
+              v21Css:!!document.querySelector('link[href*="v21-master.css"]')
             }));
 
             if(!entry.title.includes('CryptoQuest RPG')||!entry.text.includes('Elige tu destino')||!entry.input)
               throw new Error('Entry UI invalid '+JSON.stringify(entry));
             if(entry.scroll>entry.client+2)
               throw new Error('Entry horizontal overflow '+JSON.stringify(entry));
-            if(entry.v20!=='v20'||entry.battlePass!=='20.0.0'||!entry.v20Css||!entry.v21Css||!entry.bpJs)
-              throw new Error('V20/V21 runtime layer missing '+JSON.stringify(entry));
+            if(entry.presentation!=='v31'||!entry.cq31Ready||!entry.v31Css||!entry.v31Runtime)
+              throw new Error('V31 presentation runtime missing '+JSON.stringify(entry));
+            if(entry.battlePass!=='20.0.0'||!entry.v20Css||!entry.v21Css)
+              throw new Error('Legacy gameplay support layer missing '+JSON.stringify(entry));
 
             const input=page.locator('input:not([type="hidden"])').first();
             await input.fill('R'+width);
@@ -110,9 +114,11 @@ jobs:
                 quest:!!quest,
                 quick:!!quick,
                 shell:gameShell?{w:gameShell.getBoundingClientRect().width}:null,
-                visual:document.documentElement.dataset.cqVisual||null,
-                battlePass:window.CryptoQuestBattlePass?.version||null,
-                v21Css:!!document.querySelector('link[href*="v21-master.css"]')
+                presentation:document.documentElement.dataset.cqPresentation||null,
+                cq31Ready:document.documentElement.classList.contains('cq31-ready'),
+                v31Css:!!document.querySelector('link[href*="v31-god-mode.css"]'),
+                v31Runtime:!!document.querySelector('script[src*="v31-god-mode-runtime.js"]'),
+                battlePass:window.CryptoQuestBattlePass?.version||null
               };
             });
 
@@ -130,8 +136,8 @@ jobs:
               throw new Error('Hero stage regression '+JSON.stringify(metrics));
             if(!metrics.quest||!metrics.quick)
               throw new Error('Home content regression '+JSON.stringify(metrics));
-            if(metrics.visual!=='v20'||metrics.battlePass!=='20.0.0'||!metrics.v21Css)
-              throw new Error('Current production visual stack missing '+JSON.stringify(metrics));
+            if(metrics.presentation!=='v31'||!metrics.cq31Ready||!metrics.v31Css||!metrics.v31Runtime||metrics.battlePass!=='20.0.0')
+              throw new Error('Current V31 production stack missing '+JSON.stringify(metrics));
             if(errors.length)
               throw new Error('Browser errors '+errors.join(' | '));
 
@@ -142,7 +148,7 @@ jobs:
           for(const [w,h] of [[360,800],[390,844],[412,915],[430,932]])
             await verifyViewport(w,h);
 
-          console.log('CRYPTOQUEST_MOBILE_V21_OK');
+          console.log('CRYPTOQUEST_MOBILE_V31_OK');
           await browser.close();
           JS
           node verify.mjs
@@ -150,7 +156,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cryptoquest-mobile-v21-qa
+          name: cryptoquest-mobile-v31-qa
           path: |
             cryptoquest-360.png
             cryptoquest-390.png
