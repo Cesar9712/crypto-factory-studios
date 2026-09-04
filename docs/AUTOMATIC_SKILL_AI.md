@@ -8,25 +8,24 @@ The automatic skill selector evaluates:
 
 - current player HP ratio;
 - current enemy HP ratio;
-- available mana;
-- skill mana cost;
-- skill cooldown in turns;
+- available mana and skill mana cost;
+- cooldowns measured in combat turns;
 - whether the enemy is a boss;
-- combat tactic: Smart, Balanced, Aggressive, Defensive;
-- skill role: damage, guard, execute;
-- execution thresholds and armor-piercing/critical modifiers.
+- selected tactic: Smart, Balanced, Aggressive, or Defensive;
+- skill role: damage, guard, or execute;
+- execution thresholds, armor piercing, critical modifiers, and damage reduction.
 
 ## Tactics
 
-- **Smart:** adapts to HP, mana, enemy state and boss encounters. It reserves mana when appropriate and prioritizes defensive skills when HP is low.
+- **Smart:** adapts to HP, mana, enemy state and boss encounters; it reserves mana when appropriate and prioritizes defensive skills when HP is low.
 - **Balanced:** alternates basic attacks and affordable abilities.
 - **Aggressive:** prioritizes the strongest available damage skill.
 - **Defensive:** conserves mana and favors guard/survival behavior.
 
 ## Skill roles
 
-- **Damage:** used when the tactic and mana budget allow it.
+- **Damage:** used when the tactic, cooldown and mana budget allow it.
 - **Guard:** prioritized by defensive logic and by Smart mode when HP falls low.
 - **Execute:** held until the enemy reaches its execution threshold.
 
-Skills are unlocked by character level and remain server-authoritative. The client only displays the current skill set and AI behavior; it does not decide combat outcomes.
+Skills unlock by character level and remain server-authoritative. The client only displays the current skill set and AI behavior; it does not decide combat outcomes.
