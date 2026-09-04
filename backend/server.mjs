@@ -11,9 +11,11 @@ const DATA_FILE = join(DATA_DIR, 'state.json');
 const PORT = Number(process.env.PORT || 4173);
 const GAME_API_URL = process.env.SUPABASE_GAME_API_URL || '';
 const COMBAT_API_URL = process.env.SUPABASE_COMBAT_API_URL || '';
+const PROFESSION_API_URL = process.env.SUPABASE_PROFESSION_API_URL || '';
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || '';
 const USE_SUPABASE = Boolean(GAME_API_URL && SUPABASE_PUBLISHABLE_KEY);
 const USE_COMBAT_ENGINE = Boolean(COMBAT_API_URL && SUPABASE_PUBLISHABLE_KEY);
+const USE_PROFESSION_ENGINE = Boolean(PROFESSION_API_URL && SUPABASE_PUBLISHABLE_KEY);
 
 await mkdir(DATA_DIR, {recursive:true});
 let world;
@@ -81,11 +83,22 @@ const server=http.createServer(async (req,res)=>{
   try{
     const url=new URL(req.url, `http://${req.headers.host||'localhost'}`);
     if(url.pathname.startsWith('/api/') && rateLimited(req)) return json(res,429,{error:'Too many requests'});
-    if(url.pathname==='/api/health') return json(res,200,{ok:true,mode:USE_SUPABASE?'supabase':'demo',combatEngine:USE_COMBAT_ENGINE,time:Date.now()});
+    if(url.pathname==='/api/health') return json(res,200,{ok:true,mode:USE_SUPABASE?'supabase':'demo',combatEngine:USE_COMBAT_ENGINE,professionEngine:USE_PROFESSION_ENGINE,time:Date.now()});
 
     if(USE_SUPABASE && url.pathname==='/api/progression' && req.method==='GET'){
       if(!USE_COMBAT_ENGINE) return json(res,503,{error:'Combat engine not configured'});
       const result=await callEdge(req,COMBAT_API_URL,{op:'state'});
+      return json(res,result.status,result.data);
+    }
+    if(USE_SUPABASE && url.pathname==='/api/professions' && req.method==='GET'){
+      if(!USE_PROFESSION_ENGINE) return json(res,503,{error:'Profession engine not configured'});
+      const result=await callEdge(req,PROFESSION_API_URL,{op:'state'});
+      return json(res,result.status,result.data);
+    }
+    if(USE_SUPABASE && url.pathname==='/api/profession-action' && req.method==='POST'){
+      if(!USE_PROFESSION_ENGINE) return json(res,503,{error:'Profession engine not configured'});
+      const input=await body(req);
+      const result=await callEdge(req,PROFESSION_API_URL,{op:'action',action:String(input.action||''),payload:input.payload||{}});
       return json(res,result.status,result.data);
     }
     if(USE_SUPABASE && url.pathname==='/api/state' && req.method==='GET'){
@@ -104,6 +117,7 @@ const server=http.createServer(async (req,res)=>{
         current.data.message=engine.data.message||current.data.message;
         if(engine.data.log) current.data.log=engine.data.log;
         if(typeof engine.data.victory==='boolean') current.data.victory=engine.data.victory;
+        if(engine.data.hunter) current.data.hunter=engine.data.hunter;
         return json(res,200,current.data);
       }
       const main=await callEdge(req,GAME_API_URL,{op:'action',action:actionName,payload:input.payload||{}});
@@ -145,4 +159,4 @@ const server=http.createServer(async (req,res)=>{
     } catch { json(res,404,{error:'not found'}); }
   }catch(e){ json(res,400,{error:e.message||'request failed'}); }
 });
-server.listen(PORT,()=>console.log(`Nexus Realms running on http://localhost:${PORT} (${USE_SUPABASE?'supabase':'demo'}, combat=${USE_COMBAT_ENGINE?'v2':'legacy'})`));
+server.listen(PORT,()=>console.log(`Nexus Realms running on http://localhost:${PORT} (${USE_SUPABASE?'supabase':'demo'}, combat=${USE_COMBAT_ENGINE?'v2':'legacy'}, professions=${USE_PROFESSION_ENGINE?'v1':'off'})`));
