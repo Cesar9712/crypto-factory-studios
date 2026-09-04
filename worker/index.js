@@ -6,6 +6,7 @@ const SECURITY_HEADERS = {
 const CRYPTOQUEST_CSP = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 const LEGACY_PUBLIC_ORIGIN = 'https://crypto-factory-studios.cesargp9712.workers.dev';
 const ANALYTICS_SCRIPT = '<script src="/analytics.js?v=20260828-2" defer></script>';
+const PROMPT_FACTORY_ADVANCED_SCRIPT = '<script src="/prompt-factory-advanced.js?v=1" defer></script>';
 const CQ_V20_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v20-premium.css?v=20.0.0">';
 const CQ_V20_SCRIPT = '<script src="/games/cryptoquest/v20-battle-pass.js?v=20.0.0" defer></script>';
 const CQ_V21_STYLE = '<link rel="stylesheet" href="/games/cryptoquest/v21-master.css?v=21.0.0">';
@@ -59,6 +60,7 @@ async function serveAsset(request,env){
   const headers=new Headers(response.headers);
   const pathname=new URL(request.url).pathname;
   const isCryptoQuest=pathname==='/games/cryptoquest' || pathname.startsWith('/games/cryptoquest/');
+  const isPromptFactory=pathname==='/prompt-factory' || pathname==='/prompt-factory/' || pathname==='/prompt-factory.html';
 
   if(isCryptoQuest){
     headers.set('Content-Security-Policy',CRYPTOQUEST_CSP);
@@ -80,6 +82,10 @@ async function serveAsset(request,env){
       if(!body.includes('/games/cryptoquest/v21-master.css'))body=injectBeforeLastClosingTag(body,'head',CQ_V21_STYLE);
       if(!body.includes('/games/cryptoquest/v20-battle-pass.js'))body=injectBeforeLastClosingTag(body,'body',CQ_V20_SCRIPT);
     }
+  }
+
+  if(isPromptFactory&&type.includes('text/html')&&!body.includes('/prompt-factory-advanced.js')){
+    body=injectBeforeLastClosingTag(body,'body',PROMPT_FACTORY_ADVANCED_SCRIPT);
   }
 
   if(type.includes('text/html')&&(pathname==='/'||pathname==='/index.html')&&!body.includes('href="/prompt-factory"')){
@@ -116,6 +122,10 @@ export default {
     }
     if(url.pathname==='/prompt-factory'||url.pathname==='/prompt-factory/'){
       const target=new URL(request.url);target.pathname='/prompt-factory.html';
+      return serveAsset(new Request(target.toString(),request),env);
+    }
+    if(url.pathname==='/prompt-factory/admin'||url.pathname==='/prompt-factory/admin/'){
+      const target=new URL(request.url);target.pathname='/prompt-factory-admin.html';
       return serveAsset(new Request(target.toString(),request),env);
     }
     return serveAsset(request,env);
