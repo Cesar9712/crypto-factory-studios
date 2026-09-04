@@ -87,8 +87,10 @@ const server=http.createServer(async (req,res)=>{
     if(!fp.startsWith(join(ROOT,'frontend'))) return json(res,403,{error:'forbidden'});
     try {
       const data=await readFile(fp);
-      const cache=extname(fp)==='.html'?'no-store':'public, max-age=3600';
-      res.writeHead(200,{...securityHeaders,'content-type':mime[extname(fp)]||'application/octet-stream','cache-control':cache});
+      // During active development always serve frontend assets fresh so mobile browsers
+      // do not remain stuck on an older JS/CSS bundle after a deploy.
+      const cache='no-store, max-age=0';
+      res.writeHead(200,{...securityHeaders,'content-type':mime[extname(fp)]||'application/octet-stream','cache-control':cache,'pragma':'no-cache','expires':'0'});
       res.end(data);
     } catch { json(res,404,{error:'not found'}); }
   }catch(e){ json(res,400,{error:e.message||'request failed'}); }
