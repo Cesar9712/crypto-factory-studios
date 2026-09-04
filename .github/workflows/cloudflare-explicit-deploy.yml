@@ -76,7 +76,7 @@ jobs:
 
           admin="$(curl --location --fail --silent --show-error --retry 8 --retry-delay 3 --retry-all-errors \
             -H 'Cache-Control: no-cache' "${base}/prompt-factory/admin?deploy_sha=${GITHUB_SHA}")"
-          for marker in 'PF://ADMIN' '/prompt-factory-admin.js'; do
+          for marker in 'PF://ADMIN' '/prompt-factory-admin.js' '/feature-flags-admin.js'; do
             if ! grep -Fq "${marker}" <<<"${admin}"; then
               echo "Prompt Factory admin marker missing after deploy: ${marker}" >&2
               exit 1
@@ -92,3 +92,85 @@ jobs:
             fi
           done
           echo 'CFS_CLOUDFLARE_PROMPT_FACTORY_OK'
+
+      - name: Verify first-party games are hidden and preserved behind feature flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://crypto-factory-studios.cryptofactorystudios.workers.dev'
+
+          features=''
+          for attempt in $(seq 1 40); do
+            if features="$(curl --fail --silent --show-error --max-time 20 -H 'Cache-Control: no-cache' "${base}/api/v1/platform/features?deploy_sha=${GITHUB_SHA}&attempt=${attempt}")"; then
+              if FEATURES_JSON="${features}" python - <<'PY'
+          import json, os
+          data=json.loads(os.environ['FEATURES_JSON'])
+          flags=data.get('features',{})
+          assert flags.get('cryptoquest_enabled') is False, data
+          assert flags.get('crypto_factory_game_enabled') is False, data
+          assert data.get('games_hidden') is True, data
+          PY
+              then
+                break
+              fi
+            fi
+            features=''
+            sleep 5
+          done
+          test -n "${features}" || { echo 'Feature flags did not become available with both games OFF' >&2; exit 1; }
+
+          check_hidden() {
+            local url="$1"
+            local status
+            status="$(curl --silent --show-error --max-time 25 -D /tmp/hidden-headers -o /tmp/hidden-body -w '%{http_code}' \
+              -H 'Cache-Control: no-cache' "${url}")"
+            if [ "${status}" != '404' ]; then
+              echo "Hidden game route returned ${status}: ${url}" >&2
+              cat /tmp/hidden-body >&2 || true
+              exit 1
+            fi
+            if ! grep -qi '^x-robots-tag:.*noindex' /tmp/hidden-headers; then
+              echo "Hidden route is missing X-Robots-Tag noindex: ${url}" >&2
+              cat /tmp/hidden-headers >&2 || true
+              exit 1
+            fi
+          }
+
+          check_hidden "${base}/games/cryptoquest/?hidden_check=${GITHUB_SHA}"
+          check_hidden "${base}/game.html?slug=crypto-factory&hidden_check=${GITHUB_SHA}"
+          check_hidden "${base}/browser-games.html?hidden_check=${GITHUB_SHA}"
+
+          home="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors -H 'Cache-Control: no-cache' "${base}/?hidden_check=${GITHUB_SHA}")"
+          grep -Fq 'PF://MARKETPLACE' <<<"${home}"
+          if grep -Fq 'CryptoQuest RPG' <<<"${home}" || grep -Fq '/games/cryptoquest' <<<"${home}"; then
+            echo 'CryptoQuest leaked back into the public homepage' >&2
+            exit 1
+          fi
+          if grep -Fq '<h3>Crypto Factory</h3>' <<<"${home}" || grep -Fq 'Crypto Factory Game' <<<"${home}"; then
+            echo 'Crypto Factory Game leaked back into the public homepage' >&2
+            exit 1
+          fi
+
+          sitemap="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors -H 'Cache-Control: no-cache' "${base}/sitemap.xml?hidden_check=${GITHUB_SHA}")"
+          grep -Fq '/prompt-factory' <<<"${sitemap}"
+          if grep -Fiq 'cryptoquest' <<<"${sitemap}" || grep -Fiq 'browser-games' <<<"${sitemap}" || grep -Fiq '/game.html' <<<"${sitemap}"; then
+            echo 'Hidden game URL leaked into sitemap' >&2
+            exit 1
+          fi
+
+          products="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors -H 'Cache-Control: no-cache' "${base}/api/v1/products?hidden_check=${GITHUB_SHA}")"
+          PRODUCTS_JSON="${products}" python - <<'PY'
+          import json, os
+          data=json.loads(os.environ['PRODUCTS_JSON'])
+          for row in data.get('products', []):
+              pid=str(row.get('product_id','')).lower()
+              label=str(row.get('label','')).lower()
+              ent=str(row.get('entitlement_key','')).lower()
+              assert not pid.startswith('cryptoquest_'), row
+              assert 'cryptoquest' not in label, row
+              assert not ent.startswith('cryptoquest_'), row
+              assert not pid.startswith('crypto_factory_game_'), row
+              assert label != 'crypto factory', row
+          PY
+
+          echo 'CFS_FIRST_PARTY_GAMES_HIDDEN_OK'
