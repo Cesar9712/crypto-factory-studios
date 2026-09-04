@@ -3,9 +3,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL='https://culwlrspkwbcbtmopgcp.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_JfDoNvnecRDooAOK6dTg2A_2fRV5zRZ';
 const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 const pct=(a,b)=>Math.max(0,Math.min(100,b?Number(a)/Number(b)*100:0));
-let expanded=false,last=null,loading=false,refreshTimer=null;
+let expanded=false,last=null,loading=false,lastRefresh=0;
 
 function lang(){return localStorage.getItem('nexus-lang')||'es'}
 const L={
@@ -27,14 +27,13 @@ function render(){const host=ensureHost();if(!last?.player){host.hidden=true;ret
  host.innerHTML=`<div class="pv2-shell"><div class="pv2-head"><div><span class="pv2-kicker">AUTO RPG</span><b>⚙️ ${t('title')}</b></div><button class="pv2-toggle" data-pv2-toggle>${expanded?t('hide'):t('details')}</button></div><div class="pv2-xp"><div><span>${t('level')} ${p.level}</span><strong>${p.xp}/${xpMax} XP</strong></div><div class="pv2-meter"><i style="width:${pct(p.xp,xpMax)}%"></i></div></div><div class="pv2-summary"><span>${t('atk')} <b>${s.atk??0}</b></span><span>${t('def')} <b>${s.def??0}</b></span><span>${t('crit')} <b>${Math.round(Number(s.crit||0)*100)}%</b></span><span>${t('dodge')} <b>${Math.round(Number(s.dodge||0)*100)}%</b></span><span>${t('points')} <b>${points}</b></span></div><div class="pv2-tactics">${tactics.map(x=>`<button data-pv2-tactic="${x}" class="${p.tactic===x?'active':''}">${t(x)}</button>`).join('')}</div>${expanded?`<div class="pv2-detail"><p class="pv2-rules">${t('rules')}</p><div class="pv2-attrs">${attrs.map(([k,ic,help])=>`<div class="pv2-attr"><span>${ic}</span><div><b>${t(k)} ${a[k]??0}</b><small>${help}</small></div><button data-pv2-stat="${k}" ${points<=0?'disabled':''}>+1</button></div>`).join('')}</div><div class="pv2-skills"><div class="pv2-skills-title"><b>✨ ${t('skills')}</b><span>🤖 ${t(p.tactic||'smart')}</span></div><div class="pv2-skills-grid">${(p.skills||[]).map(sk=>renderSkill(sk,p)).join('')||'<span>—</span>'}</div></div></div>`:''}</div>`;
  bind();
 }
-function applyActionState(j){if(j?.player){last={player:j.player};render();}}
+function applyActionState(j){if(j?.player){last={player:j.player};lastRefresh=Date.now();render();}}
 function bind(){document.querySelector('[data-pv2-toggle]')?.addEventListener('click',()=>{expanded=!expanded;render()});document.querySelectorAll('[data-pv2-tactic]').forEach(b=>b.addEventListener('click',async()=>{if(loading)return;loading=true;try{applyActionState(await act('setTactic',{tactic:b.dataset.pv2Tactic}));}catch(e){console.warn(e)}finally{loading=false}}));document.querySelectorAll('[data-pv2-stat]').forEach(b=>b.addEventListener('click',async()=>{if(loading)return;loading=true;try{applyActionState(await act('allocateStat',{stat:b.dataset.pv2Stat}));}catch(e){console.warn(e)}finally{loading=false}}));}
-async function refresh(){try{const data=await getProgress();last=data;render();}catch{}}
-function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,120);}
+async function refresh({force=false}={}){if(!force&&Date.now()-lastRefresh<15000)return;try{const d=await getProgress();if(d){last=d;lastRefresh=Date.now();render();}}catch{}}
 
-supabase.auth.onAuthStateChange((_event,session)=>{if(session)setTimeout(refresh,250);else{last=null;render();}});
-window.addEventListener('focus',refresh);
-window.addEventListener('nexus-refresh-progression',refresh);
-const hud=document.querySelector('#hud');if(hud)new MutationObserver(scheduleRefresh).observe(hud,{childList:true,subtree:true});
-setInterval(()=>{if(document.visibilityState==='visible')refresh()},15000);
-setTimeout(refresh,500);
+supabase.auth.onAuthStateChange((_event,session)=>{if(session)setTimeout(()=>refresh({force:true}),250);else{last=null;render();}});
+window.addEventListener('focus',()=>refresh());
+window.addEventListener('nexus-refresh-progression',()=>refresh({force:true}));
+document.addEventListener('click',e=>{if(e.target?.closest?.('[data-enemy]'))setTimeout(()=>refresh({force:true}),950)},true);
+setInterval(()=>{if(document.visibilityState==='visible')refresh()},45000);
+setTimeout(()=>refresh({force:true}),500);
