@@ -82,6 +82,10 @@ async function serveAsset(request,env){
     }
   }
 
+  if(type.includes('text/html')&&(pathname==='/'||pathname==='/index.html')&&!body.includes('href="/prompt-factory"')){
+    body=body.replace('<a href="/billing.html">Billing</a>','<a href="/billing.html">Billing</a><a href="/prompt-factory">Prompt Factory</a>');
+  }
+
   if(type.includes('text/html')&&!body.includes('/analytics.js')){
     body=injectBeforeLastClosingTag(body,'body',ANALYTICS_SCRIPT);
   }
@@ -108,6 +112,10 @@ export default {
     if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/play/'))return proxyUpstream(request,env);
     if(url.pathname==='/bitshelf'||url.pathname==='/bitshelf/'){
       const target=new URL(request.url);target.pathname='/bitshelf.html';
+      return serveAsset(new Request(target.toString(),request),env);
+    }
+    if(url.pathname==='/prompt-factory'||url.pathname==='/prompt-factory/'){
+      const target=new URL(request.url);target.pathname='/prompt-factory.html';
       return serveAsset(new Request(target.toString(),request),env);
     }
     return serveAsset(request,env);
