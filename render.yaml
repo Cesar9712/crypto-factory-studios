@@ -10,7 +10,11 @@ services:
       - key: NODE_ENV
         value: "production"
       - key: DEMO_MODE
-        value: "true"
+        value: "false"
+      - key: SUPABASE_GAME_API_URL
+        value: "https://culwlrspkwbcbtmopgcp.supabase.co/functions/v1/game-api"
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: "sb_publishable_JfDoNvnecRDooAOK6dTg2A_2fRV5zRZ"
       - key: REAL_MONEY_ENABLED
         value: "false"
       - key: PAYMENTS_ENABLED
