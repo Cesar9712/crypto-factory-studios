@@ -4,21 +4,22 @@
   let proto=panel,descriptor=null;
   while(proto&&!descriptor){descriptor=Object.getOwnPropertyDescriptor(proto,'innerHTML');proto=Object.getPrototypeOf(proto)}
   if(!descriptor?.get||!descriptor?.set)return;
+  let savedWorld=null,savedCombat=null;
   const heading=()=>panel.querySelector('.section-head h2')?.textContent||'';
-  const reattachVisuals=(world,combat)=>{
+  const reattachVisuals=()=>{
     const h=heading();
     const isWorld=/Mundo|World/i.test(h);
     const isCombat=/Combate|Combat/i.test(h);
     if(isWorld){
       panel.querySelector('.destination-list')?.closest('.content-block')?.classList.add('p1-legacy-destinations');
-      if(world&&!panel.querySelector('#p1-world'))panel.querySelector('.section-head')?.insertAdjacentElement('afterend',world);
+      if(savedWorld&&!panel.querySelector('#p1-world'))panel.querySelector('.section-head')?.insertAdjacentElement('afterend',savedWorld);
     }
     if(isCombat){
       const zone=panel.querySelector('[data-combat="zone"]');
       const zoneActive=!zone||zone.classList.contains('active');
       if(zoneActive){
         panel.querySelector('.enemy-list')?.classList.add('p1-legacy-enemies');
-        if(combat&&!panel.querySelector('#p1-combat-roster'))panel.querySelector('.segmented')?.insertAdjacentElement('afterend',combat);
+        if(savedCombat&&!panel.querySelector('#p1-combat-roster'))panel.querySelector('.segmented')?.insertAdjacentElement('afterend',savedCombat);
       }
     }
   };
@@ -28,10 +29,10 @@
     enumerable:descriptor.enumerable,
     get(){return descriptor.get.call(panel)},
     set(value){
-      const world=panel.querySelector('#p1-world');
-      const combat=panel.querySelector('#p1-combat-roster');
+      savedWorld=panel.querySelector('#p1-world')||savedWorld;
+      savedCombat=panel.querySelector('#p1-combat-roster')||savedCombat;
       descriptor.set.call(panel,value);
-      reattachVisuals(world,combat);
+      reattachVisuals();
       document.dispatchEvent(new CustomEvent('nexus:panel-render'));
     }
   });
