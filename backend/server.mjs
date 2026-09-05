@@ -16,6 +16,7 @@ const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || '';
 const USE_SUPABASE = Boolean(GAME_API_URL && SUPABASE_PUBLISHABLE_KEY);
 const USE_COMBAT_ENGINE = Boolean(COMBAT_API_URL && SUPABASE_PUBLISHABLE_KEY);
 const USE_PROFESSION_ENGINE = Boolean(PROFESSION_API_URL && SUPABASE_PUBLISHABLE_KEY);
+const ALLOW_DEMO_RESET = process.env.ALLOW_DEMO_RESET === 'true' && process.env.NODE_ENV !== 'production';
 
 await mkdir(DATA_DIR, {recursive:true});
 let world;
@@ -35,9 +36,16 @@ async function body(req){ let s=''; for await (const chunk of req){ s += chunk; 
 function player(id='demo'){ if(!world.players[id]) world.players[id]=createDefaultWorld().players.demo; return world.players[id]; }
 
 const rate = new Map();
+let lastRateSweep=0;
+function sweepRate(now,windowMs){
+  if(now-lastRateSweep<windowMs && rate.size<2000) return;
+  lastRateSweep=now;
+  for(const [ip,entry] of rate){ if(now-entry.start>=windowMs*2) rate.delete(ip); }
+}
 function rateLimited(req){
   const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
   const now = Date.now(), windowMs = 60_000, limit = 120;
+  sweepRate(now,windowMs);
   const entry = rate.get(ip);
   if(!entry || now-entry.start >= windowMs){ rate.set(ip,{start:now,count:1}); return false; }
   entry.count++;
@@ -47,15 +55,20 @@ function rateLimited(req){
 async function callEdge(req,url,payload){
   const auth = req.headers.authorization;
   if(!auth) return {status:401,data:{error:'Authentication required'}};
-  const r = await fetch(url,{
-    method:'POST',
-    headers:{'content-type':'application/json','authorization':auth,'apikey':SUPABASE_PUBLISHABLE_KEY},
-    body:JSON.stringify(payload),
-    signal:AbortSignal.timeout(12000),
-  });
-  let data={};
-  try{data=await r.json();}catch{data={error:'Invalid upstream response'};}
-  return {status:r.status,data};
+  try{
+    const r = await fetch(url,{
+      method:'POST',
+      headers:{'content-type':'application/json','authorization':auth,'apikey':SUPABASE_PUBLISHABLE_KEY},
+      body:JSON.stringify(payload),
+      signal:AbortSignal.timeout(12000),
+    });
+    let data={};
+    try{data=await r.json();}catch{data={error:'Invalid upstream response'};}
+    return {status:r.status,data};
+  }catch(e){
+    if(e?.name==='TimeoutError'||e?.name==='AbortError') return {status:504,data:{error:'Upstream timeout'}};
+    return {status:502,data:{error:'Upstream unavailable'}};
+  }
 }
 function mergeProgression(base,progress){
   if(!base?.player || !progress?.player) return base;
@@ -134,6 +147,7 @@ const server=http.createServer(async (req,res)=>{
       return json(res,main.status,main.data);
     }
     if(USE_SUPABASE && url.pathname==='/api/reset' && req.method==='POST'){
+      if(!ALLOW_DEMO_RESET) return json(res,403,{error:'Reset disabled in Early Access'});
       const main=await callEdge(req,GAME_API_URL,{op:'reset'});
       if(main.status>=400 || !USE_COMBAT_ENGINE) return json(res,main.status,main.data);
       const current=await getMergedState(req);
@@ -151,6 +165,7 @@ const server=http.createServer(async (req,res)=>{
       return json(res,200,result);
     }
     if(url.pathname==='/api/reset' && req.method==='POST'){
+      if(!ALLOW_DEMO_RESET) return json(res,403,{error:'Reset disabled in Early Access'});
       world=createDefaultWorld(); await persist(); return json(res,200,{ok:true});
     }
 
@@ -165,8 +180,9 @@ const server=http.createServer(async (req,res)=>{
       res.end(data);
     } catch { json(res,404,{error:'not found'}); }
   }catch(e){
-    if(e?.name==='TimeoutError') return json(res,504,{error:'Upstream timeout'});
-    json(res,400,{error:e.message||'request failed'});
+    if(e?.name==='TimeoutError'||e?.name==='AbortError') return json(res,504,{error:'Upstream timeout'});
+    if(e instanceof SyntaxError) return json(res,400,{error:'Invalid JSON request'});
+    json(res,500,{error:'Request failed'});
   }
 });
 server.listen(PORT,()=>console.log(`Nexus Realms running on http://localhost:${PORT} (${USE_SUPABASE?'supabase':'demo'}, combat=${USE_COMBAT_ENGINE?'v2':'legacy'}, professions=${USE_PROFESSION_ENGINE?'v1':'off'})`));
