@@ -56,9 +56,10 @@ async function stateFor(user:any,message?:string){
   const rewarded=referrals.filter((x:any)=>x.status==='rewarded').length;
   const totalCredits=(rewardsRes.data??[]).reduce((n:number,x:any)=>n+Number(x.referrer_premium_credits||0),0);
   const deadline=new Date(new Date(c.created_at).getTime()+Number(cfg.attribution_window_days||7)*86400000).toISOString();
-  return {ok:true,...(message?{message}:{}),mode:'ONE_LEVEL_NONCASH',character:{id:c.id,name:c.name,level:Number(c.level),founderPackOwned:Boolean(c.founder_pack_owned),premiumCreditsDemo:Number(c.premium_credits_demo||0)},profile:{code,shareUrl:`${APP_URL}?ref=${encodeURIComponent(code)}`},config:{active:Boolean(cfg.active),referrerPremiumCredits:Number(cfg.referrer_premium_credits),referredPremiumCredits:Number(cfg.referred_premium_credits),attributionWindowDays:Number(cfg.attribution_window_days)},attribution:{canAttach:!attrRes.data&&!c.founder_pack_owned&&Date.now()<new Date(deadline).getTime(),deadline,invitedBy},stats:{total:referrals.length,rewarded,totalPremiumCredits:totalCredits},referrals,disclaimer:{es:'Programa de un solo nivel. Las recompensas son Créditos Premium internos, no retirables y sin valor monetario. Solo se entregan cuando el referido compra y paga correctamente el Pack Fundador.',en:'Single-level program. Rewards are internal, non-withdrawable Premium Credits with no monetary value. Rewards are issued only after the referred player successfully pays for the Founder Pack.'}};
+  const sharePath=`/?ref=${encodeURIComponent(code)}`;
+  return {ok:true,...(message?{message}:{}),mode:'ONE_LEVEL_NONCASH',character:{id:c.id,name:c.name,level:Number(c.level),founderPackOwned:Boolean(c.founder_pack_owned),premiumCreditsDemo:Number(c.premium_credits_demo||0)},profile:{code,sharePath,shareUrl:`${APP_URL}?ref=${encodeURIComponent(code)}`},config:{active:Boolean(cfg.active),referrerPremiumCredits:Number(cfg.referrer_premium_credits),referredPremiumCredits:Number(cfg.referred_premium_credits),attributionWindowDays:Number(cfg.attribution_window_days)},attribution:{canAttach:!attrRes.data&&!c.founder_pack_owned&&Date.now()<new Date(deadline).getTime(),deadline,invitedBy},stats:{total:referrals.length,rewarded,totalPremiumCredits:totalCredits},referrals,disclaimer:{es:'Programa de un solo nivel. Las recompensas son Créditos Premium internos, no retirables y sin valor monetario. Solo se entregan cuando el referido compra y paga correctamente el Pack Fundador.',en:'Single-level program. Rewards are internal, non-withdrawable Premium Credits with no monetary value. Rewards are issued only after the referred player successfully pays for the Founder Pack.'}};
 }
-async function applyCode(user:any,codeRaw:string){
+async function applyReferral(user:any,codeRaw:string){
   const c=await characterFor(user.id);
   const code=String(codeRaw||'').trim().toUpperCase();
   if(!/^[A-Z0-9]{6,20}$/.test(code))throw new Error('Invalid referral code');
@@ -78,7 +79,8 @@ Deno.serve(async(req:Request)=>{
     const input=await req.json().catch(()=>({}));
     const op=String(input?.op??'state');
     if(op==='state')return json(await stateFor(user));
-    if(op==='action'&&String(input?.action||'')==='applyCode')return json(await applyCode(user,String(input?.payload?.code||'')));
+    const action=String(input?.action||'');
+    if(op==='action'&&(action==='applyCode'||action==='applyReferral'))return json(await applyReferral(user,String(input?.payload?.code||'')));
     return json({error:'unknown_operation'},400);
   }catch(e){
     const message=e instanceof Error?e.message:'request_failed';
