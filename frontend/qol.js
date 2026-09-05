@@ -55,14 +55,15 @@ function renderAlerts(){
   strip.hidden=!chips.length;
   strip.querySelectorAll('[data-qol-more]').forEach(b=>b.onclick=()=>clickMore(b.dataset.qolMore));
   strip.querySelector('[data-qol-world]')?.addEventListener('click',clickWorld);
-  strip.querySelector('[data-qol-stats]')?.addEventListener('click',()=>{const btn=document.querySelector('[data-pv2-toggle]');if(btn&&btn.textContent.trim().length)btn.click();document.querySelector('#progression-v2')?.scrollIntoView({behavior:'smooth',block:'start'});});
+  strip.querySelector('[data-qol-stats]')?.addEventListener('click',()=>{const btn=document.querySelector('[data-pv2-toggle]');if(btn)btn.click();document.querySelector('#progression-v2')?.scrollIntoView({behavior:'smooth',block:'start'});});
   const more=document.querySelector('[data-tab="More"]');
   if(more){let badge=more.querySelector('.qol-badge');if(rewards>0){if(!badge){badge=document.createElement('b');badge.className='qol-badge';more.append(badge);}badge.textContent=String(rewards);}else badge?.remove();}
 }
 function refreshFromGlobal(){if(window.__NEXUS_STATE__)currentState=window.__NEXUS_STATE__;ensureNetBadge();ensureBusy();renderAlerts();}
+function scheduleAlerts(delay=0){setTimeout(refreshFromGlobal,delay);}
 
-window.addEventListener('nexus:state',e=>{currentState=e.detail?.state||currentState;renderAlerts();});
-window.addEventListener('nexus:network',()=>renderAlerts());
+window.addEventListener('nexus:state',e=>{currentState=e.detail?.state||currentState;scheduleAlerts(40);});
+window.addEventListener('nexus:network',()=>scheduleAlerts(40));
 window.addEventListener('nexus:busy',e=>{busy=Boolean(e.detail?.busy);ensureBusy();});
 window.addEventListener('nexus:connectivity',()=>ensureNetBadge());
 window.addEventListener('online',ensureNetBadge);window.addEventListener('offline',ensureNetBadge);
@@ -71,6 +72,7 @@ window.addEventListener('online',ensureNetBadge);window.addEventListener('offlin
 let lastActionAt=0,lastActionKey='';
 document.addEventListener('click',e=>{
   const b=e.target?.closest?.('button');if(!b)return;
+  if(b.matches('[data-tab],[data-more],[data-combat],[data-inv],[data-forge]'))scheduleAlerts(80);
   const actionKey=['enemy','a','zone','craft','enhance','quest','daily','codex','buy','sell','expedition'].find(k=>b.dataset?.[k]!=null);
   if(!actionKey)return;
   const key=`${actionKey}:${b.dataset[actionKey]}`;const now=Date.now();
@@ -79,5 +81,4 @@ document.addEventListener('click',e=>{
   if(navigator.vibrate)navigator.vibrate(12);
 },true);
 
-new MutationObserver(()=>{if(document.querySelector('#tabs'))refreshFromGlobal();}).observe(document.documentElement,{childList:true,subtree:true});
-setTimeout(refreshFromGlobal,350);
+setTimeout(refreshFromGlobal,500);
