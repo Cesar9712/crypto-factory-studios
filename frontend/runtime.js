@@ -6,6 +6,8 @@ const inflight=new Map();
 let stateCache=null;
 let stateCacheAt=0;
 const STATE_TTL=6000;
+const DIRECT_TIMEOUT=9000;
+const FALLBACK_TIMEOUT=15000;
 
 const SUPABASE_URL='https://culwlrspkwbcbtmopgcp.supabase.co';
 const SUPABASE_KEY='sb_publishable_JfDoNvnecRDooAOK6dTg2A_2fRV5zRZ';
@@ -29,7 +31,14 @@ function authHeaders(input,init){
   if(init?.headers)new Headers(init.headers).forEach((v,k)=>h.set(k,v));
   h.set('content-type','application/json');h.set('apikey',SUPABASE_KEY);return h;
 }
-async function edgePost(url,payload,headers){return nativeFetch(url,{method:'POST',headers,body:JSON.stringify(payload),cache:'no-store'});}
+async function timedFetch(input,init={},timeoutMs=FALLBACK_TIMEOUT){
+  if(init?.signal)return nativeFetch(input,init);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{return await nativeFetch(input,{...init,signal:controller.signal});}
+  finally{clearTimeout(timer);}
+}
+async function edgePost(url,payload,headers){return timedFetch(url,{method:'POST',headers,body:JSON.stringify(payload),cache:'no-store'},DIRECT_TIMEOUT);}
 function mergeProgress(base,progress){
   if(!base?.player||!progress?.player)return base;
   base.player={...base.player,power:progress.player.power??base.player.power,combatStats:progress.player.combatStats,attributes:progress.player.attributes,unspentPoints:progress.player.unspentPoints,tactic:progress.player.tactic,skills:progress.player.skills,xpToNext:progress.player.xpToNext};
@@ -53,7 +62,7 @@ async function directRequest(info,input,init){
     const b=bodyJson(init);window.__NEXUS_ROUTE__='direct-profession-action';return edgePost(PROF_EDGE,{op:'action',action:String(b.action||''),payload:b.payload||{}},headers);
   }
   if(info.method==='POST'&&info.path==='/api/reset'){
-    const g=await edgePost(GAME_EDGE,{op:'reset'},headers);if(!g.ok)return g;const gd=await responseJson(g);const c=await edgePost(COMBAT_EDGE,{op:'state'},headers);const cd=c.ok?await responseJson(c):null;window.__NEXUS_ROUTE__='direct-reset';return jsonResponse(mergeProgress(gd,cd),g.status);
+    window.__NEXUS_ROUTE__='reset-disabled';return jsonResponse({error:'Reset disabled in Early Access'},403);
   }
   if(info.method==='POST'&&info.path==='/api/action'){
     const b=bodyJson(init),action=String(b.action||'');if(ENGINE_ACTIONS.has(action))return null;
@@ -63,8 +72,8 @@ async function directRequest(info,input,init){
   return null;
 }
 async function fetchWithFallback(info,input,init){
-  try{const direct=await directRequest(info,input,init);if(direct&&direct.status<500)return direct;}catch{}
-  window.__NEXUS_ROUTE__='render-fallback';return nativeFetch(input,init);
+  try{const direct=await directRequest(info,input,init);if(direct&&direct.status<500)return direct;}catch(e){emit('nexus:network-error',{path:info.path,stage:'direct',message:e?.name==='AbortError'?'timeout':'unavailable'});}
+  window.__NEXUS_ROUTE__='render-fallback';return timedFetch(input,init,FALLBACK_TIMEOUT);
 }
 
 window.fetch=async function(input,init={}){
@@ -82,6 +91,8 @@ window.fetch=async function(input,init={}){
     if(isState&&res.ok){try{const clone=res.clone(),body=await clone.text();stateCache={body,status:res.status,statusText:res.statusText,headers:[...res.headers.entries()]};stateCacheAt=Date.now();}catch{}captureState(res,'state');}
     else if(isAction&&res.ok){stateCache=null;stateCacheAt=0;captureState(res,'action');}
     return res.clone();
+  }catch(e){
+    const elapsed=Math.round(performance.now()-started);emit('nexus:network',{path:info.path,elapsed,ok:false,route:window.__NEXUS_ROUTE__||'render',error:e?.name==='AbortError'?'timeout':'network'});throw e;
   }finally{inflight.delete(key);if(isAction)emit('nexus:busy',{busy:false});}
 };
 
