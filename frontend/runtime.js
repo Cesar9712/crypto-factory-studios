@@ -1,10 +1,18 @@
-// Lightweight runtime layer: keeps the UI responsive on slower mobile connections
-// without changing server-authoritative game rules.
+// Fast mobile runtime: coalesces duplicate requests and bypasses the Render proxy
+// for safe JWT-verified Supabase Edge Function reads/actions. Combat stays on Render
+// because the proxy merges combat-engine + game state after each automatic battle.
 const nativeFetch=window.fetch.bind(window);
 const inflight=new Map();
 let stateCache=null;
 let stateCacheAt=0;
 const STATE_TTL=6000;
+
+const SUPABASE_URL='https://culwlrspkwbcbtmopgcp.supabase.co';
+const SUPABASE_KEY='sb_publishable_JfDoNvnecRDooAOK6dTg2A_2fRV5zRZ';
+const GAME_EDGE=`${SUPABASE_URL}/functions/v1/game-api`;
+const COMBAT_EDGE=`${SUPABASE_URL}/functions/v1/combat-engine`;
+const PROF_EDGE=`${SUPABASE_URL}/functions/v1/profession-engine`;
+const ENGINE_ACTIONS=new Set(['combat','allocateStat','setTactic']);
 
 function requestInfo(input,init={}){
   const url=typeof input==='string'?input:(input?.url||'');
@@ -22,11 +30,46 @@ async function captureState(res,source){
     if(data?.player){window.__NEXUS_STATE__=data;emit('nexus:state',{state:data,source});}
   }catch{}
 }
+function authHeaders(input,init){
+  const h=new Headers(typeof input!=='string'&&input?.headers?input.headers:undefined);
+  if(init?.headers)new Headers(init.headers).forEach((v,k)=>h.set(k,v));
+  h.set('content-type','application/json');
+  h.set('apikey',SUPABASE_KEY);
+  return h;
+}
+function bodyJson(init){
+  try{return typeof init?.body==='string'?JSON.parse(init.body):{};}catch{return {};}
+}
+function directPlan(info,input,init){
+  const headers=authHeaders(input,init);
+  if(!headers.get('authorization'))return null;
+  if(info.method==='GET'&&info.path==='/api/state')return{url:GAME_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'state'}),cache:'no-store'},label:'direct-game-state'};
+  if(info.method==='GET'&&info.path==='/api/progression')return{url:COMBAT_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'state'}),cache:'no-store'},label:'direct-progression'};
+  if(info.method==='GET'&&info.path==='/api/professions')return{url:PROF_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'state'}),cache:'no-store'},label:'direct-professions'};
+  if(info.method==='POST'&&info.path==='/api/profession-action'){
+    const b=bodyJson(init);return{url:PROF_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'action',action:String(b.action||''),payload:b.payload||{}}),cache:'no-store'},label:'direct-profession-action'};
+  }
+  if(info.method==='POST'&&info.path==='/api/reset')return{url:GAME_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'reset'}),cache:'no-store'},label:'direct-reset'};
+  if(info.method==='POST'&&info.path==='/api/action'){
+    const b=bodyJson(init),action=String(b.action||'');
+    if(!ENGINE_ACTIONS.has(action))return{url:GAME_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'action',action,payload:b.payload||{}}),cache:'no-store'},label:`direct-${action||'action'}`};
+  }
+  return null;
+}
+async function fetchWithFallback(input,init,plan){
+  if(!plan)return nativeFetch(input,init);
+  try{
+    const direct=await nativeFetch(plan.url,plan.init);
+    if(direct.status<500){window.__NEXUS_ROUTE__=plan.label;return direct;}
+  }catch{}
+  window.__NEXUS_ROUTE__='render-fallback';
+  return nativeFetch(input,init);
+}
 
 window.fetch=async function(input,init={}){
   const info=requestInfo(input,init);
   const isState=info.method==='GET'&&info.path==='/api/state';
-  const isAction=info.method==='POST'&&(info.path==='/api/action'||info.path==='/api/reset');
+  const isAction=info.method==='POST'&&(info.path==='/api/action'||info.path==='/api/reset'||info.path==='/api/profession-action');
   const bodyKey=typeof init.body==='string'?init.body:'';
   const key=`${info.method}:${info.path}:${bodyKey}`;
 
@@ -35,13 +78,14 @@ window.fetch=async function(input,init={}){
 
   if(isAction)emit('nexus:busy',{busy:true});
   const started=performance.now();
-  const pending=nativeFetch(input,init);
+  const plan=directPlan(info,input,init);
+  const pending=fetchWithFallback(input,init,plan);
   inflight.set(key,pending);
   try{
     const res=await pending;
     const elapsed=Math.round(performance.now()-started);
     window.__NEXUS_LAST_LATENCY__=elapsed;
-    emit('nexus:network',{path:info.path,elapsed,ok:res.ok});
+    emit('nexus:network',{path:info.path,elapsed,ok:res.ok,route:window.__NEXUS_ROUTE__||'render'});
 
     if(isState&&res.ok){
       try{
