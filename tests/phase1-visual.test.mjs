@@ -20,8 +20,8 @@ test('manual combat uses authenticated server edge function',()=>{
 
 test('combat exposes AUTO and MANUAL without client damage calculation',()=>{
   assert.match(js,/nexus-combat-mode/);
-  assert.match(js,/data-p1-mode=\\"auto\\"/);
-  assert.match(js,/data-p1-mode=\\"manual\\"/);
+  assert.match(js,/data-p1-mode="auto"/);
+  assert.match(js,/data-p1-mode="manual"/);
   assert.doesNotMatch(js,/Math\.random\(/);
 });
 
