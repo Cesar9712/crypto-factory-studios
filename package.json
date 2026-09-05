@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node backend/server.mjs",
     "test": "node --test tests/*.test.mjs",
-    "lint": "node --check backend/server.mjs && node --check backend/lib/game.mjs && node --check frontend/app.js && node --check frontend/progression.js && node --check frontend/profession-tree.js && node --check frontend/qol.js && node --check frontend/rarity.js && node --check frontend/clans.js && node --check frontend/clan-form-guard.js && node --check frontend/earn.js",
+    "lint": "node --check backend/server.mjs && node --check backend/lib/game.mjs && node --check frontend/app.js && node --check frontend/progression.js && node --check frontend/profession-tree.js && node --check frontend/qol.js && node --check frontend/rarity.js && node --check frontend/clans.js && node --check frontend/clan-form-guard.js && node --check frontend/earn.js && node --check frontend/season.js",
     "build": "node scripts/build.mjs"
   },
   "engines": {"node": ">=20"}
