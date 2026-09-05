@@ -10,6 +10,7 @@ const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'au
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{...cors,'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
 const BSC_RPCS=['https://bsc-dataseed.binance.org/','https://bsc-rpc.publicnode.com'];
+const RPC_TIMEOUT_MS=7000;
 const TRANSFER_TOPIC='0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const norm=(x:unknown)=>String(x??'').toLowerCase();
 const toBigInt=(x:unknown)=>{try{return BigInt(String(x??'0x0'))}catch{return 0n}};
@@ -29,13 +30,13 @@ async function rpc(method:string,params:unknown[]){
   let last:unknown=null;
   for(const url of BSC_RPCS){
     try{
-      const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+      const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:AbortSignal.timeout(RPC_TIMEOUT_MS)});
       const j=await r.json();
       if(r.ok&&!j.error)return j.result;
       last=j.error??r.status;
     }catch(e){last=e}
   }
-  console.error('BSC RPC failure',last);
+  console.error('BSC RPC failure',method,last instanceof Error?last.name:String(last));
   throw new Error('BSC RPC unavailable');
 }
 
@@ -54,6 +55,7 @@ async function verifyPayment(txHash:string,payment:any,priceUsdCents:number){
   const minConfirmations=Math.max(1,Number(payment?.min_confirmations||3));
   if(confirmations<minConfirmations)throw new Error(`Payment needs ${minConfirmations} confirmations (${confirmations}/${minConfirmations})`);
   const token=norm(payment?.token_contract),recipient=norm(payment?.recipient);
+  if(!/^0x[0-9a-f]{40}$/.test(token)||!/^0x[0-9a-f]{40}$/.test(recipient))throw new Error('Payment configuration invalid');
   let received=0n;
   for(const log of receipt.logs??[]){
     if(norm(log?.address)!==token)continue;
@@ -74,6 +76,7 @@ Deno.serve(async(req:Request)=>{
     const user=await authUser(req);
     const input=await req.json().catch(()=>({}));
     const txHash=String(input?.txHash||'').trim().toLowerCase();
+    if(!/^0x[0-9a-f]{64}$/.test(txHash))throw new Error('Invalid transaction hash');
     const packKey=String(input?.packKey||'rift_founder');
     const {data:character,error:cErr}=await admin.from('characters').select('id,name,founder_pack_owned').eq('user_id',user.id).eq('slot',1).single();
     if(cErr)throw cErr;
