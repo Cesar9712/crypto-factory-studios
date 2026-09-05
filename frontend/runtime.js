@@ -1,6 +1,6 @@
 // Fast mobile runtime: coalesces duplicate requests and bypasses the Render proxy
-// for safe JWT-verified Supabase Edge Function reads/actions. Combat stays on Render
-// because the proxy merges combat-engine + game state after each automatic battle.
+// for JWT-verified Supabase Edge Function reads/actions. Direct game responses are
+// merged with combat progression so the UI keeps the same authoritative stats.
 const nativeFetch=window.fetch.bind(window);
 const inflight=new Map();
 let stateCache=null;
@@ -23,47 +23,48 @@ function requestInfo(input,init={}){
 }
 function synthetic(c){return new Response(c.body,{status:c.status,statusText:c.statusText,headers:c.headers});}
 function emit(name,detail){window.dispatchEvent(new CustomEvent(name,{detail}));}
-async function captureState(res,source){
-  try{
-    if(!res.ok)return;
-    const data=await res.clone().json();
-    if(data?.player){window.__NEXUS_STATE__=data;emit('nexus:state',{state:data,source});}
-  }catch{}
-}
+function bodyJson(init){try{return typeof init?.body==='string'?JSON.parse(init.body):{};}catch{return {};}}
 function authHeaders(input,init){
   const h=new Headers(typeof input!=='string'&&input?.headers?input.headers:undefined);
   if(init?.headers)new Headers(init.headers).forEach((v,k)=>h.set(k,v));
-  h.set('content-type','application/json');
-  h.set('apikey',SUPABASE_KEY);
-  return h;
+  h.set('content-type','application/json');h.set('apikey',SUPABASE_KEY);return h;
 }
-function bodyJson(init){
-  try{return typeof init?.body==='string'?JSON.parse(init.body):{};}catch{return {};}
+async function edgePost(url,payload,headers){return nativeFetch(url,{method:'POST',headers,body:JSON.stringify(payload),cache:'no-store'});}
+function mergeProgress(base,progress){
+  if(!base?.player||!progress?.player)return base;
+  base.player={...base.player,power:progress.player.power??base.player.power,combatStats:progress.player.combatStats,attributes:progress.player.attributes,unspentPoints:progress.player.unspentPoints,tactic:progress.player.tactic,skills:progress.player.skills,xpToNext:progress.player.xpToNext};
+  return base;
 }
-function directPlan(info,input,init){
-  const headers=authHeaders(input,init);
-  if(!headers.get('authorization'))return null;
-  if(info.method==='GET'&&info.path==='/api/state')return{url:GAME_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'state'}),cache:'no-store'},label:'direct-game-state'};
-  if(info.method==='GET'&&info.path==='/api/progression')return{url:COMBAT_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'state'}),cache:'no-store'},label:'direct-progression'};
-  if(info.method==='GET'&&info.path==='/api/professions')return{url:PROF_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'state'}),cache:'no-store'},label:'direct-professions'};
-  if(info.method==='POST'&&info.path==='/api/profession-action'){
-    const b=bodyJson(init);return{url:PROF_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'action',action:String(b.action||''),payload:b.payload||{}}),cache:'no-store'},label:'direct-profession-action'};
+async function responseJson(res){try{return await res.clone().json();}catch{return null;}}
+function jsonResponse(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});}
+async function captureState(res,source){
+  try{if(!res.ok)return;const data=await res.clone().json();if(data?.player){window.__NEXUS_STATE__=data;emit('nexus:state',{state:data,source});}}catch{}
+}
+
+async function directRequest(info,input,init){
+  const headers=authHeaders(input,init);if(!headers.get('authorization'))return null;
+  if(info.method==='GET'&&info.path==='/api/state'){
+    const [g,c]=await Promise.all([edgePost(GAME_EDGE,{op:'state'},headers),edgePost(COMBAT_EDGE,{op:'state'},headers)]);
+    if(!g.ok)return g;const gd=await responseJson(g),cd=c.ok?await responseJson(c):null;window.__NEXUS_ROUTE__='direct-merged-state';return jsonResponse(mergeProgress(gd,cd),g.status);
   }
-  if(info.method==='POST'&&info.path==='/api/reset')return{url:GAME_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'reset'}),cache:'no-store'},label:'direct-reset'};
+  if(info.method==='GET'&&info.path==='/api/progression'){window.__NEXUS_ROUTE__='direct-progression';return edgePost(COMBAT_EDGE,{op:'state'},headers);}
+  if(info.method==='GET'&&info.path==='/api/professions'){window.__NEXUS_ROUTE__='direct-professions';return edgePost(PROF_EDGE,{op:'state'},headers);}
+  if(info.method==='POST'&&info.path==='/api/profession-action'){
+    const b=bodyJson(init);window.__NEXUS_ROUTE__='direct-profession-action';return edgePost(PROF_EDGE,{op:'action',action:String(b.action||''),payload:b.payload||{}},headers);
+  }
+  if(info.method==='POST'&&info.path==='/api/reset'){
+    const g=await edgePost(GAME_EDGE,{op:'reset'},headers);if(!g.ok)return g;const gd=await responseJson(g);const c=await edgePost(COMBAT_EDGE,{op:'state'},headers);const cd=c.ok?await responseJson(c):null;window.__NEXUS_ROUTE__='direct-reset';return jsonResponse(mergeProgress(gd,cd),g.status);
+  }
   if(info.method==='POST'&&info.path==='/api/action'){
-    const b=bodyJson(init),action=String(b.action||'');
-    if(!ENGINE_ACTIONS.has(action))return{url:GAME_EDGE,init:{method:'POST',headers,body:JSON.stringify({op:'action',action,payload:b.payload||{}}),cache:'no-store'},label:`direct-${action||'action'}`};
+    const b=bodyJson(init),action=String(b.action||'');if(ENGINE_ACTIONS.has(action))return null;
+    const g=await edgePost(GAME_EDGE,{op:'action',action,payload:b.payload||{}},headers);if(!g.ok)return g;
+    const gd=await responseJson(g);const c=await edgePost(COMBAT_EDGE,{op:'state'},headers);const cd=c.ok?await responseJson(c):null;window.__NEXUS_ROUTE__=`direct-${action||'action'}`;return jsonResponse(mergeProgress(gd,cd),g.status);
   }
   return null;
 }
-async function fetchWithFallback(input,init,plan){
-  if(!plan)return nativeFetch(input,init);
-  try{
-    const direct=await nativeFetch(plan.url,plan.init);
-    if(direct.status<500){window.__NEXUS_ROUTE__=plan.label;return direct;}
-  }catch{}
-  window.__NEXUS_ROUTE__='render-fallback';
-  return nativeFetch(input,init);
+async function fetchWithFallback(info,input,init){
+  try{const direct=await directRequest(info,input,init);if(direct&&direct.status<500)return direct;}catch{}
+  window.__NEXUS_ROUTE__='render-fallback';return nativeFetch(input,init);
 }
 
 window.fetch=async function(input,init={}){
@@ -72,38 +73,16 @@ window.fetch=async function(input,init={}){
   const isAction=info.method==='POST'&&(info.path==='/api/action'||info.path==='/api/reset'||info.path==='/api/profession-action');
   const bodyKey=typeof init.body==='string'?init.body:'';
   const key=`${info.method}:${info.path}:${bodyKey}`;
-
   if(isState&&stateCache&&Date.now()-stateCacheAt<STATE_TTL)return synthetic(stateCache);
   if(inflight.has(key))return (await inflight.get(key)).clone();
-
   if(isAction)emit('nexus:busy',{busy:true});
-  const started=performance.now();
-  const plan=directPlan(info,input,init);
-  const pending=fetchWithFallback(input,init,plan);
-  inflight.set(key,pending);
+  const started=performance.now();const pending=fetchWithFallback(info,input,init);inflight.set(key,pending);
   try{
-    const res=await pending;
-    const elapsed=Math.round(performance.now()-started);
-    window.__NEXUS_LAST_LATENCY__=elapsed;
-    emit('nexus:network',{path:info.path,elapsed,ok:res.ok,route:window.__NEXUS_ROUTE__||'render'});
-
-    if(isState&&res.ok){
-      try{
-        const clone=res.clone();
-        const body=await clone.text();
-        stateCache={body,status:res.status,statusText:res.statusText,headers:[...res.headers.entries()]};
-        stateCacheAt=Date.now();
-      }catch{}
-      captureState(res,'state');
-    }else if(isAction&&res.ok){
-      stateCache=null;stateCacheAt=0;
-      captureState(res,'action');
-    }
+    const res=await pending;const elapsed=Math.round(performance.now()-started);window.__NEXUS_LAST_LATENCY__=elapsed;emit('nexus:network',{path:info.path,elapsed,ok:res.ok,route:window.__NEXUS_ROUTE__||'render'});
+    if(isState&&res.ok){try{const clone=res.clone(),body=await clone.text();stateCache={body,status:res.status,statusText:res.statusText,headers:[...res.headers.entries()]};stateCacheAt=Date.now();}catch{}captureState(res,'state');}
+    else if(isAction&&res.ok){stateCache=null;stateCacheAt=0;captureState(res,'action');}
     return res.clone();
-  }finally{
-    inflight.delete(key);
-    if(isAction)emit('nexus:busy',{busy:false});
-  }
+  }finally{inflight.delete(key);if(isAction)emit('nexus:busy',{busy:false});}
 };
 
 window.addEventListener('online',()=>emit('nexus:connectivity',{online:true}));
