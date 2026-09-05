@@ -169,7 +169,7 @@ const server=http.createServer(async (req,res)=>{
       world=createDefaultWorld(); await persist(); return json(res,200,{ok:true});
     }
 
-    let rel=url.pathname==='/'?'frontend/index.html':url.pathname.replace(/^\//,'');
+    let rel=(url.pathname==='/'||url.pathname==='/auth/callback')?'frontend/index.html':url.pathname.replace(/^\//,'');
     if(!rel.startsWith('frontend/')) rel='frontend/'+rel;
     const fp=normalize(join(ROOT,rel));
     if(!fp.startsWith(join(ROOT,'frontend'))) return json(res,403,{error:'forbidden'});
