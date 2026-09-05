@@ -33,9 +33,7 @@
         if(parsed?.player&&parsed?.zones)saveState(snap,meta.auth);
       }catch{}
       const action=parseAction(init);
-      if(action==='travel'){
-        setTimeout(()=>document.getElementById('p1-travel-transition')?.remove(),120);
-      }
+      if(action==='travel')setTimeout(()=>document.getElementById('p1-travel-transition')?.remove(),120);
       setTimeout(()=>window.dispatchEvent(new Event('focus')),0);
     }).catch(()=>{});
   };
@@ -55,6 +53,7 @@
     }
     if(isMutation(meta)){
       stateCache=null;
+      inFlight=null;
       const response=await nativeFetch(input,init);
       afterMutation(response,meta,init);
       return response;
@@ -78,7 +77,7 @@
   }
 
   window.__nexusPerf={
-    invalidateState(){stateCache=null},
+    invalidateState(){stateCache=null;inFlight=null},
     get stateCacheAge(){return stateCache?Date.now()-stateCache.at:null},
     stateTtl:STATE_TTL
   };
