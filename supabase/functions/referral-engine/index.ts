@@ -20,8 +20,9 @@ async function authUser(req:Request){
   return user;
 }
 async function characterFor(userId:string){
-  const {data,error}=await admin.from('characters').select('id,name,level,created_at,founder_pack_owned,premium_credits_demo').eq('user_id',userId).eq('slot',1).single();
+  const {data,error}=await admin.from('characters').select('id,name,level,created_at,founder_pack_owned,premium_credits_demo').eq('user_id',userId).eq('slot',1).maybeSingle();
   if(error)throw error;
+  if(!data)throw new Error('Character not found');
   return data;
 }
 async function stateFor(user:any,message?:string){
