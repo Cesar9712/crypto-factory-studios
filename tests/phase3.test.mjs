@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 
 const read=p=>readFile(new URL(`../${p}`,import.meta.url),'utf8');
 
-test('Phase 3 UI is loaded without a self-mutating observer',async()=>{
+test('Phase 3 UI is loaded without recursive observers or permanent polling',async()=>{
   const [html,client,pkg]=await Promise.all([read('frontend/index.html'),read('frontend/phase3.js'),read('package.json')]);
   assert.match(html,/phase3\.css\?v=20260905-5000/);
   assert.match(html,/phase3\.js\?v=20260905-5000/);
@@ -12,8 +12,12 @@ test('Phase 3 UI is loaded without a self-mutating observer',async()=>{
   assert.match(client,/functions\/v1\/phase3-engine/);
   assert.match(client,/nexus:panel-render/);
   assert.doesNotMatch(client,/new MutationObserver/);
+  assert.doesNotMatch(client,/setInterval/);
   assert.match(client,/\['weapon','helmet','armor','gloves','boots','ring'\]/);
   assert.match(client,/data-p3-unequip/);
+  assert.match(client,/mutate\('equip',\{itemId:b\.dataset\.equip\}\)/);
+  assert.match(client,/strip\.innerHTML!==stripHtml/);
+  assert.match(client,/wrap\.innerHTML!==extraHtml/);
   assert.match(client,/bonusRow\('2P'/);
   assert.match(client,/bonusRow\('4P'/);
   assert.match(client,/bonusRow\('6P'/);
