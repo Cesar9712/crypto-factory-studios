@@ -15,7 +15,7 @@ const L={
 const t=k=>L[lang()]?.[k]??k;
 
 async function sessionHeaders(){const {data}=await supabase.auth.getSession();const token=data.session?.access_token;return token?{'content-type':'application/json','authorization':`Bearer ${token}`}:{'content-type':'application/json'};}
-async function getProgress(){const headers=await sessionHeaders();if(!headers.authorization)return null;const r=await fetch('/api/state',{headers,cache:'no-store'});if(!r.ok)return null;const j=await r.json();return j?.player?{player:j.player}:null;}
+async function getProgress(){const headers=await sessionHeaders();if(!headers.authorization)return null;const r=await fetch('/api/progression',{headers,cache:'no-store'});if(!r.ok)return null;const j=await r.json();return j?.player?{player:j.player}:null;}
 async function act(action,payload){const headers=await sessionHeaders();const r=await fetch('/api/action',{method:'POST',headers,body:JSON.stringify({action,payload}),cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok||j.error)throw new Error(j.error||'Request failed');return j;}
 function ensureHost(){let el=document.querySelector('#progression-v2');if(el)return el;el=document.createElement('section');el.id='progression-v2';el.hidden=true;const hud=document.querySelector('#hud');if(hud)hud.after(el);else document.querySelector('main')?.before(el);return el;}
 function skillLabel(s){return lang()==='es'?(s.nameEs||s.name):s.name}
