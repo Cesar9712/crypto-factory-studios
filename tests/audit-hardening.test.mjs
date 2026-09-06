@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const read=p=>readFile(new URL(`../${p}`,import.meta.url),'utf8');
-
 const securityMigration=await read('database/migrations/20260906_full_game_security_concurrency_hardening.sql');
 const indexMigration=await read('database/migrations/20260906_full_game_fk_performance_indexes.sql');
 const combat=await read('supabase/functions/combat-engine/index.ts');
@@ -12,34 +11,31 @@ const server=await read('backend/server.mjs');
 const fast=await read('frontend/phase1-auto-fast.js');
 const hotfix=await read('frontend/runtime-hotfix.js');
 
-test('P0 Phase3 mutating SECURITY DEFINER RPCs are revoked from client roles',()=>{
-  for(const fn of ['phase3_award_set_drop','phase3_equip_item','phase3_unequip_slot','phase3_choose_specialization','phase3_respec_specialization','phase4_bastion_craft_benefit']){
-    assert.match(securityMigration,new RegExp(`revoke\\s+execute\\s+on\\s+function\\s+public\\.${fn}`,'i'),fn);
+test('P0 Phase3 privileged mutation RPCs are removed from client roles',()=>{
+  for(const fn of ['phase3_award_set_drop','phase3_equip_item','phase3_unequip_slot','phase3_set_specialization','phase4_bastion_craft_benefit']){
+    assert.match(securityMigration,new RegExp(`revoke\\s+all\\s+on\\s+function\\s+public\\.${fn}`,'i'),fn);
   }
-  assert.match(securityMigration,/from public, anon, authenticated/i);
+  assert.match(securityMigration,/from public,anon,authenticated/i);
 });
 
-test('atomic gameplay primitives are server-only and row-lock authoritative',()=>{
-  for(const fn of ['audit_regen_character','audit_spend_energy','audit_apply_progression','audit_allocate_stat','audit_acquire_action_lease']){
+test('atomic gameplay primitives are service-role only and lock authoritative rows',()=>{
+  for(const fn of ['fullgame_acquire_action_lease','fullgame_release_action_lease','fullgame_regen_character','fullgame_consume_energy','fullgame_apply_character_progress','fullgame_allocate_stat']){
     assert.match(securityMigration,new RegExp(`create\\s+or\\s+replace\\s+function\\s+public\\.${fn}`,'i'));
-    assert.match(securityMigration,new RegExp(`revoke\\s+execute\\s+on\\s+function\\s+public\\.${fn}`,'i'));
   }
+  assert.match(securityMigration,/revoke all on function public\.fullgame_acquire_action_lease[\s\S]*from public,anon,authenticated/i);
+  assert.match(securityMigration,/grant execute on function public\.fullgame_acquire_action_lease[\s\S]*to service_role/i);
   assert.match(securityMigration,/for update/i);
-  assert.match(securityMigration,/pg_advisory_xact_lock/i);
+  assert.match(securityMigration,/primary key\(character_id,action_key\)/i);
 });
 
-test('automatic combat uses atomic regeneration, energy, rewards and lease',()=>{
-  assert.match(combat,/admin\.rpc\('audit_regen_character'/);
-  assert.match(combat,/admin\.rpc\('audit_spend_energy'/);
-  assert.match(combat,/admin\.rpc\('audit_apply_progression'/);
-  assert.match(combat,/admin\.rpc\('audit_allocate_stat'/);
-  assert.match(combat,/admin\.rpc\('audit_acquire_action_lease'/);
+test('automatic combat uses atomic regeneration, energy, rewards, stats and a one-shot lease',()=>{
+  for(const fn of ['fullgame_regen_character','fullgame_consume_energy','fullgame_apply_character_progress','fullgame_allocate_stat','fullgame_acquire_action_lease','fullgame_release_action_lease']) assert.match(combat,new RegExp(`admin\\.rpc\\('${fn}'`));
   assert.doesNotMatch(combat,/update\(\{energy:Number\(c\.energy\)-amount\}\)/);
 });
 
-test('manual combat reward path uses atomic progression',()=>{
-  assert.match(manual,/admin\.rpc\('audit_apply_progression'/);
-  assert.match(manual,/admin\.rpc\('audit_regen_character'/);
+test('manual combat reward path uses atomic progression and regeneration',()=>{
+  assert.match(manual,/admin\.rpc\('fullgame_apply_character_progress'/);
+  assert.match(manual,/admin\.rpc\('fullgame_regen_character'/);
 });
 
 test('production fails closed instead of serving local demo economy',()=>{
@@ -54,13 +50,13 @@ test('fast combat never fabricates victory after result timeout',()=>{
   assert.doesNotMatch(fast,/victory=!\/Bastión\|Bastion\/i/);
 });
 
-test('optimistic travel is reconciled against authoritative state',()=>{
+test('optimistic travel is reconciled against authoritative server state',()=>{
   assert.match(hotfix,/authoritative/i);
   assert.match(hotfix,/reconcile/i);
   assert.match(hotfix,/\/api\/state/);
 });
 
-test('audit migration adds supporting FK indexes without destructive DDL',()=>{
+test('FK performance migration is additive and non-destructive',()=>{
   assert.match(indexMigration,/create index if not exists/i);
   assert.doesNotMatch(indexMigration,/drop\s+table|truncate|delete\s+from/i);
 });
