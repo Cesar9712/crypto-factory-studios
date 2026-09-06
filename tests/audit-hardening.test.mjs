@@ -4,8 +4,8 @@ import {readFile} from 'node:fs/promises';
 
 const read=p=>readFile(new URL(`../${p}`,import.meta.url),'utf8');
 
-const securityMigration=await read('database/migrations/20260906_full_game_audit_security_concurrency.sql');
-const indexMigration=await read('database/migrations/20260906_full_game_audit_fk_indexes.sql');
+const securityMigration=await read('database/migrations/20260906_full_game_security_concurrency_hardening.sql');
+const indexMigration=await read('database/migrations/20260906_full_game_fk_performance_indexes.sql');
 const combat=await read('supabase/functions/combat-engine/index.ts');
 const manual=await read('supabase/functions/manual-combat/index.ts');
 const server=await read('backend/server.mjs');
