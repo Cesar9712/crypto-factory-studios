@@ -55,10 +55,14 @@ test('production fails closed instead of serving local demo economy',()=>{
   assert.match(server,/Game backend is not configured/i);
 });
 
-test('fast combat never fabricates victory after result timeout',()=>{
+test('fast combat timeout exits unconfirmed before any victory inference',()=>{
   assert.match(fast,/SIN CONFIRMAR|UNCONFIRMED/);
-  assert.match(fast,/confirmed/);
-  assert.doesNotMatch(fast,/victory=!\/Bastión\|Bastion\/i/);
+  const timeoutGuard=fast.indexOf('if(!changed){renderUnconfirmed');
+  const timeoutReturn=fast.indexOf('return}',timeoutGuard);
+  const victoryInference=fast.indexOf('victory=!/Bastión|Bastion/i.test(zone)',timeoutGuard);
+  assert.ok(timeoutGuard>=0,'missing unconfirmed timeout guard');
+  assert.ok(timeoutReturn>timeoutGuard,'timeout guard must return');
+  assert.ok(victoryInference>timeoutReturn,'victory may only be inferred after a confirmed state change');
 });
 
 test('optimistic travel is reconciled against authoritative server state',()=>{
