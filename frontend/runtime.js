@@ -5,6 +5,8 @@ const nativeFetch=window.fetch.bind(window);
 const inflight=new Map();
 let stateCache=null;
 let stateCacheAt=0;
+let mutationEpoch=0;
+let activeMutations=0;
 const STATE_TTL=15000;
 const DIRECT_TIMEOUT=9000;
 const FALLBACK_TIMEOUT=15000;
@@ -93,12 +95,41 @@ window.fetch=async function(input,init={}){
   const isAction=info.method==='POST'&&(info.path==='/api/action'||info.path==='/api/reset'||info.path==='/api/profession-action');
   const bodyKey=typeof init.body==='string'?init.body:'';
   const key=`${info.method}:${info.path}:${bodyKey}`;
+
+  if(isState&&activeMutations>0)return jsonResponse({error:'STATE_REFRESH_DEFERRED'},409);
   if(isState&&stateCache&&Date.now()-stateCacheAt<STATE_TTL)return synthetic(stateCache);
-  if(inflight.has(key))return (await inflight.get(key)).clone();
-  if(isAction)emit('nexus:busy',{busy:true});
-  const started=performance.now();const pending=fetchWithFallback(info,input,init);inflight.set(key,pending);
+  if(!isState&&inflight.has(key))return (await inflight.get(key)).clone();
+
+  let requestEpoch=mutationEpoch;
+  if(isAction){
+    mutationEpoch+=1;
+    requestEpoch=mutationEpoch;
+    activeMutations+=1;
+    stateCache=null;
+    stateCacheAt=0;
+    try{window.__nexusPerf?.invalidateState?.()}catch{}
+    emit('nexus:busy',{busy:true});
+  }
+
+  const started=performance.now();
+  const pending=fetchWithFallback(info,input,init);
+  inflight.set(key,pending);
   try{
-    const res=await pending;const elapsed=Math.round(performance.now()-started);window.__NEXUS_LAST_LATENCY__=elapsed;emit('nexus:network',{path:info.path,elapsed,ok:res.ok,route:window.__NEXUS_ROUTE__||'render'});
+    const res=await pending;
+    const elapsed=Math.round(performance.now()-started);
+
+    if(isState&&requestEpoch!==mutationEpoch){
+      emit('nexus:network',{path:info.path,elapsed,ok:false,route:window.__NEXUS_ROUTE__||'render',error:'stale-state'});
+      return jsonResponse({error:'STALE_STATE_DISCARDED'},409);
+    }
+    if(isAction&&requestEpoch!==mutationEpoch){
+      emit('nexus:network',{path:info.path,elapsed,ok:false,route:window.__NEXUS_ROUTE__||'render',error:'superseded-action'});
+      if(stateCache)return synthetic(stateCache);
+      return jsonResponse({error:'ACTION_RESPONSE_SUPERSEDED'},409);
+    }
+
+    window.__NEXUS_LAST_LATENCY__=elapsed;
+    emit('nexus:network',{path:info.path,elapsed,ok:res.ok,route:window.__NEXUS_ROUTE__||'render'});
     if(isState&&res.ok)await storeStateSnapshot(res,'state');
     else if(isAction&&res.ok){
       const cached=await storeStateSnapshot(res,'action');
@@ -107,7 +138,13 @@ window.fetch=async function(input,init={}){
     return res.clone();
   }catch(e){
     const elapsed=Math.round(performance.now()-started);emit('nexus:network',{path:info.path,elapsed,ok:false,route:window.__NEXUS_ROUTE__||'render',error:e?.name==='AbortError'?'timeout':'network'});throw e;
-  }finally{inflight.delete(key);if(isAction)emit('nexus:busy',{busy:false});}
+  }finally{
+    inflight.delete(key);
+    if(isAction){
+      activeMutations=Math.max(0,activeMutations-1);
+      if(activeMutations===0)emit('nexus:busy',{busy:false});
+    }
+  }
 };
 
 window.addEventListener('online',()=>emit('nexus:connectivity',{online:true}));
