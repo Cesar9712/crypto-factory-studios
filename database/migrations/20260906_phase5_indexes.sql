@@ -1,0 +1,10 @@
+begin;
+create index if not exists ix_character_pets_pet_key on public.character_pets(pet_key);
+create index if not exists ix_character_titles_title_key on public.character_titles(title_key);
+create index if not exists ix_chat_messages_character on public.chat_messages(character_id,created_at desc);
+create index if not exists ix_chat_mutes_muted on public.chat_mutes(muted_character_id);
+create index if not exists ix_chat_reports_message on public.chat_reports(message_id);
+create index if not exists ix_friendships_character_b on public.friendships(character_b,created_at desc);
+create index if not exists ix_phase5_event_claims_character on public.phase5_event_claims(character_id,claimed_at desc);
+create index if not exists ix_phase5_event_instances_template on public.phase5_event_instances(template_key) where template_key is not null;
+commit;
