@@ -16,7 +16,8 @@ const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || '';
 const USE_SUPABASE = Boolean(GAME_API_URL && SUPABASE_PUBLISHABLE_KEY);
 const USE_COMBAT_ENGINE = Boolean(COMBAT_API_URL && SUPABASE_PUBLISHABLE_KEY);
 const USE_PROFESSION_ENGINE = Boolean(PROFESSION_API_URL && SUPABASE_PUBLISHABLE_KEY);
-const ALLOW_DEMO_RESET = process.env.ALLOW_DEMO_RESET === 'true' && process.env.NODE_ENV !== 'production';
+const PRODUCTION_RUNTIME = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true' || Boolean(process.env.RENDER_SERVICE_ID);
+const ALLOW_DEMO_RESET = process.env.ALLOW_DEMO_RESET === 'true' && !PRODUCTION_RUNTIME;
 
 await mkdir(DATA_DIR, {recursive:true});
 let world;
@@ -98,7 +99,11 @@ const server=http.createServer(async (req,res)=>{
   try{
     const url=new URL(req.url, `http://${req.headers.host||'localhost'}`);
     if(url.pathname.startsWith('/api/') && rateLimited(req)) return json(res,429,{error:'Too many requests'});
-    if(url.pathname==='/api/health') return json(res,200,{ok:true,mode:USE_SUPABASE?'supabase':'demo',combatEngine:USE_COMBAT_ENGINE,professionEngine:USE_PROFESSION_ENGINE,time:Date.now()});
+    if(url.pathname==='/api/health'){
+      const configured=USE_SUPABASE || !PRODUCTION_RUNTIME;
+      return json(res,configured?200:503,{ok:configured,mode:USE_SUPABASE?'supabase':PRODUCTION_RUNTIME?'misconfigured':'demo',combatEngine:USE_COMBAT_ENGINE,professionEngine:USE_PROFESSION_ENGINE,time:Date.now()});
+    }
+    if(PRODUCTION_RUNTIME && !USE_SUPABASE && url.pathname.startsWith('/api/')) return json(res,503,{error:'Game backend is not configured'});
 
     if(USE_SUPABASE && url.pathname==='/api/progression' && req.method==='GET'){
       if(!USE_COMBAT_ENGINE) return json(res,503,{error:'Combat engine not configured'});
@@ -185,4 +190,4 @@ const server=http.createServer(async (req,res)=>{
     json(res,500,{error:'Request failed'});
   }
 });
-server.listen(PORT,()=>console.log(`Nexus Realms running on http://localhost:${PORT} (${USE_SUPABASE?'supabase':'demo'}, combat=${USE_COMBAT_ENGINE?'v2':'legacy'}, professions=${USE_PROFESSION_ENGINE?'v1':'off'})`));
+server.listen(PORT,()=>console.log(`Nexus Realms running on http://localhost:${PORT} (${USE_SUPABASE?'supabase':PRODUCTION_RUNTIME?'misconfigured':'demo'}, combat=${USE_COMBAT_ENGINE?'v2':'legacy'}, professions=${USE_PROFESSION_ENGINE?'v1':'off'})`));

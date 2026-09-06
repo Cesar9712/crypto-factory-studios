@@ -93,6 +93,12 @@
     return true;
   }
 
+  function reconcileTravel(){
+    // phase1-visual already treats focus as an authoritative state refresh.
+    // Reuse that lifecycle hook after optimistic travel so failed/slow requests roll back cleanly.
+    window.dispatchEvent(new Event('focus'));
+  }
+
   document.addEventListener('click',e=>{
     const travel=e.target?.closest?.('[data-p1-travel]');
     if(travel&&!travel.disabled){
@@ -102,7 +108,9 @@
       const zoneId=travel.dataset.p1Travel;
       showFastTravel(zoneId);
       optimisticTravel(zoneId);
-      if(!runLegacyTravel(zoneId))window.dispatchEvent(new Event('focus'));
+      runLegacyTravel(zoneId);
+      setTimeout(reconcileTravel,350);
+      setTimeout(reconcileTravel,1200);
       return;
     }
     if(e.target?.closest?.('[data-tab],[data-more]'))scheduleLaunchers();
@@ -113,5 +121,5 @@
   setInterval(()=>{if(isMore()&&!document.getElementById('phase4-launcher'))notifyLaunchers()},500);
   setTimeout(scheduleLaunchers,250);
 
-  window.__nexusRuntimeHotfix={notifyLaunchers,optimisticTravel};
+  window.__nexusRuntimeHotfix={notifyLaunchers,optimisticTravel,reconcileTravel};
 })();
