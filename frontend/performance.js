@@ -4,6 +4,7 @@
   const STATE_TTL=15000;
   let stateCache=null;
   let inFlight=null;
+  let mutationEpoch=0;
 
   const reqMeta=(input,init={})=>{
     const request=input instanceof Request?input:null;
@@ -24,10 +25,10 @@
   const cacheValid=(auth)=>stateCache&&stateCache.auth===auth&&Date.now()-stateCache.at<STATE_TTL;
   const saveState=(snap,auth)=>{if(snap)stateCache={...snap,auth};return stateCache};
   const parseAction=(init)=>{try{return JSON.parse(String(init?.body||'{}'))?.action||''}catch{return''}};
-  const afterMutation=(response,meta,init)=>{
+  const afterMutation=(response,meta,init,epoch)=>{
     if(!response?.ok)return;
     cloneSnapshot(response).then(snap=>{
-      if(!snap)return;
+      if(!snap||epoch!==mutationEpoch)return;
       try{
         const parsed=JSON.parse(snap.body);
         if(parsed?.player&&parsed?.zones)saveState(snap,meta.auth);
@@ -41,21 +42,24 @@
   window.fetch=async(input,init={})=>{
     const meta=reqMeta(input,init);
     if(isState(meta)){
+      const epoch=mutationEpoch;
       if(cacheValid(meta.auth))return freshResponse(stateCache);
-      if(inFlight&&inFlight.auth===meta.auth){
+      if(inFlight&&inFlight.auth===meta.auth&&inFlight.epoch===epoch){
         const snap=await inFlight.promise;
-        if(snap)return freshResponse(snap);
+        if(snap&&epoch===mutationEpoch)return freshResponse(snap);
       }
       const network=nativeFetch(input,init);
-      const promise=network.then(r=>cloneSnapshot(r)).then(s=>saveState(s,meta.auth)).finally(()=>{if(inFlight?.promise===promise)inFlight=null});
-      inFlight={auth:meta.auth,promise};
+      const promise=network.then(r=>cloneSnapshot(r)).then(s=>epoch===mutationEpoch?saveState(s,meta.auth):s).finally(()=>{if(inFlight?.promise===promise)inFlight=null});
+      inFlight={auth:meta.auth,promise,epoch};
       return network;
     }
     if(isMutation(meta)){
+      mutationEpoch+=1;
+      const epoch=mutationEpoch;
       stateCache=null;
       inFlight=null;
       const response=await nativeFetch(input,init);
-      afterMutation(response,meta,init);
+      afterMutation(response,meta,init,epoch);
       return response;
     }
     return nativeFetch(input,init);
@@ -77,7 +81,7 @@
   }
 
   window.__nexusPerf={
-    invalidateState(){stateCache=null;inFlight=null},
+    invalidateState(){mutationEpoch+=1;stateCache=null;inFlight=null},
     get stateCacheAge(){return stateCache?Date.now()-stateCache.at:null},
     stateTtl:STATE_TTL
   };
