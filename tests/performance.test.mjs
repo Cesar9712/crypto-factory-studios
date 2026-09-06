@@ -8,8 +8,10 @@ test('performance layer loads before visual and app modules',async()=>{
   const [html,pkg]=await Promise.all([read('frontend/index.html'),read('package.json')]);
   const perf=html.indexOf('/performance.js?v=20260905-5200');
   const visual=html.indexOf('/phase1-visual.js?v=20260905-5000');
-  const app=html.indexOf('/app.js?v=20260905-5000');
+  const app=html.indexOf('/app.js?v=');
   assert.ok(perf>=0);
+  assert.ok(visual>=0);
+  assert.ok(app>=0);
   assert.ok(perf<visual);
   assert.ok(perf<app);
   assert.match(pkg,/frontend\/performance\.js/);
