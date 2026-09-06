@@ -6,6 +6,7 @@ const read=p=>readFile(new URL(`../${p}`,import.meta.url),'utf8');
 const securityMigration=await read('database/migrations/20260906_full_game_security_concurrency_hardening.sql');
 const leaseFix=await read('database/migrations/20260906_full_game_action_lease_false_fix.sql');
 const rlsGrantFix=await read('database/migrations/20260906_full_game_rls_server_only_grants.sql');
+const ddlGrantFix=await read('database/migrations/20260906_full_game_client_ddl_privileges.sql');
 const indexMigration=await read('database/migrations/20260906_full_game_fk_performance_indexes.sql');
 const combat=await read('supabase/functions/combat-engine/index.ts');
 const manual=await read('supabase/functions/manual-combat/index.ts');
@@ -37,6 +38,11 @@ test('RLS tables with no policies are explicitly server-only at table grant leve
   assert.match(rlsGrantFix,/revoke all privileges on table/i);
   assert.match(rlsGrantFix,/public, anon, authenticated/i);
   assert.match(rlsGrantFix,/service_role/i);
+});
+
+test('client roles cannot retain TRUNCATE, TRIGGER or REFERENCES table privileges',()=>{
+  assert.match(ddlGrantFix,/revoke truncate, trigger, references on all tables in schema public from public, anon, authenticated/i);
+  assert.match(ddlGrantFix,/alter default privileges[\s\S]*revoke truncate, trigger, references/i);
 });
 
 test('automatic combat uses atomic regeneration, energy, rewards, stats and a one-shot lease',()=>{
