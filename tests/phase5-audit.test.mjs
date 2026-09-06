@@ -6,10 +6,11 @@ const schema=fs.readFileSync(new URL('../database/migrations/20260906_phase5_liv
 const runtime=fs.readFileSync(new URL('../database/migrations/20260906_phase5_living_world_runtime.sql',import.meta.url),'utf8');
 const integrations=fs.readFileSync(new URL('../database/migrations/20260906_phase5_living_world_integrations.sql',import.meta.url),'utf8');
 const audit=fs.readFileSync(new URL('../database/migrations/20260906_phase5_audit_hardening.sql',import.meta.url),'utf8');
+const followup=fs.readFileSync(new URL('../database/migrations/20260906_phase5_audit_followup.sql',import.meta.url),'utf8');
 const edge=fs.readFileSync(new URL('../supabase/functions/phase5-engine/index.ts',import.meta.url),'utf8');
 const ui=fs.readFileSync(new URL('../frontend/phase5.js',import.meta.url),'utf8');
 const css=fs.readFileSync(new URL('../frontend/phase5.css',import.meta.url),'utf8');
-const all=`${schema}\n${runtime}\n${integrations}\n${audit}`;
+const all=`${schema}\n${runtime}\n${integrations}\n${audit}\n${followup}`;
 
 test('01 pets: five launch pets, complete rarity ladder, small bonuses, XP/evolution and all obtain sources',()=>{
   for(const p of ['Lobo de Ceniza','Zorro Astral','Halcón de Grieta','Espíritu Antiguo','Dracónido'])assert.match(schema,new RegExp(p));
@@ -19,10 +20,12 @@ test('01 pets: five launch pets, complete rarity ladder, small bonuses, XP/evolu
   for(const src of ["'rift'","'quest'","'world_boss'","'clan_boss'","'collection'","'event'"])assert.match(runtime,new RegExp(src));
 });
 
-test('02 codex: all seven categories exist and real zones are synchronized into visible catalog',()=>{
+test('02 codex: all seven categories exist, real zones sync and null dynamic item IDs cannot abort state',()=>{
   for(const cat of ['monsters','bosses','equipment','sets','pets','resources','zones'])assert.match(schema,new RegExp(`'${cat}'`));
   assert.match(audit,/select 'zones',id,name,name,'🗺️','Mundo' from public\.zones/);
-  assert.match(audit,/insert into public\.phase5_codex_catalog\(category,entry_key,name_es,name_en,icon,source\)[\s\S]+values\('zones',v_zone/);
+  assert.match(followup,/definition_id is not null/);
+  assert.match(followup,/m\.enemy_id is not null/);
+  assert.match(followup,/values\('zones',v_zone/);
 });
 
 test('03 social: requests, friends, profiles/presence and remove are rate protected',()=>{
@@ -68,12 +71,13 @@ test('07 live events: weekly plus all temporary templates support real bonus, el
   assert.match(audit,/phase5_action_receipts[\s\S]+eventclaim:/);
 });
 
-test('08 notifications: event, boss, reward and ranking notices are deduped',()=>{
+test('08 notifications: event, boss, reward and ranking notices are deduped and corrected in place',()=>{
   assert.match(audit,/Boss activo/);
   assert.match(audit,/Evento iniciado/);
   assert.match(audit,/Recompensa disponible/);
   assert.match(audit,/Ranking actualizado/);
   assert.match(schema,/unique\(character_id,dedupe_key\)/);
+  assert.match(followup,/on conflict\(character_id,dedupe_key\) do update/);
 });
 
 test('09 antiabuse: rate gates serialize concurrent calls, cleanup old rows and replay receipts stay enforced',()=>{
