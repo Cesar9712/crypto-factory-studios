@@ -5,7 +5,7 @@ const nativeFetch=window.fetch.bind(window);
 const inflight=new Map();
 let stateCache=null;
 let stateCacheAt=0;
-const STATE_TTL=6000;
+const STATE_TTL=15000;
 const DIRECT_TIMEOUT=9000;
 const FALLBACK_TIMEOUT=15000;
 
@@ -46,8 +46,19 @@ function mergeProgress(base,progress){
 }
 async function responseJson(res){try{return await res.clone().json();}catch{return null;}}
 function jsonResponse(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});}
-async function captureState(res,source){
-  try{if(!res.ok)return;const data=await res.clone().json();if(data?.player){window.__NEXUS_STATE__=data;emit('nexus:state',{state:data,source});}}catch{}
+async function storeStateSnapshot(res,source){
+  try{
+    if(!res?.ok)return false;
+    const copy=res.clone();
+    const body=await copy.text();
+    const data=JSON.parse(body);
+    if(!data?.player||!data?.zones)return false;
+    stateCache={body,status:res.status,statusText:res.statusText,headers:[...res.headers.entries()]};
+    stateCacheAt=Date.now();
+    window.__NEXUS_STATE__=data;
+    emit('nexus:state',{state:data,source});
+    return true;
+  }catch{return false;}
 }
 
 async function directRequest(info,input,init){
@@ -88,8 +99,11 @@ window.fetch=async function(input,init={}){
   const started=performance.now();const pending=fetchWithFallback(info,input,init);inflight.set(key,pending);
   try{
     const res=await pending;const elapsed=Math.round(performance.now()-started);window.__NEXUS_LAST_LATENCY__=elapsed;emit('nexus:network',{path:info.path,elapsed,ok:res.ok,route:window.__NEXUS_ROUTE__||'render'});
-    if(isState&&res.ok){try{const clone=res.clone(),body=await clone.text();stateCache={body,status:res.status,statusText:res.statusText,headers:[...res.headers.entries()]};stateCacheAt=Date.now();}catch{}captureState(res,'state');}
-    else if(isAction&&res.ok){stateCache=null;stateCacheAt=0;captureState(res,'action');}
+    if(isState&&res.ok)await storeStateSnapshot(res,'state');
+    else if(isAction&&res.ok){
+      const cached=await storeStateSnapshot(res,'action');
+      if(!cached){stateCache=null;stateCacheAt=0;}
+    }
     return res.clone();
   }catch(e){
     const elapsed=Math.round(performance.now()-started);emit('nexus:network',{path:info.path,elapsed,ok:false,route:window.__NEXUS_ROUTE__||'render',error:e?.name==='AbortError'?'timeout':'network'});throw e;
