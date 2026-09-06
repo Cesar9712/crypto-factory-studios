@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const runtime=await readFile(new URL('../frontend/runtime.js',import.meta.url),'utf8');
+const app=await readFile(new URL('../frontend/app.js',import.meta.url),'utf8');
 const html=await readFile(new URL('../frontend/index.html',import.meta.url),'utf8');
 
 test('runtime classifies request_failed as transient for idempotent reads',()=>{
@@ -29,6 +30,19 @@ test('raw request_failed is never the final synthetic user-facing transient resp
   assert.match(runtime,/Problema temporal de conexión\. Reintenta en unos segundos\./);
 });
 
-test('html cache-busts the corrected runtime',()=>{
+test('app resolves INITIAL_SESSION and getSession through one bootstrap gate',()=>{
+  assert.match(app,/let authBootResolved=false/);
+  assert.match(app,/event==='INITIAL_SESSION'/);
+  assert.match(app,/if\(authBootResolved\)return/);
+  assert.match(app,/if\(!authBootResolved\)/);
+});
+
+test('app keeps an already rendered state silent on transient refresh errors',()=>{
+  assert.match(app,/isTransientLoadError/);
+  assert.match(app,/!quiet&&!\(state&&transient\)/);
+});
+
+test('html cache-busts both corrected runtime and app bootstrap',()=>{
   assert.match(html,/runtime\.js\?v=20260906-6200/);
+  assert.match(html,/app\.js\?v=20260906-6300/);
 });
