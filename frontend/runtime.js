@@ -8,8 +8,11 @@ let stateCacheAt=0;
 let mutationEpoch=0;
 let activeMutations=0;
 const STATE_TTL=15000;
+const STALE_STATE_MAX_AGE=120000;
 const DIRECT_TIMEOUT=9000;
 const FALLBACK_TIMEOUT=15000;
+const DIRECT_RETRY_DELAYS=[220,550];
+const FALLBACK_RETRY_DELAYS=[350,800];
 
 const SUPABASE_URL='https://culwlrspkwbcbtmopgcp.supabase.co';
 const SUPABASE_KEY='sb_publishable_JfDoNvnecRDooAOK6dTg2A_2fRV5zRZ';
@@ -17,6 +20,7 @@ const GAME_EDGE=`${SUPABASE_URL}/functions/v1/game-api`;
 const COMBAT_EDGE=`${SUPABASE_URL}/functions/v1/combat-engine`;
 const PROF_EDGE=`${SUPABASE_URL}/functions/v1/profession-engine`;
 const ENGINE_ACTIONS=new Set(['combat','allocateStat','setTactic']);
+const READ_PATHS=new Set(['/api/state','/api/progression','/api/professions']);
 
 function requestInfo(input,init={}){
   const url=typeof input==='string'?input:(input?.url||'');
@@ -28,6 +32,7 @@ function requestInfo(input,init={}){
 function synthetic(c){return new Response(c.body,{status:c.status,statusText:c.statusText,headers:c.headers});}
 function emit(name,detail){window.dispatchEvent(new CustomEvent(name,{detail}));}
 function bodyJson(init){try{return typeof init?.body==='string'?JSON.parse(init.body):{};}catch{return {};}}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 function authHeaders(input,init){
   const h=new Headers(typeof input!=='string'&&input?.headers?input.headers:undefined);
   if(init?.headers)new Headers(init.headers).forEach((v,k)=>h.set(k,v));
@@ -48,6 +53,16 @@ function mergeProgress(base,progress){
 }
 async function responseJson(res){try{return await res.clone().json();}catch{return null;}}
 function jsonResponse(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});}
+function isRead(info){return info.method==='GET'&&READ_PATHS.has(info.path);}
+async function isTransientDirectResponse(res){
+  if(!res)return true;
+  if([500,502,503,504].includes(res.status))return true;
+  if(res.ok)return false;
+  const data=await responseJson(res);
+  const message=String(data?.error||'').toLowerCase();
+  return /request[_ ]failed|upstream (?:timeout|unavailable)|fetch failed|connection (?:closed|reset|timeout)|gateway timeout/.test(message);
+}
+function friendlyTransientResponse(){return jsonResponse({error:'Problema temporal de conexión. Reintenta en unos segundos.'},503);}
 async function storeStateSnapshot(res,source){
   try{
     if(!res?.ok)return false;
@@ -84,9 +99,43 @@ async function directRequest(info,input,init){
   }
   return null;
 }
+async function retryDirectRequest(info,input,init){
+  if(!isRead(info))return directRequest(info,input,init);
+  let last=null;
+  for(let attempt=0;attempt<=DIRECT_RETRY_DELAYS.length;attempt++){
+    last=await directRequest(info,input,init);
+    if(!last||!(await isTransientDirectResponse(last)))return last;
+    emit('nexus:network-error',{path:info.path,stage:'direct',message:'transient-response',attempt:attempt+1});
+    if(attempt<DIRECT_RETRY_DELAYS.length)await sleep(DIRECT_RETRY_DELAYS[attempt]);
+  }
+  return last;
+}
+async function retryFallbackRead(info,input,init){
+  let last=null;
+  for(let attempt=0;attempt<=FALLBACK_RETRY_DELAYS.length;attempt++){
+    last=await timedFetch(input,init,FALLBACK_TIMEOUT);
+    if(!(await isTransientDirectResponse(last)))return last;
+    emit('nexus:network-error',{path:info.path,stage:'render-fallback',message:'transient-response',attempt:attempt+1});
+    if(attempt<FALLBACK_RETRY_DELAYS.length)await sleep(FALLBACK_RETRY_DELAYS[attempt]);
+  }
+  return last;
+}
 async function fetchWithFallback(info,input,init){
-  try{const direct=await directRequest(info,input,init);if(direct&&direct.status<500)return direct;}catch(e){emit('nexus:network-error',{path:info.path,stage:'direct',message:e?.name==='AbortError'?'timeout':'unavailable'});}
-  window.__NEXUS_ROUTE__='render-fallback';return timedFetch(input,init,FALLBACK_TIMEOUT);
+  try{
+    const direct=await retryDirectRequest(info,input,init);
+    if(direct&&!(await isTransientDirectResponse(direct)))return direct;
+  }catch(e){emit('nexus:network-error',{path:info.path,stage:'direct',message:e?.name==='AbortError'?'timeout':'unavailable'});}
+  window.__NEXUS_ROUTE__='render-fallback';
+  try{
+    const fallback=isRead(info)?await retryFallbackRead(info,input,init):await timedFetch(input,init,FALLBACK_TIMEOUT);
+    if(!(await isTransientDirectResponse(fallback)))return fallback;
+  }catch(e){emit('nexus:network-error',{path:info.path,stage:'render-fallback',message:e?.name==='AbortError'?'timeout':'unavailable'});}
+  if(info.path==='/api/state'&&stateCache&&Date.now()-stateCacheAt<STALE_STATE_MAX_AGE){
+    window.__NEXUS_ROUTE__='stale-state-fallback';
+    emit('nexus:network-error',{path:info.path,stage:'stale-cache',message:'served-last-good-state'});
+    return synthetic(stateCache);
+  }
+  return friendlyTransientResponse();
 }
 
 window.fetch=async function(input,init={}){
@@ -98,7 +147,7 @@ window.fetch=async function(input,init={}){
 
   if(isState&&activeMutations>0)return jsonResponse({error:'STATE_REFRESH_DEFERRED'},409);
   if(isState&&stateCache&&Date.now()-stateCacheAt<STATE_TTL)return synthetic(stateCache);
-  if(!isState&&inflight.has(key))return (await inflight.get(key)).clone();
+  if(inflight.has(key))return (await inflight.get(key)).clone();
 
   let requestEpoch=mutationEpoch;
   if(isAction){
