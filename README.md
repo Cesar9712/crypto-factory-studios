@@ -42,6 +42,10 @@ Published creator content is treated as untrusted and served with CSP sandbox is
 
 `CFS_PAYMENTS_MODE` supports `MOCK`, `TEST` and `PRODUCTION`. Production payment mode is fail-closed: it additionally requires `CFS_PRODUCTION_PAYMENTS_ENABLED=true`, valid configured treasury/deposit addresses, live provider configuration, and successful server-side on-chain verification before an order can be treated as paid. Production verification validates network, recipient, asset/token contract, confirmation state and exact expected amount; provider failures or ambiguous payments do not auto-fulfil orders. MOCK/TEST UI must remain clearly identified as simulation and must not instruct users to send real funds.
 
+## Related tools and ecosystem research
+
+- [RustChain](https://rustchain.org) is a useful reference project for experimental crypto-reward, hardware-attestation and agent-payment models. It is relevant to Crypto Factory Studios' ongoing research around verifiable digital rewards and autonomous creator tooling, while remaining an independent project that CFS does not currently depend on.
+
 ## Local development
 
 ```bash
