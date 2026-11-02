@@ -29,8 +29,9 @@ def test_portal_session_state_is_server_driven():
 def test_home_prioritizes_prompt_factory_and_hides_first_party_games():
     html = read('index.html')
     assert 'PROMPT VAULT · MARKETPLACE · CREATOR ECONOMY' in html
-    assert 'BUILD ONCE.' in html
-    assert 'SELL FOREVER.' in html
+    assert '<h1>ENCUENTRA MEJORES PROMPTS.<br><em>VENDE LOS TUYOS.</em></h1>' in html
+    assert 'href="/prompt-factory#market"' in html
+    assert 'href="/prompt-factory#create"' in html
     assert 'href="/prompt-factory"' in html
     assert 'PF://MARKETPLACE' in html
     assert 'Prompt Factory' in html
